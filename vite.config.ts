@@ -13,42 +13,39 @@ export default defineConfig(async () => {
   return {
     assetsInclude: ['**/*.mov'],
     optimizeDeps: {
-      // vitepress is aliased with replacement `join(DIST_CLIENT_PATH, '/index')`
-      // This needs to be excluded from optimization
-      exclude: [
-        'vitepress',
-      ],
+      exclude: ['vitepress'],
     },
     plugins: [
       Inspect(),
+
+      // ✅ 仍然保留文件历史（时间轴），但不再用它展示人
       GitChangelog({
         repoURL: () => githubRepoLink,
       }),
+
+      // ✅ 关键：彻底关闭“贡献者卡片”
       GitChangelogMarkdownSection({
-        getChangelogTitle: (): string => {
-          return '文件历史'
+        getChangelogTitle: () => '文件历史',
+        excludes: ['toc.md', 'index.md'],
+        sections: {
+          disableContributors: true, // 🔥 核心：不再显示贡献者
         },
-        getContributorsTitle: (): string => {
-          return '贡献者'
-        },
-        excludes: [
-          'toc.md',
-          'index.md',
-        ],
       }),
+
+      // ✅ 用 PageProperties 来承载“作者信息”
       PageProperties(),
       PagePropertiesMarkdownSection({
-        excludes: [
-          'toc.md',
-          'index.md',
-        ],
+        excludes: ['toc.md', 'index.md'],
       }),
+
       ThumbnailHashImages(),
+
       Components({
         include: [/\.vue$/, /\.md$/],
         dirs: '.vitepress/theme/components',
         dts: '.vitepress/components.d.ts',
       }),
+
       UnoCSS(),
     ],
     ssr: {
