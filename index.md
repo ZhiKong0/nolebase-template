@@ -5,55 +5,55 @@ sidebar: false
 contributors: false
 
 title: Kong
-titleTemplate: Learn · Record · Share
+titleTemplate: 学习 · 记录 · 分享
 
 hero:
   name: Kong
-  text: A Personal Learning Blog
+  text: 个人学习博客
   tagline: >
-    This blog records my learning journey across multiple fields,
-    including MCU, programming, English, mathematics, and more.
-    Built with Obsidian, powered by VitePress, deployed on Vercel.
+    这里记录我在多个领域的学习旅程，
+    包括 MCU / 嵌入式、编程、英语、数学等。
+    使用 Obsidian 写作，VitePress 构建，Vercel 部署。
   image:
     src: https://avatars.githubusercontent.com/u/187236942?v=4&size=128
-    alt: Kong Avatar
+    alt: Kong 头像
   actions:
     - theme: brand
-      text: 📚 Start Reading
+      text: 📚 开始阅读
       link: /notes/index
     - theme: alt
-      text: 🙋 About Me
+      text: 🙋 关于我
       link: /notes/About
     - theme: alt
-      text: 🧭 All Topics
+      text: 🧭 所有主题
       link: /notes/index
     - theme: alt
       text: 🧑‍💻 GitHub
       link: https://github.com/ZhiKong0
 
 features:
-  - title: MCU & Embedded Systems
+  - title: MCU 与嵌入式
     details: >
-      Notes and practice on microcontrollers, embedded experiments,
-      hardware basics, and project-oriented learning.
+      记录单片机相关笔记与实践，包括嵌入式实验、
+      硬件基础与项目驱动学习。
     icon: 🔌
 
-  - title: English Learning
+  - title: 英语学习
     details: >
-      Vocabulary, reading, writing, and long-term English improvement
-      through structured notes and practice.
+      词汇、阅读、写作等英语提升内容，
+      用结构化笔记长期积累。
     icon: 🇬🇧
 
-  - title: Mathematics
+  - title: 数学
     details: >
-      Math fundamentals and problem-solving notes, including calculus,
-      linear algebra, probability, and more.
+      数学基础与解题笔记，包括微积分、线性代数、
+      概率论等。
     icon: 📐
 
-  - title: Learning Diary & Reflection
+  - title: 学习日记与复盘
     details: >
-      A continuous learning diary to record progress, mistakes,
-      reflections, and learning methods.
+      持续记录学习进度、踩坑与反思，
+      总结更有效的学习方法。
     icon: 🗓️
 ---
 
