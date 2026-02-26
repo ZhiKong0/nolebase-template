@@ -18,11 +18,11 @@
     "vitepress-doc"
   ],
   "scripts": {
-    "dev": "pnpm run docs:dev",
-    "build": "pnpm run docs:build",
-    "serve": "pnpm run docs:serve",
-    "docs:dev": "pnpm run update && vitepress dev",
-    "docs:build": "pnpm run update && vitepress build",
+    "dev": "npm run docs:dev",
+    "build": "npm run docs:build",
+    "serve": "npm run docs:serve",
+    "docs:dev": "npm run update && vitepress dev",
+    "docs:build": "npm run update && vitepress build",
     "docs:serve": "vitepress serve",
     "update": "tsx scripts/update.ts",
     "test": "echo \"Error: no test specified\" && exit 1"

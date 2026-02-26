@@ -96,8 +96,41 @@
 
 @media (min-width: 960px) {
   :root {
-    --vp-home-hero-image-filter: blur(72px);
+    --vp-home-hero-image-filter: blur(68px);
   }
+}
+
+/* 添加动画效果 */
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.VPHomeHero .name {
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
+}
+
+/* 添加悬浮光效 */
+.VPHomeHero .image-container {
+  position: relative;
+}
+
+.VPHomeHero .image-container::before {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: var(--vp-home-hero-image-background-image);
+  filter: blur(60px);
+  opacity: 0.6;
+  z-index: -1;
+  border-radius: 50%;
+  animation: pulse 4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.05); opacity: 0.8; }
 }
 
 /**
@@ -105,14 +138,16 @@
  * -------------------------------------------------------------------------- */
 :root {
   /* 配置一下 tips 的自定义块的颜色为非默认的产品色，避免与文字不兼容导致可读性下降 */
-  --vp-custom-block-tip-bg: #def4f4;
-  --vp-custom-block-tip-code-bg: #cbd9dd7d;
+  --vp-custom-block-tip-bg: rgba(59, 130, 246, 0.08);
+  --vp-custom-block-tip-code-bg: rgba(59, 130, 246, 0.12);
+  --vp-custom-block-tip-border: rgba(59, 130, 246, 0.3);
 }
 
 .dark:root {
   /* 配置一下在暗色模式下 tips 的自定义块的颜色为非默认的产品色，避免与文字不兼容导致可读性下降 */
-  --vp-custom-block-tip-bg: #02474e;
-  --vp-custom-block-tip-code-bg: #0d1e1e9c;
+  --vp-custom-block-tip-bg: rgba(96, 165, 250, 0.08);
+  --vp-custom-block-tip-code-bg: rgba(96, 165, 250, 0.12);
+  --vp-custom-block-tip-border: rgba(96, 165, 250, 0.3);
 }
 
 :root {
