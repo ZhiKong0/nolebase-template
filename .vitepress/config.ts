@@ -13,6 +13,7 @@ import { creatorNames, creatorUsernames } from './creators'
 import { sidebar } from './docsMetadata.json'
 
 export default defineConfig({
+  base: '/nolebase-template/',
   vue: {
     template: {
       transformAssetUrls: {
