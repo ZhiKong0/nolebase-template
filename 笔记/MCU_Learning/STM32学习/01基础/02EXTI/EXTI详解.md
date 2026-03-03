@@ -4,7 +4,7 @@
 
 ---
 
-![EXTI框图](./附件/Pasted%20image%2020260303204145.png)
+![EXTI框图](/images/exti-diagram.png)
 
 ## 一、EXTI 基本概念
 

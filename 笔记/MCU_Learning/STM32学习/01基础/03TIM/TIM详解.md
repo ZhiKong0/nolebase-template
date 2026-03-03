@@ -4,7 +4,7 @@
 
 ---
 
-![TIM框图](./附件/Pasted%20image%2020260303221233.png)
+![TIM框图](/images/tim-diagram.png)
 
 ## 一、TIM 基本概念
 
