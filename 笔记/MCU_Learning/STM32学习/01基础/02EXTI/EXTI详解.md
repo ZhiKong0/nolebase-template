@@ -4,7 +4,7 @@
 
 ---
 
-![EXTI框图](/images/exti-diagram.png)
+![[Pasted image 20260303204145.png]]
 
 ## 一、EXTI 基本概念
 

@@ -3,7 +3,7 @@
 > NVIC（Nested Vectored Interrupt Controller）是 Cortex-M 内核的核心组件，负责管理所有中断的优先级、使能/禁用和响应。
 
 ---
-![NVIC框图](/images/nvic-diagram.png)
+![[Pasted image 20260303203827.png]]
 
 ## 一、NVIC 基本概念
 
