@@ -1,0 +1,582 @@
+--- Page 1 ---
+ MPU-6000/MPU-6050 EV Board User Guide 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 1                                                             AN-MPU-6000EVB-00    
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+MPU-6000/MPU-6050 
+ 9-Axis Evaluation Board   
+User Guide 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+--- Page 2 ---
+ MPU-6000/MPU-6050 EV Board User Guide 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 2                                                             AN-MPU-6000EVB-00    
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+Table of Contents 
+1. REVISION HISTORY ................................................................................................................................... 3 
+2. PURPOSE ................................................................................................................................................... 4 
+2.1 USAGE ................................................................................................................................................ 4 
+2.2 RELATED DOCUMENTS ........................................................................................................................ 4 
+3. MPU-6000 9-AXIS EV BOARD OVERVIEW .............................................................................................. 4 
+3.1 MPU-6000 KEY FUNCTION AND PIN-OUTS ........................................................................................... 5 
+3.2 MPU-6000 VS. MPU-6050 ................................................................................................................. 5 
+3.3 MPU-6000 BUS CONNECTION ............................................................................................................. 5 
+4. SCHEMATIC ................................................................................................................................................ 7 
+5. BILL OF MATERIALS ................................................................................................................................. 8 
+6. POWER SUPPLY CONNECTIONS ............................................................................................................ 8 
+7. MPU-6000 EVB CONNECTOR SIGNALS DESCRIPTION ........................................................................ 9 
+7.1 CONNECTING THE FSYNC LINE ......................................................................................................... 11 
+7.2 SERIAL BUS LEVELS, SPEEDS AND TERMINATIONS .............................................................................. 11 
+8. DATA GATHERING OPTIONS ................................................................................................................. 11 
+8.1 CONNECTION TO ARM EVB............................................................................................................... 11 
+8.2 USE OF MPU-6000 WITHOUT ARM EVB BOARD ................................................................................ 12 
+9. SPECIAL INSTRUCTIONS ....................................................................................................................... 12 
+9.1 ELECTROSTATIC DISCHARGE SENSITIVITY .......................................................................................... 12 
+9.2 BOARD LAYOUT ................................................................................................................................. 12 
+ 
+ 
+ 
+  
+
+--- Page 3 ---
+ MPU-6000/MPU-6050 EV Board User Guide 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 3                                                             AN-MPU-6000EVB-00    
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+1. Revision History 
+Date Revision Description 
+1/12/2011 01 Initial release 
+ 
+  
+
+--- Page 4 ---
+ MPU-6000/MPU-6050 EV Board User Guide 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 4                                                             AN-MPU-6000EVB-00    
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+2. Purpose 
+This document describes the hardware and circuitry on the MPU-6000 and MPU-6050 (collectively 
+called the MPU-60X0) 9-Axis Evaluation (EV) Board. This EVB is used for evaluating the MPU-6000 
+and MPU-6050. It covers applying the EV board to a larger system, understanding key signals and 
+circuit functions, hardware jumper settings, and port connectors.   
+ 
+2.1 Usage 
+This evaluation board provides nine axes of motion sensing, comprised of: 
+• Digital-output X-, Y -, and Z -Axis angular rate sensors (gyros copes) with a user -
+programmable full-scale range of ±250, ±500, ±1000, and ±2000°/sec 
+• Digital-output tri-axis accelerometer with a programmable full scale range of ±2 g, ±4g, 
+±8g and ±16g 
+• Digital-output tri-axis compass with a full scale range of ±1200µT  
+• Data is measured using on-chip ADCs and is transmitted over I²C or SPI interfaces. 
+ 
+The Evaluation board may be used by itself using SPI or I²C serial communications interfaces. 
+Alternatively, it may be connected to InvenSense’s ARM Evaluation Board (INVARMEVB) for 
+connectivity to a host computer using a USB interface. 
+ 
+2.2 Related Documents  
+The following documents are recommended for more fully understanding the products and 
+systems described in this documents.  
+• MPU-6000 Product Specification 
+• AK8975/AK8975C Datasheet 
+ 
+3. MPU-6000 9-Axis EV Board Overview  
+The MPU-6000 9-Axis EV Board contains the MPU-6000 digital Motion Processing Unit and the AKM 
+compass. Additionally,  it contains a number of ‘solder-across’ jumper points that permit several circuit 
+configurations.  
+Please refer to Figures 1 & 5. The EV Board is populated on its top side only for ease of measurement 
+access. The 10x2 customer header connector (JP14) is designed to connect with the InvenSense ARM 
+Evaluation Board (INVARMEVB), which is a host microcontroller board useful for adapting the MPU-
+6000 9-Axis EV Board to a personal computer via its USB port.   
+The 5x2 extension factory header (JP13) is intended for connecting additional devices to the EV Board, 
+such as a camera image stabilization processor, or a digital-output compass, etc. The 3-pin power 
+selection header (JP12) is used to select which voltage supply is fed to the MPU-6000. The 3-pin 
+VLOGIC selection header (JP6) is used to select between 3 V and VDD as the logic supply voltage.  
+ 
+ 
+
+--- Page 5 ---
+ MPU-6000/MPU-6050 EV Board User Guide 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 5                                                             AN-MPU-6000EVB-00    
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+3.1 MPU-6000 Key Function and Pin-outs  
+The MPU-60X0 EVB is a fully-tested evaluation board, providing for quick evaluation of the MPU-
+60X0’s  X- , Y- , and  Z- axis angular rate gyroscope + X- , Y- , and  Z- axis accelerometer . MPU-
+60X0 has a primary interface to talk to the application processor and a secondary interface to 
+communicate to an external sensor. MPU-60X0 EVB comes preloaded with a  AKM 3-axis 
+compass to let the user experience a 9-axis sensor fusion output from MPU-60X0’s Motion 
+Processing Unit.  The MPU-60X0 uses InvenSense’s proprietary MEMS technology with driven 
+vibrating masses to produce a functionally complete, low-cost motion sensor.  All required 
+conditioning electronics are integrated into a single chip measuring 4 x 4 x 0.9mm.  It 
+incorporates X- , Y- and Z-axis low-pass filters and an EEPROM for on-chip factory calibration of 
+the sensor.  Factory trimmed scale factors eliminate the need for external active component s and 
+end-user calibration.  A built-in Proportional-To-Absolute-Temperature (PTAT) sensor provides 
+temperature compensation information.  The product is lead-free and Green Compliant.   
+ 
+3.2 MPU-6000 vs. MPU-6050 
+The MPU-6000 and MPU -6050 ar e identical, except that the MPU -6050 supports the I 2C serial 
+interface only, and has a separate VLOGIC reference pin.  The MPU-6000 supports both I 2C and 
+SPI interfaces and has a single supply pin, VDD, which is  both the device’s logic reference supply 
+and the analog supply for the part.  The table below outlines these differences:  
+  Table 1. Primary Differences between MPU-6000 and MPU-6050 
+Part / Item MPU-6000 MPU-6050 
+VDD 2.5V±5%, 3.0V±5%, or 
+3.3V±5%. 
+2.5V±5%, 3.0V±5%, or 
+3.3V±5%. 
+VLOGIC n/a 1.71V to VDD 
+Serial Interfaces Supported I2C, SPI I2C 
+Pin 8 /CS VLOGIC 
+Pin 9 AD0/SDO AD0 
+Pin 23 SCL/SCLK SCL 
+Pin 24 SDA/SDI SDA 
+ 
+ 
+3.3 MPU-6000 Bus Connection  
+The MPU-60X0 EVB communicates to a system processor through the customer header using 
+the  I2C serial interface. The device always acts as a slave when communicating to the system 
+processor.   
+ 
+ 
+
+--- Page 6 ---
+ MPU-6000/MPU-6050 EV Board User Guide 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 6                                                             AN-MPU-6000EVB-00    
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+ 
+Figure 1. Top side of the MPU-60X0 9-Axis EV Board 
+      MPU-6000
+MPU-6050
++Z
++X
++Y
+7 8 9 10 11 12
+AUX_CL
+VLOGIC
+AD0
+REGOUT
+FSYNC
+INT
+13
+18
+17
+16
+15
+14
+NC
+NC
+NC
+VDD
+NC
+GND
+6
+1
+2
+3
+4
+5
+NC
+NC
+NC
+AUX_DA
+NC
+CLKIN
+24 23 22 21 20 19 RESV
+CPOUT
+RESV
+RESV
+SCL
+SDA
+MPU-6050
+QFN Package
+24-pin, 4mm x 4mm x 0.9mm
+Orientation of Axes of Sensitivity and 
+Polarity of Rotation
+Top View
++Z
++Y
++X
+7 8 9 10 11 12
+AUX_CL
+/CS
+AD0/SDO
+REGOUT
+FSYNC
+INT
+13
+18
+17
+16
+15
+14
+NC
+NC
+NC
+VDD
+NC
+GND
+6
+1
+2
+3
+4
+5
+NC
+NC
+NC
+AUX_DA
+NC
+CLKIN
+24 23 22 21 20 19 RESV
+CPOUT
+RESV
+RESV
+SCL/SCLK
+SDA/SDI
+MPU-6000
+QFN Package
+24-pin, 4mm x 4mm x 0.9mm
+Top View
+ 
+   Figure 2. MPU-6000 QFN Package (Top View) 24-pin 4mm x 4mm x 0.9mm & Axis Orientation 
+ 
+ 
+
+
+--- Page 7 ---
+ MPU-6000/MPU-6050 EV Board User Guide 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 7                                                             AN-MPU-6000EVB-00    
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+4. Schematic 
+ 
+
+
+--- Page 8 ---
+ 
+ 
+ 
+MPU-6000 EV Board Application Note 
+ 
+Document Number: AN-MPU6000EVB-01 
+Revision: 01 
+Release Date: 12/17/10 
+ 
+InvenSense, Inc., 1197 Borregas, Ave. Sunnyvale, CA 94089, USA                     8                                                          AN-MPU6000EVB-01   
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104         ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+5.   Bill of Materials 
+Table 2. Bill of Material 
+Item Quantity Reference Part PCB Footprint 
+1 7 
+BP13,BP14,BP15,BP16,BP17, 
+BP18,BP19 0.1uF C0402 
+2 1 C11 2200pF/50V/0402 C0402 
+3 2 C13,C12 0.47uF/0603 C0603 
+4 1 C14 0.033uF/0402 C0402 
+7 2 JP6,JP12 HEADER 3, 80mil, 180D, Male J79\3S 
+8 1 JP13 
+HEADER 5X2, Male, 180D, 
+2.0mmx2.0mm SIP2X5N2 
+9 1 JP14 
+HEADER 14X2, Male, 90D, 
+2.54mmx2.54mm HDB2X14NRA 
+10 1 R28 1K/0402 R0402 
+11 2 R30,R29 2K/0402 R0402 
+12 3 R31,R32,R40 0/0402 R0402 
+14 4 R34,R35,R37,R38 0R R0402 
+15 1 R36 100K/0402 R0402 
+16 1 R39 1M R0402 
+18 2 R44,R42 10K/0402 R0402 
+19 1 R43 2R2/0603 R0603 
+22 1 U5 
+MPU, 24-Lead QFN (4mm x 4mm 
+x 0.9mm) 
+qfn24_4x4(0.5pitch
+) 
+23 1 U6 AK8975 
+QFN16_4X4(0.65PI
+TCH) 
+24 1 U7 YB1210ST25R300 SOT235 
+ 
+ 
+6. Power Supply Connections 
+JP6 and JP12 are 3 header-pin plug-in jumpers which allow users to select between on-board 
+LDO and external DC supply for powering the MPU-60X0. For details, please refer Table 3. 
+Power Selection Jumpers. 
+The on-board 3.0V LDO (Low-dropout voltage regulator) is a low-noise version. Its output is 
+called 3V0 on the schematic, and using it will assure that the gyroscope and accelerometer 
+performance will meet intended specifications.  
+ 
+
+--- Page 9 ---
+  
+MPU-6000/MPU-6050 EV Board User Guide 
+ 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 9                                                    AN-MPU6000-EVB-00  
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+ 
+ 
+Selecting the raw Vcc line to power the chip is generally done while designing and evaluating 
+an embedded platform, where the host processor and related electronics needs full control 
+over the motion processing chipset’s power supply.  
+When the user intends to use the on board LDO 3V0 power, external Vcc must be provided 
+with atleast 3.7V to ensure the LDO works properly.  
+If the user provides Vcc with 5V, JP6 and JP12 must be set as “1-2 short” since the MPU-
+60X0 VDD and VLOGIC operation range is 2.1V to 3.6V. 
+ 
+7.         MPU-60X0 EVB connector signals description 
+ 
+Table 3. Power Selection Jumpers 
+JP6 Pin Number Signal description 
+1-2 short MPU-6050 VLOGIC = 3V (from LDO, Vcc>3.7 V) 
+2-3 short MPU-6050 VLOGIC = Vcc (from external source) 
+JP12 Pin Number Signal description 
+1-2 short MPU-60X0 VDD = 3V (from LDO, Vcc>3.7V) 
+2-3 short MPU-60X0 VDD = Vcc (from external source) 
+ 
+Table 4. User Interface Connector Signals 
+JP14 Pin Number Signal description 
+1 Reserved 
+3 Reserved 
+5 Reserved 
+7 INT, MPU-60X0 INTERRUPT output to controller 
+9 Reserved 
+11 MPU-60X0 CLK_I, External Clock Input 
+13 MPU-60X0 CPOUT, Charge pump Output 
+15 GND 
+17 GND 
+19 3V 
+21 MPU-60X0 FSYNC 
+23 
+Receive power from ARM-7 Controller Board or external. It should be 5V, 
+with >200mA 
+
+--- Page 10 ---
+  
+MPU-6000/MPU-6050 EV Board User Guide 
+ 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 10                                                    AN-MPU6000-EVB-00  
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+ 
+JP14 Pin Number Signal description 
+27 NC 
+2 NC 
+4 NC 
+6 NC 
+8 MPU-60X0 SPI CS 
+10 Reserved 
+12 NC 
+14 MPU-60X0 EVB on board LDO enable 
+16 NC 
+18 MPU-60X0 REGOUT 
+20 MPU-60X0 I²C SCL or MPU-6000 SPI SCLK 
+22 MPU-60X0 I²C SDA or MPU-6000 SPI SDI 
+24 MPU-60X0 I²C Addr or MPU-6000 SPI SDO 
+26 NC 
+28 NC 
+25 NC 
+ 
+Table 5. Extended Factory Connector 
+JP13 Pin Number Signal description 
+1 
+VCC, power from ARM-7 controller board or external power. It should be 
+5V, with >200mA 
+3 GND 
+5 NC 
+7 NC 
+9 NC 
+2 3V 
+4 MPU-60X0 I²C SCL or MPU-6000 SPI SCLK 
+6 MPU-60X0 I²C SDA or MPU-6000 SPI SDI 
+8 MPU-60X0 I²C Addr or MPU-6000 SPI SDO 
+10 MPU-60X0 FSYNC 
+
+--- Page 11 ---
+  
+MPU-6000/MPU-6050 EV Board User Guide 
+ 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 11                                                    AN-MPU6000-EVB-00  
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+ 
+7.1  Connecting the FSYNC Line  
+The FSYNC line is intended for use in a camera’s image-stabilization system. It is an input 
+from the camera platform to the EV Board, and is intended to synchronize the MPU-60X0 
+serial bus transfer with the master timing set by the camera system. FSYNC can originate 
+from the host processor via JP14  pin-21, or from JP13 pin-10. There is no external pull-up 
+termination for the FSYNC line. 
+ 
+7.2 Serial bus Levels, Speeds and Terminations  
+The MPU-60X0 supports I²C up to 400kHz, and MPU-6000 supports SPI up to 1MHz serial 
+clock rates. The I²C bus open drain pull up resistors are connected to either 3.0V or an 
+external provided Vcc (3V or 5V depends on user). The pull up level is selected by JP6. 
+Please refer to Table 3. Power Selection Jumpers. 
+ 
+8. Data Gathering Options 
+The MPU-60X0 Digital Sensor Data is available at the User Header.  Alternatively, for connectivity 
+with a host PC, an InvenSense ARM Processor Board may be used. 
+ 
+8.1 Connection to ARM EVB 
+For communications via USB to a host computer, the MPU-60X0 EVB can be connected to 
+InvenSense’s ARM processor board, the INV-ARMEVB.  
+The photo below shows the connection of MPU-60X0 to INV-ARMEVB. Connection between 
+the two boards is made via the user header. 
+ 
+Figure 4. MPU-60X0 EVB connected to ARM Board 
+
+
+--- Page 12 ---
+  
+MPU-6000/MPU-6050 EV Board User Guide 
+ 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 12                                                    AN-MPU6000-EVB-00  
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+ 
+8.2 Use of MPU-60X0 without ARM EVB board 
+I²C and SPI signals are available on JP13 and JP14. User can develop tools to communicate 
+with MPU-60X0. There is no bus mode selection setting needed.  
+ 
+9. Special Instructions 
+9.1 Electrostatic Discharge Sensitivity 
+The MPU-6050 gyro+accel can be permanently damaged by an electrostatic discharge. ESD 
+precautions for handling and storage are recommended. 
+ 
+9.2 Board Layout 
+The MPU-60X0 EV board is a 4 layer PCB with 38mm x 32mm dimension. 
+ 
+ 
+ 
+ 
+Figure 5. MPU-60X0 Board Layout: Top View & Bottom View 
+  
+
+
+--- Page 13 ---
+  
+MPU-6000/MPU-6050 EV Board User Guide 
+ 
+Document Number: AN-MPU-6000EVB-00 
+Revision: 01 
+Release Date: 1/12/2011 
+ 
+InvenSense, Inc., 1197 Borregas Ave., Sunnyvale, Ca 94089, USA                 13                                                    AN-MPU6000-EVB-00  
+Tel: +1 (408) 988-7339   Fax: +1 (408) 988-8104  ©2011 InvenSense, Inc. All rights reserved. 
+Website: http//www.invensense.com   
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+This information furnished by InvenSense is believed to be accurate and reliable. However, no responsibility is assumed by InvenSense 
+for its use, or for any infringements of patents or other rights of third parties that may result from its use. Specificat ions are subject to 
+change without notice. InvenSense reserves the right to make changes to this product, including its circuits and software, in order to 
+improve its design and/or performance, without prior notice. InvenSense makes no warranties, neither expressed nor implied, regarding 
+the information and specifications contained in this document. InvenSense assumes no responsibility for any claims or damages  arising 
+from information contained in this document, or from the use of products and services det ailed therein. This includes, but is not limited 
+to, claims or damages based on the infringement of patents, copyrights, mask work and/or other intellectual property rights.  
+Certain intellectual property owned by InvenSense and described in this document is patent protected. No license is granted by 
+implication or otherwise under any patent or patent rights of InvenSense. This publication supersedes and replaces all inform ation 
+previously supplied. Trademarks that are registered trademarks are the property  of their respective companies. InvenSense sensors 
+should not be used or sold in the development, storage, production or utilization of any conventional or mass-destructive weapons or for 
+any other weapons or life threatening applications, as well as in any other life critical applications such as medical equipment, 
+transportation, aerospace and nuclear instruments, undersea equipment, power plant equipment, disaster prevention and crime 
+prevention equipment.  
+InvenSenseTM is a registered trademark of InvenSense, Inc.; MPU -60X0TM, MPU -6000 TM, and MPU -6050 TM are trademarks of 
+InvenSense, Inc. 
+ 
+©2010 InvenSense, Inc. All rights reserved. 
+ 
+ 

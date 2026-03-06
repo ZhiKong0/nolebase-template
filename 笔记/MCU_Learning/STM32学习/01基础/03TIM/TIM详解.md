@@ -4,7 +4,7 @@
 
 ---
 
-![[Pasted image 20260303221233.png]]
+![Pasted image 20260303221233|797](https://raw.githubusercontent.com/ZhiKong0/Image_Auto/main/Obsidian/Pasted%20image%2020260303221233.png)
 
 ## 一、TIM 基本概念
 
@@ -23,13 +23,13 @@
 
 ### 1.2 STM32F1 定时器分类
 
-| 类型                 | 定时器     | 位数 | 计数方向   | 特殊功能              | 总线 |
-| :------------------- | :--------- | :--: | :--------- | :-------------------- | :--- |
-| **高级定时器** | TIM1、TIM8 | 16位 | 上/下/中心 | 死区、刹车、互补输出  | APB2 |
-| **通用定时器** | TIM2~5     | 16位 | 上/下/中心 | PWM、输入捕获、编码器 | APB1 |
-| **基本定时器** | TIM6、TIM7 | 16位 | 向上       | 仅定时/DAC触发        | APB1 |
-| **看门狗**     | IWDG、WWDG |  -  | -          | 系统监控复位          | 独立 |
-| **系统滴答**   | SysTick    | 24位 | 向下       | 系统节拍（内核）      | 内核 |
+| 类型        | 定时器       | 位数  | 计数方向   | 特殊功能         | 总线   |
+| :-------- | :-------- | :-: | :----- | :----------- | :--- |
+| **高级定时器** | TIM1、TIM8 | 16位 | 上/下/中心 | 死区、刹车、互补输出   | APB2 |
+| **通用定时器** | TIM2~5    | 16位 | 上/下/中心 | PWM、输入捕获、编码器 | APB1 |
+| **基本定时器** | TIM6、TIM7 | 16位 | 向上     | 仅定时/DAC触发    | APB1 |
+| **看门狗**   | IWDG、WWDG |  -  | -      | 系统监控复位       | 独立   |
+| **系统滴答**  | SysTick   | 24位 | 向下     | 系统节拍（内核）     | 内核   |
 
 ### 1.3 定时器核心特性对比
 
@@ -117,6 +117,18 @@
 - 定时周期 = (71+1) × (999+1) / 72M = 72 × 1000 / 72M = 1ms
 ```
 
+### 2.5 各种定时器的逻辑框图
+
+- 基本定时器
+
+  - ![](https://raw.githubusercontent.com/ZhiKong0/Image_Auto/main/Obsidian/20260305090829653.png)
+- 通用定时器
+
+  - ![image.png](https://raw.githubusercontent.com/ZhiKong0/Image_Auto/main/Obsidian/20260305091140885.png)
+- 高级定时器
+
+  - ![image.png](https://raw.githubusercontent.com/ZhiKong0/Image_Auto/main/Obsidian/20260305091332028.png)
+
 ---
 
 ## 三、定时器工作模式
@@ -158,10 +170,10 @@ CNT:    0    CCR    ARR
         │  高  │  低  │  高  │  低  │  高  │
         │     │      │     │      │     │
         └─────┘      └─────┘      └─────┘
-      
+    
         |←─高电平时间─→|
         |←─────周期─────→|
-      
+    
 占空比 = CCR / (ARR + 1) = CCR / 1000
 ```
 
@@ -203,9 +215,9 @@ A相 ──┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐
       └─┘ └─┘ └─┘ └─┘ └─
 B相 ───┐ ┌─┐ ┌─┐ ┌─┐ ┌─
        └─┘ └─┘ └─┘ └─┘ └
-    
+  
       ↑   ↑   ↑   ↑   ↑
-    
+  
 定时器根据A/B相的相位关系自动增/减计数：
 - A超前B（正转）：CNT++
 - B超前A（反转）：CNT--
@@ -298,9 +310,9 @@ void TIM2_IRQHandler(void)
     if (TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET)
     {
         TIM_ClearITPendingBit(TIM2, TIM_IT_Update);
-      
+    
         g_SystemTick++;  // 系统节拍计数
-      
+    
         // 每1000ms（1秒）执行一次
         if (g_SystemTick % 1000 == 0)
         {
@@ -443,13 +455,13 @@ void TIM2_IRQHandler(void)
     if (TIM_GetITStatus(TIM2, TIM_IT_CC1) != RESET)
     {
         TIM_ClearITPendingBit(TIM2, TIM_IT_CC1);
-      
+    
         if (g_IC_State == 0)
         {
             // 捕获到上升沿
             g_IC_RisingValue = TIM_GetCapture1(TIM2);
             g_IC_State = 1;
-          
+        
             // 切换到下降沿捕获
             TIM_OC1PolarityConfig(TIM2, TIM_ICPolarity_Falling);
         }
@@ -457,7 +469,7 @@ void TIM2_IRQHandler(void)
         {
             // 捕获到下降沿
             g_IC_FallingValue = TIM_GetCapture1(TIM2);
-          
+        
             // 计算脉宽（微秒）
             if (g_IC_FallingValue >= g_IC_RisingValue)
             {
@@ -468,7 +480,7 @@ void TIM2_IRQHandler(void)
                 // 计数器溢出情况
                 g_IC_PulseWidth = (0xFFFF - g_IC_RisingValue + g_IC_FallingValue);
             }
-          
+        
             g_IC_State = 0;
             // 切换回上升沿捕获
             TIM_OC1PolarityConfig(TIM2, TIM_ICPolarity_Rising);
@@ -699,11 +711,11 @@ int main(void)
         if (g_SystemTick / 1000 != last_second)
         {
             last_second = g_SystemTick / 1000;
-          
+        
             printf("[Time: %lus] PWM Duty: %lu%%\r\n", 
                    last_second, g_PWM_Duty / 10);
         }
-      
+    
         // 模拟动态调整占空比（正弦变化）
         static uint16_t angle = 0;
         angle += 10;

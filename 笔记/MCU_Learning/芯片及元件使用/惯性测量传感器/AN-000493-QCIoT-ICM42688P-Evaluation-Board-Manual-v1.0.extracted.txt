@@ -1,0 +1,558 @@
+--- Page 1 ---
+ Evaluation Board Manual 
+QCIoT-ICM42688P 
+Pmod™ Evaluation Board 
+  
+InvenSense Inc. reserves the right to change specifications and 
+information herein without notice unless the product is in mass 
+production and the datasheet has been designated by InvenSense 
+in writing as subject to a specified Product / Process Change 
+Notification Method regulation. 
+InvenSense, a TDK Group Company 
+1745 Technology Drive, San Jose, CA 95110 U.S.A  
++1(408) 988–7339 
+invensense.tdk.com 
+Document Number: AN-000493 
+Revision: 1.0 
+Rev. Date: 10/02/2024 
+ 
+Figure 1. QCIoT-ICM42688P Pmod Board 
+The QCIoT-ICM42688P enables quick prototyping of the 
+ICM-42688-P 6-axis MEMS MotionTracking device that 
+combines a 3-axis gyroscope and a 3-axis 
+accelerometer. The board provides standard Pmod™ 
+Type 6A (expanded I2C) or Type 2A (expanded SPI) 
+connections for the onboard sensor to plug into any 
+required MCU evaluation kit with matching connector. 
+ 
+The QCIoT-ICM42688P board features Pmod connectors 
+on both sides of the board to allow additional Type 
+6/6A or Type 2/2A boards to be connected in a daisy-
+chained solution with multiple sensors on the same 
+MCU Pmod connector. Software support present in the 
+QuickConnect Studio provides code generation to 
+connect the sensor and the MCU, thereby significantly 
+reducing development time. With its standard 
+connector and software support, the QCIoT-42688P is 
+ideal for the Renesas QuickConnect Studio to rapidly 
+create an IoT system. 
+ 
+Kit Contents 
+• QCIoT-ICM42688P 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Features 
+• ICM-42688-P IMU sample mounted: 
+▪ Gyroscope Noise: 2.8 mdps/Hz  
+▪ Accelerometer Noise: 70 µg/Hz 
+▪ Low-Noise mode 6-axis current 
+consumption of 0.88 mA  
+▪ User selectable Gyro Full-scale range (dps):     
+± 15.6/31.2/62.5/125/250/500/1000/2000 
+▪ User selectable Accelerometer Full-scale 
+range (g): ± 2/4/8/16 
+▪ User-programmable digital filters for gyro, 
+accel, and temp sensor 
+▪ APEX Motion Functions: Pedometer, Tilt 
+Detection, Tap Detection, Wake on Motion, 
+Raise to Wake/Sleep, Significant Motion 
+Detection 
+• Standardized type 2A/6A Pmod connector 
+supports I2C or SPI expanded interface 
+Software support in QuickConnect Studio 
+minimizes development time with one-click 
+code generation  
+ 
+Related Documents 
+• ICM-42688-P Datasheet 
+• Renesas QuickConnect IoT Manual
+
+
+--- Page 2 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 2 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+Contents 
+1 SETUP ........................................................................................................................................................................................ 3 
+1.1 REQUIRED OR RECOMMENDED USER EQUIPMENT ................................................................................................................. 3 
+1.2 SOFTWARE INSTALLATION AND USAGE ................................................................................................................................... 3 
+1.3 KIT HARDWARE CONNETIONS .................................................................................................................................................. 3 
+2 USAGE GUIDE............................................................................................................................................................................. 6 
+2.1 OVERVIEW OF THE QCIOT-ICM42688P ...................................................................................................................................... 6 
+2.2 PROGRAMMING INTERFACE ..................................................................................................................................................... 7 
+3 QCIOT-42688P APPLICATION SCHEMATIC ................................................................................................................................ 12 
+4 BILL OF MATERIALS (BOM) ....................................................................................................................................................... 13 
+5 BOARD LAYOUT ....................................................................................................................................................................... 14 
+6 ORDERING INFORMATION ....................................................................................................................................................... 15 
+7 REVISION HISTORY ................................................................................................................................................................... 16 
+ 
+ 
+ 
+ 
+Figures 
+Figure 1. QCIoT-ICM42688P Pmod Board ........................................................................................................................................... 1 
+Figure 2. QCIoT-ICM42688P connected to the US082-INTERPEVZ interposer board ........................................................................... 4 
+Figure 3. Evaluation Kit Connections using the QCIoT-ICM42688P, US159-DA14531EVZ,  and EK-RA6M4 ......................................... 5 
+Figure 4. QCIoT-ICM42688P Application Schematic ......................................................................................................................... 12 
+Figure 5. Top Layer .......................................................................................................................................................................... 14 
+Figure 6. Bottom Layer .................................................................................................................................................................... 14 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+--- Page 3 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 3 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+1 SETUP 
+1.1 REQUIRED OR RECOMMENDED USER EQUIPMENT 
+The following additional equipment (sold separately) is required for using the board: 
+▪ Supported connectivity module like US159-DA14531EVZ BLE or US159-DA16200MEVZ Wi-Fi Pmod.  
+▪ Any MCU board that supports Type 6A or Type 2A Pmod. 
+▪ If one of the Renesas MCU kits shown in Table 1 does not support Pmod Type 6A (expanded I2C) and the user 
+prefers to use I2C, the US082-INTERPEVZ interposer board is needed to make the Renesas MCU board 
+compatible with Type 6A (This table is not a comprehensive list of supported MCU Kits). 
+ 
+RA 
+EK-RA4W1  
+EK-RA2A1  
+EK-RA2E1  
+EK-RA4M1  
+EK-RA6M1  
+EK-RA6M2  
+EK-RA6M3  
+EK-RA6M3G 
+EK-RA6M4 
+Table 1.Renesas MCU Evaluation Kits Capable of Supporting Type 6A PMODs When Used with the US082-INTERPEVZ 
+1.2 SOFTWARE INSTALLATION AND USAGE 
+Visit the Renesas QuickConnect Studio webpage for more information about creating your customized system solution. 
+1.3 KIT HARDWARE CONNETIONS  
+Follow these procedures to set up the kit as shown on Figure 3. 
+1. Ensure MCU evaluation kit being used has a Pmod connector set to appropriate Pmod Type (refer to the kit 
+hardware manual if unsure). 
+ 
+2. To configure QCIoT-ICM42688P for Type 6A (expanded I2C), short pins 9-10, 11-12, 13-14, 15-16 and leave pins 1-
+2, 3-4, 5-6, 7-8 open on J3 jumper. To configure QCIoT-ICM42688P for Type 2A (expanded SPI), short pins 1-2, 3-
+4, 5-6, 7-8 and leave pins 9-10, 11-12, 13-14, 15-16 open. (Refer to Table 2 for pinout for Type 2A and Type 6A) As 
+of now, QCIoT-ICM42688P is not configured for SPI communication on QuickConnect Studio. This feature will be 
+enabled soon.  
+ 
+ 
+ 
+ 
+ 
+ 
+
+--- Page 4 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 4 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+3. Plug in the QCIoT-ICM42688P to the US082-INTERPEVZ interposer board as shown below, then connect it to MCU 
+kit. US082-INTERPEVZ interposer board  needed for to convert Pmod Type 2A to Type 6A  I2C interface on  EK-
+RA6M4.  
+  
+Figure 2. QCIoT-ICM42688P connected to the US082-INTERPEVZ interposer board 
+ 
+4. The sensor is now ready to be used in the system. Follow the MCU kit instructions for connecting and powering 
+up the evaluation kit. 
+ 
+ 
+
+
+--- Page 5 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 5 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+ 
+ 
+ 
+Figure 3. Evaluation Kit Connections using the QCIoT-ICM42688P, US159-DA14531EVZ,  and EK-RA6M4 
+
+
+--- Page 6 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 6 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+2 USAGE GUIDE  
+The QCIoT-ICM42688P functions as a sensor building block to create a custom system solution. It can be used 
+individually or with a combination of other sensors using the Pmod Type 2A/6A interface. See the Renesas QuickConnect 
+Studio webpage for a list of available Pmod sensor boards. Along with a simple hardware connection, the software 
+sensor block in the Renesas software package allows the user to generate all the necessary glue code between the 
+sensor and the MCU with the simple click of a button. 
+2.1 OVERVIEW OF THE QCIoT-ICM42688P 
+ 
+ 
+ 
+                                                                                                                                           
+Pin # Signal    Pin # Signal 
+1 CS    1 NC 
+2 MOSI    2 NC 
+3 MISO    3 SCL 
+4 SCK    4 SDA 
+5 GND    5 GND 
+6 VCC    6 VCC 
+7 GPIO    7 GPIO 
+8 GPIO    8 GPIO 
+9 GPIO    9 GPIO 
+10 GPIO    10 GPIO 
+11 GND    11 GND 
+12 VCC    12 VCC 
+Table 2. Pmod Interface Type 2A (expanded SPI)       Pmod Interface Type 6A (expanded I2C) 
+ 
+ 
+ 
+ 
+Connector to 
+MCU Board 
+ Connector for 
+additional sensor 
+Pmod boards 
+Jumpers to switch between 
+Pmod Type 2A (expanded SPI) 
+and Type 6A (expanded I2C) 
+ICM-42688-P 6-axis MEMS IMU  
+Jumper for I2C address selection  
+
+--- Page 7 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 7 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+2.2 PROGRAMMING INTERFACE 
+Programming of the system can be accomplished through QuickConnect Studio. See the MCU evaluation kit 
+documentation for programming interface guideline. This section explains how to program QCIoT-ICM42688P with      
+EK-RA6M4, US159-DA14531EVZ BLE and US082-INTERPEVZ Pmod interposer board.  
+1. Launch the QuickConnect Studio platform by clicking on the Launch OuickConnect Studio button in a PC browser 
+window. 
+2. At the following screen, click on the MyRenesas button to log in using MyRenesas login credentials. If you are a new 
+user, click on Register | Renesas Electronics Corporation, and then log in using MyRenesas.  
+3. Create a new project by clicking the New Project icon from the menu. Type in a project name in the highlighted 
+window.  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+--- Page 8 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 8 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+4. A menu with a list of supported devices is shown on the right side of the browser. Next, drag and drop the system 
+blocks from the QCStudio tool palette.  In this reference application, the following are used: the MCU board (EK-
+RA6M4), the BLE module DA14531 PMOD board, and the QCIoT-ICM42688P board. 
+ 
+5. Right-click on the wireless module (DA14531 PMOD board) and configure the module with Configure > FreeRTOS > 
+custom_profile. 
+ 
+
+
+--- Page 9 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 9 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+6. QCStudio project is now ready to build and generate the application binary that can be tested on the actual 
+hardware kit. 
+7. To generate and build projects, click on the Generate/Build QCS Project icon on the top left-hand side corner. 
+QCStudio automatically generates the required software package including drivers, middleware, and network stacks  
+required for the user-created system solution. 
+ 
+ 
+8. After successful build, download the .srec file from the project debug folder to your local PC by right-click on the file. 
+Refer to the instructions in the readme file from the generated application project. The README.md file is found 
+under the project directory. 
+ 
+9. Use the J-Flash Lite programmer to program the .srec file into the chosen MCU kit. Download SEGGER - The 
+Embedded Experts - Downloads - J-Link / J-Trace. 
+ 
+ 
+
+
+--- Page 10 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 10 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+10. Open Segger J-Flash Lite from the start menu search.  
+ 
+11. In the J-Flash Lite window, click on the (…) button next to the Target Device field. A new window will appear. Here, 
+user can select the manufacturer and device. For this project, as we are using the RA6M4 MCU, search for the part 
+number R7FA6M4AF. Select the target device and click OK. Ensure the target interface is set to SWD, then click OK. 
+ 
+12. A new J-Flash Lite window pops up, locate the Data File (bin / Hex / mot / srec / …) section. Click on the (…) button 
+to import the .srec file that was downloaded by following the steps in the Quick Start procedure. 
+ 
+13. Click on Program Device. A prompt may appear asking if you want to update to the latest firmware version. Select 
+No. The code will now be flashed to the MCU. Once the process is complete, the log section of the screen will display 
+Done. 
+
+
+--- Page 11 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 11 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+14. Download the Quick-Connect Mobile Sandbox application on phone/tablet to view accelerometer and gyroscope 
+data via Bluetooth.  
+Apple Store Quick-Connect Mobile Sandbox: Quick-Connect Mobile Sandbox on the App Store (apple.com)  
+Google Play Quick-Connect Mobile Sandbox: Quick-Connect Mobile Sandbox - Apps on Google Play 
+15. Scan for BLE device and connect to RA MCU Kit. After connection to the BLE peripheral, user can check the sensor 
+data published on the mobile application.   
+         
+ 
+ 
+ 
+ 
+ 
+
+
+--- Page 12 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 12 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+3 QCIoT-42688P APPLICATION SCHEMATIC 
+ 
+Figure 4. QCIoT-ICM42688P Application Schematic  
+ 
+
+
+--- Page 13 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 13 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+4 BILL OF MATERIALS (BOM) 
+ 
+Quantity Reference Part PCB Footprint Manufacturer Part Number 
+3 C1,C2,C4 0.1uF C0402 CC0402KRX5R6BB104 
+1 C3 2.2uF C0402 C1005X7S1A225K050BC 
+1 C5 10nF C0402 C0402C103K3REC7411 
+1 J1 2.54mm 2X6 RA 
+Header 
+socket2x6p-2_54h-pmod_male PH2RA-12-UA 
+1 J2 2.54mm 2X6 RA 
+Socket 
+socket2x6p-2_54h-pmod_female SSW-106-02-F-D-RA 
+1 J3 2.54mm 2X8P 
+Header 
+HEADER2X8 PH2-16-UA 
+1 J4 1.27mm 2P Pin 
+Header 
+con2p-1_27h M50-3530242 
+5 R1,R2,R3,R4,R5 10K R0402 RC0402JR-0710KL 
+1 U1 TDK-InvenSense IMU 
+(2.5x3mm) 
+LGA-14_2.5x3 ICM-42688-P 
+1 J4 1.27mm 2P Pin 
+Header Shunt 
+ M50-2000005 
+4 J3 (1-2, 3-4, 5-6, 7-8) SPI Shunt 0.100"  SPC02SYAN 
+ 
+
+--- Page 14 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 14 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+5 BOARD LAYOUT 
+ 
+ 
+ 
+ 
+Figure 5. Top Layer  
+ 
+ 
+ 
+ 
+ 
+ 
+Figure 6. Bottom Layer 
+
+
+--- Page 15 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 15 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+6 ORDERING INFORMATION 
+Part Number Description 
+QCIoT-ICM42688P ICM-42688-P  PmodTM Board 
+US159-DA14531EVZ Low Power Bluetooth® Pmod™ Board 
+US082-INTERPEVZ PmodTM Interposer Board to convert Type 2A and 3A to Type 6A on older Renesas MCU kits. 
+  
+
+--- Page 16 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 16 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+7 REVISION HISTORY 
+ 
+Revision Date Revision Description 
+10/02/2024 1.0 Initial Release 
+  
+
+--- Page 17 ---
+ QCIoT-ICM42688P Pmod™ Evaluation Board Manual  
+ 
+Page 17 of 17 
+Document Number: AN-000493 
+Revision: 1.0 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+This information furnished by InvenSense, Inc. (“InvenSense”) is believed to be accurate and reliable. However, no responsibility is assumed by InvenSense for its use, 
+or for any infringements of patents or other rights of third parties that may result from its use. Specifications are subject to change without notice. InvenSense reserves 
+the right to make changes to this product, including its circuits and software, in order to improve its design and/or performance, without prior notice. InvenSense makes 
+no warranties, neither expressed nor implied, regarding the information and specifications contained in this document. InvenSense assumes no responsibility for any 
+claims or damages arising from information contained in this document, or from the use of products and services detailed therein. This includes, but is not limited to, 
+claims or damages based on the infringement of patents, copyrights, mask work and/or other intellectual property rights.  
+Certain intellectual property owned by InvenSense and described in this document is patent protected. No license is granted b y implication or otherwise under any 
+patent or patent rights of InvenSense. This publication supersedes and replaces all information previously supplied. Trademarks that are registered trademarks are the 
+property of their respective companies. InvenSense sensors should not be used or sold in the development, storage, production, or utilization of any conventional or 
+mass-destructive weapons or for any other weapons or life-threatening applications, as well as in any other life critical applications such as medical equipment, 
+transportation, aerospace and nuclear instruments, undersea equipment, power plant equipment, disaster prevention and crime prevention equipment.  
+©2024 InvenSense. All rights reserved. InvenSense, MotionTracking, MotionProcessing, MotionProcessor, MotionFusion, MotionApps, DMP, AAR, and the InvenSense 
+logo are trademarks of InvenSense, Inc. The TDK logo is a trademark of TDK Corporation. Other company an d product names may be trademarks of the respective 
+companies with which they are associated. 
+ 
+©2024 InvenSense. All rights reserved. 
+ 
+ 
+ 
+

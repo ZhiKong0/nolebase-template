@@ -4,6 +4,8 @@
 
 ---
 
+![image.png](https://raw.githubusercontent.com/ZhiKong0/Image_Auto/main/Obsidian/20260305094034983.png)
+
 ## 一、RCC 基本概念
 
 ### 1.1 什么是 RCC？

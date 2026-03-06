@@ -1,0 +1,787 @@
+--- Page 1 ---
+TB6612FNG 
+ Toshiba Bi-CD Integrated Circuit  Silicon Monolithic  
+TB6612FNG 
+Driver IC for Dual DC motor 
+ 
+ 
+ 
+TB6612FNG is a driver IC for DC motor with output transistor in 
+LD MOS structure with low ON -resistor. Two input signals, IN1 
+and IN2, can choose one of four modes such as CW, CCW, short 
+brake, and stop mode. 
+ 
+ 
+ 
+ 
+Features 
+• Power supply voltage: VM = 15 V(Max) 
+• Output current: IOUT = 1.2 A(ave)/3.2 A (peak) 
+• Output low ON resistor: 0.5Ω (upper+lower Typ. @ VM ≥ 5 V) 
+• Standby (Power save) system 
+• CW/CCW/short brake/stop function modes 
+• Built-in thermal shutdown circuit and low voltage detecting circuit 
+• Small faced package(SSOP24: 0.65 mm Lead pitch) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+* This product has a MOS structure and is sensitive to electrostatic discharge. When handling this product, 
+ensure that the environment is protected against electrostatic discharge by using an earth strap, a conductive 
+mat and an ionizer. Ensure also that the ambient temperature and relative humidity are maintained at 
+reasonable levels. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Weight: 0.14 g (typ.) 
+© 2014 TOSHIBA Corporation 2014-10-01  1 
+
+--- Page 2 ---
+TB6612FNG 
+Block Diagram 
+ 
+ 
+ 
+ 
+ 
+Pin Functions 
+No. Pin Name I/O Function 
+1 AO1 O ch A output 1 2 AO1 
+3 PGND1 ― Power GND 1 4 PGND1 
+5 AO2 O ch A output 2 6 AO2 
+7 BO2 O ch B output 2 8 BO2 
+9 PGND2 ― Power GND 2 10 PGND2 
+11 BO1 O ch B output 1 12 BO1 
+13 VM2 ― Motor supply 14 VM3 
+15 PWMB I ch B PWM input/200 kΩ pull-down at internal 
+16 BIN2 I ch B input 2/200 kΩ pull-down at internal 
+17 BIN1 I ch B input 1/200 kΩ pull-down at internal 
+18 GND ― Small signal GND 
+19 STBY I “L” = standby/200 kΩ pull-down at internal 
+20 Vcc  ― Small signal supply 
+21 AIN1 I ch A input 1/200 kΩ pull-down at internal 
+22 AIN2 I ch A input 2/200 kΩ pull-down at internal 
+23 PWMA I ch A PWM input/200 kΩ pull-down at internal 
+24 VM1 ― Motor supply 
+2014-10-01  2 
+
+--- Page 3 ---
+TB6612FNG 
+Absolute Maximum Ratings (Ta = 25°C) 
+ 
+ 
+ 
+Operating Range (Ta = -20 to 85°C) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Characteristics Symbol Rating Unit Remarks 
+Supply voltage 
+VM 15 
+V 
+ 
+VCC 6  
+Input voltage VIN -0.2 to 6 V IN1,IN2,STBY,PWM pins 
+Output voltage VOUT 15 V O1,O2 pins 
+Output current 
+IOUT 1.2 
+A 
+Per 1 ch 
+IOUT (peak) 
+2 tw = 20 ms Continuous pulse, Duty ≤ 20% 
+3.2 tw = 10 ms Single pulse 
+Power dissipation PD 
+0.78 
+W 
+IC only 
+0.89 50 mm × 50 mm  t = 1.6 mm Cu ≥ 40% in PCB mounting 
+1.36 76.2 mm × 114.3 mm  t = 1.6 mm Cu  ≥ 30% in PCB 
+mounting 
+Operating temperature Topr -20 to 85 °C  
+Storage temperature Tstg -55 to 150 °C  
+Characteristics Symbol Min Typ. Max Unit Remarks 
+Supply voltage VCC 2.7 3 5.5 V  
+VM 2.5 5 13.5 V  
+Output current (H-SW) IOUT 
+― ― 1.0 
+A 
+VM ≥ 4.5 V 
+― ― 0.4 4.5 V >  VM ≥ 2.5 V 
+Without PWM Operation 
+Switching frequency fPWM ― ― 100 kHz  
+入力端子; IN1,IN2,PWM,STBY
+Vcc
+GND
+Input
+Internal
+circuit200kΩ
+出力端子; O1,O2
+VM
+PGND
+O1 O2
+Input pin: Output pin: O1, O2 
+O1  O2  
+VM 
+2014-10-01  3 
+
+--- Page 4 ---
+TB6612FNG 
+ 
+H-SW Control Function 
+ 
+Input Output 
+IN1 IN2 PWM STBY OUT1 OUT2 Mode 
+H H H/L H L L Short brake 
+L H 
+H H L H CCW 
+L H L L Short brake 
+H L 
+H H H L CW 
+L H L L Short brake 
+L L H H OFF 
+(High impedance) Stop 
+H/L H/L H/L L OFF 
+(High impedance) Standby 
+ 
+H-SW Operating Description 
+・To prevent penetrating current, dead time t2 and t4 is provided in switching to each mode in the IC. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+VM VM VM 
+ M 
+VM 
+GND 
+<ON> 
+    t5  
+ M 
+VM 
+GND 
+<OFF> 
+       t4 
+ M 
+GND 
+ M 
+GND 
+<Short brake> 
+     t3 
+ M 
+GND 
+<OFF> 
+       t2 
+<ON> 
+    t1 
+OUT2 OUT1 OUT1 OUT1 
+OUT1 OUT1 
+OUT2 OUT2 
+OUT2 OUT2 
+GND 
+VM 
+OUT1 
+Voltage wave 
+t1 
+t2 
+t3 
+t5 
+t4 
+2014-10-01  4 
+
+--- Page 5 ---
+TB6612FNG 
+Electrical Characteristics (unless otherwise specified, Ta = 25°C, Vcc = 3 V, VM = 5 V) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Characteristics Symbol Test Condition Min Typ. Max Unit 
+Supply current 
+ICC(3 V) STBY = Vcc = 3 V,  VM = 5 V ― 1.1 1.8 
+mA 
+ICC(5.5 V) STBY = Vcc = 5.5 V,  VM = 5 V ― 1.5 2.2 
+ICC(STB) 
+STBY = 0 V 
+― ― 1 
+μA 
+IM(STB) ― ― 1 
+Control input voltage 
+VIH 
+― 
+Vcc×0.7 ― Vcc+0.2 
+V 
+VIL -0.2 ― Vcc×0.3 
+Control input current 
+IIH VIN = 3 V 5 15 25 
+μA 
+IIL VIN = 0 V ― ― 1 
+Standby input voltage 
+VIH(STB) 
+― 
+Vcc×0.7 ― Vcc+0.2 
+V 
+VIL(STB) -0.2 ― Vcc×0.3 
+Standby input current 
+IIH(STB) VIN = 3 V 5 15 25 
+μA 
+IIL(STB) VIN = 0 V ― ― 1 
+Output saturating voltage Vsat(U+L)1 IO = 1 A, Vcc = VM = 5 V ― 0.5 0.7 V 
+Vsat(U+L)2 IO = 0.3 A, Vcc =  VM = 5 V ― 0.15 0.21 
+Output leakage current 
+IL(U) VM = VOUT = 15 V ― ― 1 
+μA 
+IL(L) VM = 15 V, VOUT = 0 V -1 ― ― 
+Regenerative diode VF 
+VF(U) 
+IF = 1A 
+― 1 1.1 
+V 
+VF(L) ― 1 1.1 
+Low voltage detecting 
+voltage UVLD 
+(Design target only) 
+― 1.9 ― 
+V 
+Recovering voltage UVLC ― 2.2 ― 
+Response speed 
+tr 
+(Design target only) 
+― 24 ― 
+ns tf ― 41 ― 
+Dead 
+time 
+H to L Penetration protect time  
+(Design target only) 
+― 50 ― 
+L to H ― 230 ― 
+Thermal shutdown circuit 
+operating temperature TSD 
+(Design target only) 
+― 175 ― 
+°C Thermal shutdown 
+hysteresis ∆TSD ― 20 ― 
+2014-10-01  5 
+
+--- Page 6 ---
+TB6612FNG 
+Target characteristics 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+PD - Ta
+0.00
+0.50
+1.00
+1.50
+0 50 100 150
+Ta (℃)
+(w)
+①
+②
+①IC単体θj-a=160℃/W
+②基板実装時
+   PCB面積 50×50×1.6mm
+   Cu箔面積≧40%
+③基板実装時
+   PCB面積 76.2×114.3×1.6mm
+   Cu箔面積≧30%
+③ ①IC only θj – a = 160°C/W 
+②In boarding  
+ PCB area 50 mm×50 mm×1.6 mm 
+ Cu area ≥ 40% 
+③In boarding 
+PCB area 76.2 mm×114.3 mm×1.6 mm 
+Cu area ≥ 30% 
+Power dissipation    PD 
+PD - Ta 
+Ta = 25°C, IC only 
+ 
+ 
+ 
+1 ch driving 
+ 
+ 
+ 2 ch driving 
+ 
+ 
+ 
+Iout - Duty
+0.0
+0.5
+1.0
+1.5
+2.0
+2.5
+0% 20% 40% 60% 80% 100%Duty
+(A)
+2ch動作時
+1ch動作時
+Ta=25℃,IC単体
+Output current    IOUT 
+IOUT - Duty 
+Dual-channel operation 
+Single-channel operation 
+Ta = 25°C, IC only 
+2014-10-01  6 
+
+--- Page 7 ---
+TB6612FNG 
+Typical Application Diagram 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Note: Condensers for noise absorption (C1, C2, C3, and C4) should be connected as close as possible to the IC. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
++4.5V
+～13.5V
++ C1
+10uF
+C2
+0.1uF
+M
+MCU
+STBY
+AIN1
+AIN2
+PWMA
+H-SW
+Driver
+A
+18
+TSD
+Vcc
+GND
+2
+AO1
+24
+VM1
+Control
+Logic
+A
+20
+21
+22
+23
+19
+3
+PGND1
+BIN1
+BIN2
+PWMB
+Control
+Logic
+B
+17
+16
+15
+STBY
+UVLO
+4
+PGND1
+1
+AO1
+6
+AO2
+5
+AO2
+H-SW
+Driver
+B
+11
+BO1
+13
+VM2
+9
+PGND2
+10
+PGND2
+12
+BO1
+7
+BO2
+8
+BO2
+14
+VM3
+M
++2.7V
+～5.5V + C3
+10uF
+C4
+0.1uF
++2.7 V 
+to 5.5 V 
++4.5 V 
+to 13.5 V 
+2014-10-01  7 
+
+--- Page 8 ---
+TB6612FNG 
+ 
+Package Dimennsions 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Weght: 0.14 g (typ) 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Detail of a terminal 
+2014-10-01  8 
+
+--- Page 9 ---
+TB6612FNG 
+Notes on Contents 
+ 
+1. Block Diagrams 
+Some of the functional blocks, circuits, or constan ts in the block diagram may be omitted or simplified 
+for explanatory purposes. 
+ 
+2. Equivalent Circuits  
+The equivalent circuit diagrams may be simplified or some parts of them may be omitted for 
+explanatory purposes. 
+ 
+3. Timing Charts 
+Timing charts may be simplified for explanatory purposes. 
+ 
+4. Application Circuits 
+The application circuits shown in this document are provided for reference purposes only.  Thorough 
+evaluation is required, especially at the mass production design stage.  
+Toshiba does not grant  any license to any industrial property rights by providing these examples of 
+application circuits. 
+ 
+5. Test Circuits 
+Components in the test circuits are used only to obtain and confirm the device characteristics. These 
+components and circuits are not guar anteed to prevent malfunction or failure from occurring in the 
+application equipment. 
+ 
+IC Usage Considerations 
+Notes on handling of ICs 
+ 
+[1]
+ The absolute maximum ratings of a semiconductor device are a set of ratings  that must not be 
+exceeded, even for a moment. Do not exceed any of these ratings. 
+Exceeding the rating(s) may cause the device breakdown, damage or deterioration,  and may result 
+injury by explosion or combustion. 
+ 
+[2] Use an appropriate power supply fuse to ensure that a large current does not continuously flow in 
+case of over current and/or IC failure. The IC will fully break down when used under conditions that 
+exceed its absolute maximum ratings, when the wiring is routed improperly or when an abnormal 
+pulse noise occurs from the wiring or lo ad, causing a large current to continuously flow and the 
+breakdown can lead smoke or ignition.  To minimize the effects of the flow of a large current in case 
+of breakdown, appropriate settings, such as fuse capacity, fusing time and insertion circuit locat ion, 
+are required.  
+ 
+[3] If your design includes an inductive load such as a motor coil, incorporate a protection circuit into 
+the design to prevent device malfunction or breakdown caused by the current resulting from the 
+inrush current at power ON or the negative current resulting from the back electromotive force at 
+power OFF. IC breakdown may cause injury, smoke or ignition.  
+Use a stable power supply with ICs with built -in protection functions. If the power supply is 
+unstable, the protection function ma y not operate, causing IC breakdown. IC breakdown may cause 
+injury, smoke or ignition.  
+ 
+[4]
+ Do not insert devices in the wrong orientation or incorrectly. 
+Make sure that the positive and negative terminals of power supplies are connected properly. 
+Otherwise, the current or power consumption may exceed the absolute maximum rating,  and 
+exceeding the rating(s) may cause the device breakdown, damage or deterioration,  and may result 
+injury by explosion or combustion. 
+In addition, do not use any device that is applied the current with inserting in the wrong orientation 
+or incorrectly even just one time. 
+2014-10-01  9 
+
+--- Page 10 ---
+TB6612FNG 
+ 
+Points to remember on handling of ICs 
+ 
+(1) Thermal Shutdown Circuit 
+Thermal shutdown circuits do not necessarily protect ICs under all circumstances. If the the rmal 
+shutdown circuits operate against the over temperature, clear the heat generation status 
+immediately. 
+Depending on the method of use and usage conditions, such as exceeding absolute maximum ratings 
+can cause the thermal shutdown circuit to not operate properly or IC breakdown before operation. 
+ 
+(2) Heat Radiation Design 
+In using an IC with large current flow such as power amp, regulator or driver, please design the 
+device so that heat is appropriately radiated, not to exceed the specified junction temperature (T j) at 
+any time and condition.  These ICs generate heat even during normal use.  An inadequate IC heat 
+radiation design can lead to decrease in IC life, deterioration of IC characteristics or IC breakdown.  
+In addition, please design the device takin g into considerate the effect of IC heat radiation with 
+peripheral components. 
+ 
+(3) Back-EMF 
+When a motor rotates in the reverse direction, stops or slows down abruptly , a current flow  back to 
+the motor ’s power supply due to the effect of back -EMF. If the current sink capability of the power 
+supply is small, the device ’s motor power supply and output pins might be exposed to conditions 
+beyond absolute maximum ratings. To avoid this problem, take the effect of back -EMF into 
+consideration in system design. 
+ 
+ 
+ 
+ 
+ 
+2014-10-01  10 
+
+--- Page 11 ---
+TB6612FNG 
+RESTRICTIONS ON PRODUCT USE 
+• Toshiba Corporation, and its subsidiaries and affiliates (collectively "TOSHIBA"), reserve the right to make changes to the information 
+in this document, and related hardware, software and systems (collectively "Product") without notice. 
+• This document and any information herein may not be reproduced without prior written permission from TOSHIBA. Even with 
+TOSHIBA's written permission, reproduction is permissible only if reproduction is without alteration/omission. 
+• Though TOSHIBA works continually to improve Product's quality and reliability, Product can malfunction or fail. Customers are 
+responsible for complying with safety standards and for providing adequate designs and safeguards for their hardware, software and 
+systems which minimize risk and avoid situations in which a malfunction or failure of Product could cause loss of human life, bodily 
+injury or damage to property, including data loss or corruption. Before customers use the Product, create designs including the 
+Product, or incorporate the Product into their own applications, customers must also refer to and comply with (a) the latest versions of 
+all relevant TOSHIBA information, including without limitation, this document, the specifications, the data sheets and application notes 
+for Product and the precautions and conditions set forth in the "TOSHIBA Semiconductor Reliability Handbook" and (b) the 
+instructions for the application with which the Product will be used with or for. Customers are solely responsible for all aspects of their 
+own product design or applications, including but not limited to (a) determining the appropriateness of the use of this Product in such 
+design or applications; (b) evaluating and determining the applicability of any information contained in this document, or in charts, 
+diagrams, programs, algorithms, sample application circuits, or any other referenced documents; and (c) validating all operating 
+parameters for such designs and applications. TOSHIBA ASSUMES NO LIABILITY FOR CUSTOMERS' PRODUCT DESIGN OR 
+APPLICATIONS. 
+• PRODUCT IS NEITHER INTENDED NOR WARRANTED FOR USE IN EQUIPMENTS OR SYSTEMS THAT REQUIRE 
+EXTRAORDINARILY HIGH LEVELS OF QUALITY AND/OR RELIABILITY, AND/OR A MALFUNCTION OR FAILURE OF WHICH 
+MA Y CAUSE LOSS OF HUMAN LIFE, BODILY INJURY, SERIOUS PROPERTY DAMAGE AND/OR SERIOUS PUBLIC IMPACT 
+("UNINTENDED USE"). Except for specific applications as expressly stated in this document, Unintended Use includes, without 
+limitation, equipment used in nuclear facilities, equipment used in the aerospace industry, medical equipment, equipment used for 
+automobiles, trains, ships and other transportation, traffic signaling equipment, equipment used to control combustions or explosions, 
+safety devices, elevators and escalators, devices related to electric power, and equipment used in finance-related fields. IF YOU USE 
+PRODUCT FOR UNINTENDED USE, TOSHIBA ASSUMES NO LIABILITY FOR PRODUCT. For details, please contact your 
+TOSHIBA sales representative. 
+• Do not disassemble, analyze, reverse-engineer, alter, modify, translate or copy Product, whether in whole or in part. 
+• Product shall not be used for or incorporated into any products or systems whose manufacture, use, or sale is prohibited under any 
+applicable laws or regulations. 
+• The information contained herein is presented only as guidance for Product use. No responsibility is assumed by TOSHIBA for any 
+infringement of patents or any other intellectual property rights of third parties that may result from the use of Product. No license to 
+any intellectual property right is granted by this document, whether express or implied, by estoppel or otherwise. 
+• ABSENT A WRITTEN SIGNED AGREEMENT, EXCEPT AS PROVIDED IN THE RELEVANT TERMS AND CONDITIONS OF SALE 
+FOR PRODUCT, AND TO THE MAXIMUM EXTENT ALLOWABLE BY LAW, TOSHIBA (1) ASSUMES NO LIABILITY 
+WHATSOEVER, INCLUDING WITHOUT LIMITATION, INDIRECT, CONSEQUENTIAL, SPECIAL, OR INCIDENTAL DAMAGES OR 
+LOSS, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, LOSS OF OPPORTUNITIES, BUSINESS INTERRUPTION AND 
+LOSS OF DATA, AND (2) DISCLAIMS ANY AND ALL EXPRESS OR IMPLIED WARRANTIES AND CONDITIONS RELATED TO 
+SALE, USE OF PRODUCT, OR INFORMATION, INCLUDING WARRANTIES OR CONDITIONS OF MERCHANTABILITY, FITNESS 
+FOR A PARTICULAR PURPOSE, ACCURACY OF INFORMATION, OR NONINFRINGEMENT. 
+• Do not use or otherwise make available Product or related software or technology for any military purposes, including without 
+limitation, for the design, development, use, stockpiling or manufacturing of nuclear, chemical, or biological weapons or missile 
+technology products (mass destruction weapons). Product and related software and technology may be controlled under the 
+applicable export laws and regulations including, without limitation, the Japanese Foreign Exchange and Foreign Trade Law and the 
+U.S. Export Administration Regulations. Export and re-export of Product or related software or technology are strictly prohibited 
+except in compliance with all applicable export laws and regulations. 
+• Please contact your TOSHIBA sales representative for details as to environmental matters such as the RoHS compatibility of Product. 
+Please use Product in compliance with all applicable laws and regulations that regulate the inclusion or use of controlled substances, 
+including without limitation, the EU RoHS Directive. TOSHIBA ASSUMES NO LIABILITY FOR DAMAGES OR LOSSES 
+OCCURRING AS A RESULT OF NONCOMPLIANCE WITH APPLICABLE LAWS AND REGULATIONS. 
+2014-10-01  11 
