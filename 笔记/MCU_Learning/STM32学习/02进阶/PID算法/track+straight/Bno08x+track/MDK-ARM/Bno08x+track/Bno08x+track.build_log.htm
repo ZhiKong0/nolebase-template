@@ -1,0 +1,195 @@
+<html>
+<body>
+<pre>
+<h1>µVision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: ¦ÌVision V5.14.1
+Copyright (C) 2015 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: Cortex-M3, 1, LIC=BUURY-IWD35-IID5V-PZW85-EZBPT-W6W31
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Standard  Version: 5.15.0
+Toolchain Path:  D:\kile5\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.05 update 2 (build 169)
+Assembler:       Armasm.exe V5.05 update 2 (build 169)
+Linker/Locator:  ArmLink.exe V5.05 update 2 (build 169)
+Library Manager: ArmAr.exe V5.05 update 2 (build 169)
+Hex Converter:   FromElf.exe V5.05 update 2 (build 169)
+CPU DLL:         SARMCM3.DLL V5.15.0
+Dialog DLL:      DCM.DLL V1.13.2.0
+Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V2.0.15.0_KEIL
+Dialog DLL:      TCM.DLL V1.14.5.0
+ 
+<h2>Project:</h2>
+D:\stm32cubemx\TEST\Bno08x+track\MDK-ARM\Bno08x+track.uvprojx
+Project File Date:  03/11/2026
+
+<h2>Output:</h2>
+*** Using Compiler 'V5.05 update 2 (build 169)', folder: 'D:\kile5\ARM\ARMCC\Bin'
+Build target 'Bno08x+track'
+compiling main.c...
+..\code\bno08x.h(84): warning:  #1295-D: Deprecated declaration softReset - give arg types
+  void softReset();            // Try to reset the IMU via software
+..\code\bno08x.h(85): warning:  #1295-D: Deprecated declaration resetReason - give arg types
+  unsigned char resetReason(); // Query the IMU for the reason it last reset
+..\code\bno08x.h(107): warning:  #1295-D: Deprecated declaration getQuatI - give arg types
+  float getQuatI();
+..\code\bno08x.h(108): warning:  #1295-D: Deprecated declaration getQuatJ - give arg types
+  float getQuatJ();
+..\code\bno08x.h(109): warning:  #1295-D: Deprecated declaration getQuatK - give arg types
+  float getQuatK();
+..\code\bno08x.h(110): warning:  #1295-D: Deprecated declaration getQuatReal - give arg types
+  float getQuatReal();
+..\code\bno08x.h(111): warning:  #1295-D: Deprecated declaration getQuatRadianAccuracy - give arg types
+  float getQuatRadianAccuracy();
+..\code\bno08x.h(112): warning:  #1295-D: Deprecated declaration getQuatAccuracy - give arg types
+  unsigned char getQuatAccuracy();
+..\code\bno08x.h(114): warning:  #1295-D: Deprecated declaration getAccelX - give arg types
+  float getAccelX();
+..\code\bno08x.h(115): warning:  #1295-D: Deprecated declaration getAccelY - give arg types
+  float getAccelY();
+..\code\bno08x.h(116): warning:  #1295-D: Deprecated declaration getAccelZ - give arg types
+  float getAccelZ();
+..\code\bno08x.h(117): warning:  #1295-D: Deprecated declaration getAccelAccuracy - give arg types
+  unsigned char getAccelAccuracy();
+..\code\bno08x.h(119): warning:  #1295-D: Deprecated declaration getLinAccelX - give arg types
+  float getLinAccelX();
+..\code\bno08x.h(120): warning:  #1295-D: Deprecated declaration getLinAccelY - give arg types
+  float getLinAccelY();
+..\code\bno08x.h(121): warning:  #1295-D: Deprecated declaration getLinAccelZ - give arg types
+  float getLinAccelZ();
+..\code\bno08x.h(122): warning:  #1295-D: Deprecated declaration getLinAccelAccuracy - give arg types
+  unsigned char getLinAccelAccuracy();
+..\code\bno08x.h(124): warning:  #1295-D: Deprecated declaration getGyroX - give arg types
+  float getGyroX();
+..\code\bno08x.h(125): warning:  #1295-D: Deprecated declaration getGyroY - give arg types
+  float getGyroY();
+..\code\bno08x.h(126): warning:  #1295-D: Deprecated declaration getGyroZ - give arg types
+  float getGyroZ();
+..\code\bno08x.h(127): warning:  #1295-D: Deprecated declaration getGyroAccuracy - give arg types
+  unsigned char getGyroAccuracy();
+..\code\bno08x.h(129): warning:  #1295-D: Deprecated declaration getMagX - give arg types
+  float getMagX();
+..\code\bno08x.h(130): warning:  #1295-D: Deprecated declaration getMagY - give arg types
+  float getMagY();
+..\code\bno08x.h(131): warning:  #1295-D: Deprecated declaration getMagZ - give arg types
+  float getMagZ();
+..\code\bno08x.h(132): warning:  #1295-D: Deprecated declaration getMagAccuracy - give arg types
+  unsigned char getMagAccuracy();
+..\code\bno08x.h(134): warning:  #1295-D: Deprecated declaration calibrateAccelerometer - give arg types
+  void calibrateAccelerometer();
+..\code\bno08x.h(135): warning:  #1295-D: Deprecated declaration calibrateGyro - give arg types
+  void calibrateGyro();
+..\code\bno08x.h(136): warning:  #1295-D: Deprecated declaration calibrateMagnetometer - give arg types
+  void calibrateMagnetometer();
+..\code\bno08x.h(137): warning:  #1295-D: Deprecated declaration calibratePlanarAccelerometer - give arg types
+  void calibratePlanarAccelerometer();
+..\code\bno08x.h(138): warning:  #1295-D: Deprecated declaration calibrateAll - give arg types
+  void calibrateAll();
+..\code\bno08x.h(139): warning:  #1295-D: Deprecated declaration endCalibration - give arg types
+  void endCalibration();
+..\code\bno08x.h(140): warning:  #1295-D: Deprecated declaration saveCalibration - give arg types
+  void saveCalibration();
+..\code\bno08x.h(142): warning:  #1295-D: Deprecated declaration getStepCount - give arg types
+  unsigned int getStepCount();
+..\code\bno08x.h(143): warning:  #1295-D: Deprecated declaration getStabilityClassifier - give arg types
+  unsigned char getStabilityClassifier();
+..\code\bno08x.h(144): warning:  #1295-D: Deprecated declaration getActivityClassifier - give arg types
+  unsigned char getActivityClassifier();
+../Core/Src/main.c: 34 warnings, 0 errors
+compiling fun.c...
+..\code\bno08x.h(84): warning:  #1295-D: Deprecated declaration softReset - give arg types
+  void softReset();            // Try to reset the IMU via software
+..\code\bno08x.h(85): warning:  #1295-D: Deprecated declaration resetReason - give arg types
+  unsigned char resetReason(); // Query the IMU for the reason it last reset
+..\code\bno08x.h(107): warning:  #1295-D: Deprecated declaration getQuatI - give arg types
+  float getQuatI();
+..\code\bno08x.h(108): warning:  #1295-D: Deprecated declaration getQuatJ - give arg types
+  float getQuatJ();
+..\code\bno08x.h(109): warning:  #1295-D: Deprecated declaration getQuatK - give arg types
+  float getQuatK();
+..\code\bno08x.h(110): warning:  #1295-D: Deprecated declaration getQuatReal - give arg types
+  float getQuatReal();
+..\code\bno08x.h(111): warning:  #1295-D: Deprecated declaration getQuatRadianAccuracy - give arg types
+  float getQuatRadianAccuracy();
+..\code\bno08x.h(112): warning:  #1295-D: Deprecated declaration getQuatAccuracy - give arg types
+  unsigned char getQuatAccuracy();
+..\code\bno08x.h(114): warning:  #1295-D: Deprecated declaration getAccelX - give arg types
+  float getAccelX();
+..\code\bno08x.h(115): warning:  #1295-D: Deprecated declaration getAccelY - give arg types
+  float getAccelY();
+..\code\bno08x.h(116): warning:  #1295-D: Deprecated declaration getAccelZ - give arg types
+  float getAccelZ();
+..\code\bno08x.h(117): warning:  #1295-D: Deprecated declaration getAccelAccuracy - give arg types
+  unsigned char getAccelAccuracy();
+..\code\bno08x.h(119): warning:  #1295-D: Deprecated declaration getLinAccelX - give arg types
+  float getLinAccelX();
+..\code\bno08x.h(120): warning:  #1295-D: Deprecated declaration getLinAccelY - give arg types
+  float getLinAccelY();
+..\code\bno08x.h(121): warning:  #1295-D: Deprecated declaration getLinAccelZ - give arg types
+  float getLinAccelZ();
+..\code\bno08x.h(122): warning:  #1295-D: Deprecated declaration getLinAccelAccuracy - give arg types
+  unsigned char getLinAccelAccuracy();
+..\code\bno08x.h(124): warning:  #1295-D: Deprecated declaration getGyroX - give arg types
+  float getGyroX();
+..\code\bno08x.h(125): warning:  #1295-D: Deprecated declaration getGyroY - give arg types
+  float getGyroY();
+..\code\bno08x.h(126): warning:  #1295-D: Deprecated declaration getGyroZ - give arg types
+  float getGyroZ();
+..\code\bno08x.h(127): warning:  #1295-D: Deprecated declaration getGyroAccuracy - give arg types
+  unsigned char getGyroAccuracy();
+..\code\bno08x.h(129): warning:  #1295-D: Deprecated declaration getMagX - give arg types
+  float getMagX();
+..\code\bno08x.h(130): warning:  #1295-D: Deprecated declaration getMagY - give arg types
+  float getMagY();
+..\code\bno08x.h(131): warning:  #1295-D: Deprecated declaration getMagZ - give arg types
+  float getMagZ();
+..\code\bno08x.h(132): warning:  #1295-D: Deprecated declaration getMagAccuracy - give arg types
+  unsigned char getMagAccuracy();
+..\code\bno08x.h(134): warning:  #1295-D: Deprecated declaration calibrateAccelerometer - give arg types
+  void calibrateAccelerometer();
+..\code\bno08x.h(135): warning:  #1295-D: Deprecated declaration calibrateGyro - give arg types
+  void calibrateGyro();
+..\code\bno08x.h(136): warning:  #1295-D: Deprecated declaration calibrateMagnetometer - give arg types
+  void calibrateMagnetometer();
+..\code\bno08x.h(137): warning:  #1295-D: Deprecated declaration calibratePlanarAccelerometer - give arg types
+  void calibratePlanarAccelerometer();
+..\code\bno08x.h(138): warning:  #1295-D: Deprecated declaration calibrateAll - give arg types
+  void calibrateAll();
+..\code\bno08x.h(139): warning:  #1295-D: Deprecated declaration endCalibration - give arg types
+  void endCalibration();
+..\code\bno08x.h(140): warning:  #1295-D: Deprecated declaration saveCalibration - give arg types
+  void saveCalibration();
+..\code\bno08x.h(142): warning:  #1295-D: Deprecated declaration getStepCount - give arg types
+  unsigned int getStepCount();
+..\code\bno08x.h(143): warning:  #1295-D: Deprecated declaration getStabilityClassifier - give arg types
+  unsigned char getStabilityClassifier();
+..\code\bno08x.h(144): warning:  #1295-D: Deprecated declaration getActivityClassifier - give arg types
+  unsigned char getActivityClassifier();
+..\code\fun.c(315): warning:  #1-D: last line of file ends without a newline
+  }
+..\code\fun.c: 35 warnings, 0 errors
+linking...
+Program Size: Code=20408 RO-data=608 RW-data=364 ZI-data=1668  
+FromELF: creating hex file...
+"Bno08x+track\Bno08x+track.axf" - 0 Error(s), 69 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: ARM
+                http://www.keil.com/pack/ARM.CMSIS.4.3.0.pack
+                ARM::CMSIS:CORE:4.1.0
+                CMSIS (Cortex Microcontroller Software Interface Standard)
+   * Component: CORE Version: 4.1.0
+
+<h2>Collection of Component include folders:</h2>
+  D:\stm32cubemx\TEST\Bno08x+track\MDK-ARM\RTE
+  D:\kile5\ARM\PACK\ARM\CMSIS\4.3.0\CMSIS\Include
+  D:\kile5\ARM\PACK\Keil\STM32F1xx_DFP\2.4.0\Device\Include
+
+<h2>Collection of Component Files used:</h2>
+
+   * Component: ARM::CMSIS:CORE:4.1.0
+</pre>
+</body>
+</html>

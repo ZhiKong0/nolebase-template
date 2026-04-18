@@ -1,0 +1,96 @@
+{
+  "sample_count": 47,
+  "run_sample_count": 17,
+  "sensor_semantics": {
+    "sensor_order": "s1 到 s8 按从左到右排列",
+    "center_best": "s4 与 s5 同时亮",
+    "s4_only": "右偏",
+    "s5_only": "左偏"
+  },
+  "parameters": {
+    "ts_last": 18.0,
+    "kp_last": 0.5,
+    "ki_last": 0.004,
+    "kd_last": 0.0
+  },
+  "sensor_summary": {
+    "valid_sensor_sample_count": 12,
+    "score_mean": 0.041666666666666664,
+    "score_abs_mean": 1.7083333333333333,
+    "score_max": 2.5,
+    "score_min": -3.5,
+    "side_vote": "balanced",
+    "s4s5_both_on_ratio": 0.0,
+    "s4_only_ratio": 0.0,
+    "s5_only_ratio": 0.3333333333333333,
+    "right_bias_ratio": 0.4166666666666667,
+    "left_bias_ratio": 0.5833333333333334,
+    "balanced_ratio": 0.0,
+    "line_missing_ratio": 0.29411764705882354
+  },
+  "startup_summary": {
+    "startup_side": "right",
+    "first_valid_t_s": 0.298,
+    "first_valid_state": "left_bias",
+    "first_valid_score": -0.5,
+    "first_valid_active_sensors": [
+      "s5"
+    ],
+    "first_missing_after_valid_t_s": 1.195,
+    "startup_sequence": [
+      {
+        "t_s": 0.298,
+        "sensor_state": "left_bias",
+        "sensor_score": -0.5,
+        "active_sensors": [
+          "s5"
+        ]
+      },
+      {
+        "t_s": 0.599,
+        "sensor_state": "left_bias",
+        "sensor_score": -0.5,
+        "active_sensors": [
+          "s5"
+        ]
+      },
+      {
+        "t_s": 0.9,
+        "sensor_state": "left_bias",
+        "sensor_score": -0.5,
+        "active_sensors": [
+          "s5"
+        ]
+      },
+      {
+        "t_s": 1.497,
+        "sensor_state": "right_bias",
+        "sensor_score": 1.5,
+        "active_sensors": [
+          "s3"
+        ]
+      },
+      {
+        "t_s": 1.798,
+        "sensor_state": "right_bias",
+        "sensor_score": 2.5,
+        "active_sensors": [
+          "s2"
+        ]
+      }
+    ]
+  },
+  "encoder_summary": {
+    "mean_abs_el": 0.11764705882352941,
+    "mean_abs_er": 0.0,
+    "mean_ed": 0.11764705882352941,
+    "ed_rms": 0.3429971702850177,
+    "encoder_ratio_er_el": 0.0
+  },
+  "trajectory_summary": {
+    "final_x": 0.29382667049815414,
+    "final_y": -0.04489270104140236,
+    "path_len": 0.3005,
+    "sensor_y_accum": -0.07525
+  }
+}

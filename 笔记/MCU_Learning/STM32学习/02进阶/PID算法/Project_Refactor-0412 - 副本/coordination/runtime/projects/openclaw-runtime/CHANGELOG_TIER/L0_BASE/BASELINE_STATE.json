@@ -1,0 +1,47 @@
+{
+    "mutableZones":  [
+                         "context/",
+                         "tasks/",
+                         "locks/",
+                         "activity/",
+                         "STREAM_LOG/",
+                         "SESSIONS/active/",
+                         "CHANGELOG_TIER/L1_ACTIVE/",
+                         "CHANGELOG_TIER/L3_DIGEST/",
+                         "LOGS/operations/",
+                         "LOGS/conflicts/",
+                         "STAGING/patches/"
+                     ],
+    "version":  2,
+    "coordinationPath":  "E:\\OpenClaw\\coordination\\runtime\\projects\\openclaw-runtime",
+    "lossyBoundary":  "previous runtime archived before re-init",
+    "worktreeRoot":  "E:\\OpenClaw\\coordination\\runtime\\worktrees\\openclaw-runtime",
+    "stateEventLog":  "E:\\OpenClaw\\coordination\\runtime\\projects\\openclaw-runtime\\state\\events\\STATE_EVENTS.jsonl",
+    "projectId":  "openclaw-runtime",
+    "blockedReadZones":  [
+                             "CHANGELOG_TIER/L4_ARCHIVE/"
+                         ],
+    "repoPath":  "E:/OpenClaw/.openclaw/workspace",
+    "baselineVersion":  "L0-20260412-131238",
+    "streamEntriesFile":  "E:\\OpenClaw\\coordination\\runtime\\projects\\openclaw-runtime\\STREAM_LOG\\STREAM.jsonl",
+    "defaultBranch":  "main",
+    "createdAt":  "2026-04-12T13:12:38.4156508+08:00",
+    "readPriorityChain":  [
+                              "context/LIVE_STATE_BOARD.md",
+                              "STREAM_LOG/SESSION_HEADS.json",
+                              "CHANGELOG_TIER/L3_DIGEST/latest_summary.md",
+                              "CHANGELOG_TIER/L1_ACTIVE/ACTIVE_SESSIONS.json",
+                              "coordination/bin/coord-read-stream.cmd -ProjectId \u003cproject-id\u003e -AgentId \u003cagent-id\u003e -OtherAgentsOnly -IncludeSessionHeads",
+                              "STREAM_LOG/NEWEST_ENTRY.json (summary only)",
+                              "STREAM_LOG/LATEST_TAIL.json (summary only)",
+                              "tasks/TASK-xxx.md",
+                              "locks/TASK-xxx.json",
+                              "SESSIONS/active/\u003csession-id\u003e/SESSION_DELTA.json",
+                              "SESSIONS/active/\u003csession-id\u003e/AI_PROMPT.md",
+                              "README_INDEX.md",
+                              "ARCHITECTURE_TREE.json",
+                              "ARCHITECTURE_INDEX.md",
+                              "CHANGELOG_TIER/L2_RECENT/RECENT_INDEX.json",
+                              "CHANGELOG_TIER/L0_BASE/BASELINE_STATE.json"
+                          ]
+}

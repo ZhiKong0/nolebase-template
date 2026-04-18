@@ -1,0 +1,28 @@
+﻿=== START 2026-03-22T10:06:02.0234597+08:00 ===
+PYOCD=C:\Users\DZ\AppData\Local\Programs\Python\Python313\Scripts\pyocd.exe
+UID=031305620164 TGT=stm32f103rc
+HEX=f:\Documents\GitHub\nolebase-template\笔记\MCU_Learning\STM32学习\02进阶\PID算法\Project_Refactor\Objects\project.hex
+AXF=f:\Documents\GitHub\nolebase-template\笔记\MCU_Learning\STM32学习\02进阶\PID算法\Project_Refactor\Objects\project.axf
+
+=== ATTEMPT 1/8 ===
+-- list probes --
+  #   Probe/Board             Unique ID      Target  
+-----------------------------------------------------
+  0   Horco Horco CMSIS-DAP   031305620164   n/a     
+-- commander status --
+Core 0 (None):  Halted
+STATUS_EXIT_CODE=0
+-- load HEX under-reset freq=100000 --
+pyocd.exe : 0001433 I Loading F:\Documents\GitHub\nolebase-template\笔记\MCU_Learning\STM32学习\02进阶\PID算法\Project_Refactor\Objects\project.hex [load_cmd]
+所在位置 行:15 字符: 5
++     & $PYOCD load --no-config -u $UID -t $TGT -M under-reset -f $f -e ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (0001433 I Loadi....hex [load_cmd]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[---|---|---|---|---|---|---|---|---|----]
+[========================================]
+0019427 I Erased 0 bytes (0 sectors), programmed 0 bytes (0 pages), skipped 43008 bytes (21 pages) at 2.34 kB/s [loader]
+LOAD_HEX_EXIT_CODE=0
+SUCCESS_IMAGE=HEX
+=== DONE ===

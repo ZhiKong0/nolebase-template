@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "sessionId": "{{SESSION_ID}}",
+  "projectId": "{{PROJECT_ID}}",
+  "taskId": "{{TASK_ID}}",
+  "agentId": "{{OWNER}}",
+  "status": "active",
+  "startedAt": "{{NOW}}",
+  "updatedAt": "{{NOW}}",
+  "branch": "{{BRANCH_NAME}}",
+  "worktreePath": "{{WORKTREE_PATH_JSON}}",
+  "baselineVersion": "{{BASELINE_VERSION}}",
+  "scope": [],
+  "readState": {
+    "baselineLoaded": false,
+    "lastReadLevel": "L0_BASE",
+    "businessReadUnlocked": false
+  },
+  "paths": {
+    "taskFile": "{{TASK_FILE_PATH_JSON}}",
+    "lockFile": "{{LOCK_FILE_PATH_JSON}}",
+    "l1Entry": "{{L1_ENTRY_PATH_JSON}}",
+    "operationLog": "{{OPERATION_LOG_PATH_JSON}}",
+    "conflictLog": "{{CONFLICT_LOG_PATH_JSON}}",
+    "thoughtLog": "",
+    "execLog": "",
+    "modLog": "",
+    "streamEntries": "",
+    "streamNewestEntry": "",
+    "streamTail": "",
+    "readPointerDir": "",
+    "liveStateBoard": "",
+    "digestLatestSummary": "",
+    "stateEventLog": "",
+    "transactionsRoot": "",
+    "conflictMarkdown": ""
+  },
+  "delta": {
+    "summary": "",
+    "touchedFiles": [],
+    "pendingWrites": [],
+    "conflicts": []
+  },
+  "triadCounters": {
+    "thought": 0,
+    "exec": 0,
+    "mod": 0
+  },
+  "streamState": {
+    "lastProducedEntryId": null,
+    "lastProducedAt": null,
+    "globalStreamFile": "",
+    "newestEntryFile": "",
+    "tailFile": "",
+    "tailWindow": 25,
+    "lossyBoundaryPolicy": "stop_and_require_explicit_acceptance"
+  },
+  "digestState": {
+    "latestDigestFile": "",
+    "latestDigestId": null
+  },
+  "counters": {
+    "read": 0,
+    "write": 0,
+    "modify": 0,
+    "delete": 0,
+    "patch": 0,
+    "other": 0
+  },
+  "lastOperation": null,
+  "lastTriad": null
+}

@@ -1,0 +1,48 @@
+[
+  {
+    "name": "status_json",
+    "payload": "{\"cmd\":\"status\"}",
+    "reset_rc": 0,
+    "boot": [
+      {
+        "t_ms": 966,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+      }
+    ],
+    "after": [
+      {
+        "t_ms": 3636,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+      },
+      {
+        "t_ms": 3837,
+        "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n{\"time\":0"
+      }
+    ]
+  },
+  {
+    "name": "start_json",
+    "payload": "{\"cmd\":\"start\"}",
+    "reset_rc": 0,
+    "boot": [
+      {
+        "t_ms": 1048,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+      }
+    ],
+    "after": [
+      {
+        "t_ms": 3970,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+      },
+      {
+        "t_ms": 4222,
+        "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+      },
+      {
+        "t_ms": 4273,
+        "text": "{\"ack\":\"ok\",\"item\":\"start\"}\r\n"
+      }
+    ]
+  }
+]

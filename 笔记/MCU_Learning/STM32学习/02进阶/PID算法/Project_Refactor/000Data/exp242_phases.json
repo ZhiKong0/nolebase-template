@@ -1,0 +1,33 @@
+{
+  "pattern": "launch_hesitation_then_left_drift",
+  "confidence": 0.58,
+  "phase_count": 3,
+  "phases": [
+    {
+      "kind": "launch_hesitation",
+      "t0_s": 0.0,
+      "t1_s": 1.22,
+      "window_count": 2,
+      "slow_window_count": 9
+    },
+    {
+      "kind": "mid_run_pause",
+      "t0_s": 4.208,
+      "t1_s": 5.041,
+      "window_count": 2,
+      "start_window": 7,
+      "max_idle_streak_s": 0.42,
+      "max_output_idle_streak_s": 0.0
+    },
+    {
+      "kind": "left_drift",
+      "t0_s": 2.804,
+      "t1_s": 29.694,
+      "window_count": 44,
+      "side": "left",
+      "start_window": 5,
+      "first_window": 5,
+      "max_cum_lat": 3.5257444379465563
+    }
+  ]
+}

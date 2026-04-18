@@ -1,0 +1,161 @@
+#include "stm32f10x.h"
+#include "Delay.h"
+#include "OLED.h"
+#include "Motor.h"
+#include "Encoder.h"
+#include "MPU6050.h"
+#include "PID.h"
+
+/* ========== 参数配置区 ========== */
+#define TARGET_SPEED        40      // 目标速度（降低以换取稳定性）
+#define MAX_PWM             50      // 最大PWM限制
+#define MIN_PWM             8       // 最小启动PWM
+
+// 航向死区（度）
+#define YAW_DEADZONE        5.0f    // 增大死区，小偏差不修正
+
+// 航向积分清零阈值（防止累积过大）
+#define YAW_RESET_THRESH    30.0f
+
+// 控制使能开关（调试用，可单独关闭某环）
+#define ENABLE_SPEED_PID    1       // 速度环使能
+#define ENABLE_DIFF_PID     1       // 差速环使能（消除机械差异）
+#define ENABLE_YAW_PID      1       // 航向环使能（MPU6050方向主控）
+
+// 差速修正方向（DIF为正但左转时改为0）
+#define DIFF_CORR_INVERT    0
+
+/* ========== 全局变量 ========== */
+static float g_yaw = 0.0f;          // 航向角（度）
+static uint8_t g_softStart = 0;     // 软启动计数器
+static float g_pwmRatio = 1.0f;      // 左右轮PWM比例（左/右）
+static uint8_t g_rampPhase = 1;      // 渐进增速阶段标志
+static uint8_t g_currentPwm = 15;    // 当前PWM值（从15开始，确保能跑动）
+static uint16_t g_startupCnt = 0;    // 启动阶段计数器
+
+/* ========== PID控制器 ========== */
+static PID_t SpeedPid, DiffPid, YawPid;
+
+/* ========== 函数声明 ========== */
+static void ControlLoop(void);
+static float SoftStartLimit(float pwm);
+
+int main(void)
+{
+    OLED_Init();
+    OLED_ShowString(1, 1, "Straight");
+    
+    Motor_Init();
+    Motor_Enable();
+    Encoder_Init();
+    
+    MPU6050_Init();
+    OLED_ShowString(2, 1, "MPU:");
+    OLED_ShowHexNum(2, 5, MPU6050_WhoAmI(), 2);
+    
+    OLED_ShowString(3, 1, "Calibrating...");
+    MPU6050_CalibrateGyroZ(300, 5);
+    
+    // 校准后清零所有状态
+    g_yaw = 0.0f;
+    
+    OLED_ShowString(3, 1, "Ready       ");
+    Delay_ms(1000);  // 增加1秒稳定时间
+    OLED_Clear();
+    
+    // 先初始化PID，再清零积分
+    PID_Init(&SpeedPid, 0.50f, 0.05f, 0.00f, 0.0f, (float)MAX_PWM);
+    PID_Init(&DiffPid, 0.30f, 0.02f, 0.00f, -8.0f, 8.0f);
+    PID_Init(&YawPid, 3.00f, 0.00f, 0.50f, -10.0f, 10.0f);   // 大幅提高航向环增益
+    
+    PID_Reset(&SpeedPid);
+    PID_Reset(&DiffPid);
+    PID_Reset(&YawPid);
+    g_yaw = 0.0f;
+    g_pwmRatio = 1.0f;  // 重置比例
+    
+    // 启动前额外稳定期：读取MPU6050并清零yaw，确保初始姿态正确
+    OLED_ShowString(3, 1, "Stabilizing...");
+    for (int i = 0; i < 200; i++)  // 2秒稳定
+    {
+        float gz = MPU6050_ReadGyroZ_dps_Calibrated();
+        g_yaw += gz * 0.01f;
+        Delay_ms(10);
+    }
+    g_yaw = 0.0f;  // 强制清零
+    PID_Reset(&YawPid);
+    
+    OLED_ShowString(3, 1, "Ready       ");
+    Delay_ms(500);
+    OLED_Clear();
+    
+    MotorA_SetDir(MOTOR_DIR_FORWARD);
+    MotorB_SetDir(MOTOR_DIR_FORWARD);
+    
+    OLED_ShowString(1, 1, "YAW:");
+    OLED_ShowString(2, 1, "DIF:");
+    OLED_ShowString(3, 1, "L:");
+    OLED_ShowString(4, 1, "R:");
+    
+    while(1)
+    {
+        ControlLoop();
+        Delay_ms(10);
+    }
+}
+
+static void ControlLoop(void)
+{
+    int16_t dL = EncoderA_GetDelta();
+    int16_t dR = EncoderB_GetDelta();
+    
+    // 读取MPU6050并更新yaw
+    float gz = MPU6050_ReadGyroZ_dps_Calibrated();
+    g_yaw += gz * 0.01f;
+    if (g_yaw > 180.0f) g_yaw -= 360.0f;
+    if (g_yaw < -180.0f) g_yaw += 360.0f;
+    
+    // 固定PWM速度
+    float basePwm = 25.0f;
+    
+    // 航向修正：直接用yaw比例控制（反转方向测试）
+    // yaw > 0（左转）：尝试左轮加速，右轮减速
+    float kp = 3.0f;
+    float corr = g_yaw * kp;  // 去掉负号，反转方向
+    
+    // 限制修正幅度
+    if (corr > 8.0f) corr = 8.0f;
+    if (corr < -8.0f) corr = -8.0f;
+    
+    // 计算PWM（反转方向）
+    float cmdL = basePwm + corr;  // yaw>0时左轮加速
+    float cmdR = basePwm - corr;  // yaw>0时右轮减速
+    
+    // 确保最低PWM
+    if (cmdL < MIN_PWM) cmdL = MIN_PWM;
+    if (cmdL > 45) cmdL = 45;
+    if (cmdR < MIN_PWM) cmdR = MIN_PWM;
+    if (cmdR > 45) cmdR = 45;
+    
+    MotorA_SetSpeed((uint8_t)cmdL);
+    MotorB_SetSpeed((uint8_t)cmdR);
+    
+    // 显示调试信息
+    OLED_ShowSignedNum(1, 5, (int16_t)g_yaw, 4);
+    OLED_ShowSignedNum(2, 5, (int16_t)(dL - dR), 4);
+    OLED_ShowNum(3, 3, (uint16_t)cmdL, 3);
+    OLED_ShowNum(4, 3, (uint16_t)cmdR, 3);
+    OLED_ShowSignedNum(3, 8, (int16_t)dL, 4);
+    OLED_ShowSignedNum(4, 8, (int16_t)dR, 4);
+}
+
+static float SoftStartLimit(float pwm)
+{
+    if (g_softStart < 300)
+    {
+        float limit = MIN_PWM + (MAX_PWM - MIN_PWM) * ((float)g_softStart / 300.0f);
+        if (pwm > limit) pwm = limit;
+        g_softStart++;
+    }
+    return pwm;
+}

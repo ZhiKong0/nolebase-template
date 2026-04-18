@@ -1,0 +1,766 @@
+{
+  "port": "COM18",
+  "baud": 115200,
+  "reset_cmd": [
+    "pyocd",
+    "reset",
+    "-u",
+    "031305620164",
+    "-t",
+    "stm32f103rc",
+    "-M",
+    "under-reset",
+    "-m",
+    "hw"
+  ],
+  "cases": [
+    {
+      "name": "status_json",
+      "command": "{\"cmd\":\"status\"}",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "saw_boot_ack": true,
+      "reset_chunks": [
+        {
+          "t": 1775720796.003,
+          "text": "code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\"{\"time\":13.000,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":112,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\"{\"time\":13.100,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":112,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.02,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0{\"time\":13.200,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":112,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.02,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0{\"time\":13.300,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":112,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.02,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0"
+        },
+        {
+          "t": 1775720798.609,
+          "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+        },
+        {
+          "t": 1775720798.753,
+          "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+        },
+        {
+          "t": 1775720798.875,
+          "text": "{\"time\":0.100,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720798.895,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720798.916,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720799.201,
+          "text": "{\"time\":0.200,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720799.221,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720799.242,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        }
+      ],
+      "baseline_chunks": [
+        {
+          "t": 1775720799.507,
+          "text": "{\"time\":0.300,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720799.527,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720799.548,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":"
+        },
+        {
+          "t": 1775720799.568,
+          "text": "0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720799.833,
+          "text": "{\"time\":0.400,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720799.853,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720799.874,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        }
+      ],
+      "after_chunks": [
+        {
+          "t": 1775720800.037,
+          "text": "{\"time\":0.400,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720800.058,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720800.078,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720800.16,
+          "text": "{\"time\":0.500,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720800.18,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720800.2,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720800.466,
+          "text": "{\"time\":0.600,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720800.487,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720800.507,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720800.773,
+          "text": "{\"time\":0.700,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720800.793,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720800.814,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":"
+        },
+        {
+          "t": 1775720800.834,
+          "text": "0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720801.1,
+          "text": "{\"time\":0.800,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720801.12,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720801.141,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720801.406,
+          "text": "{\"time\":0.900,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720801.426,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720801.447,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":"
+        },
+        {
+          "t": 1775720801.467,
+          "text": "0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720801.733,
+          "text": "{\"time\":1.000,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720801.753,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720801.774,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720802.039,
+          "text": "{\"time\":1.100,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720802.06,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720802.08,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720802.346,
+          "text": "{\"time\":1.200,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720802.366,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720802.386,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720802.407,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        }
+      ]
+    },
+    {
+      "name": "start_json",
+      "command": "{\"cmd\":\"start\"}",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "saw_boot_ack": true,
+      "reset_chunks": [
+        {
+          "t": 1775720803.87,
+          "text": "{\"time\":1.400,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}{\"time\":1.500,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":113,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720806.503,
+          "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+        },
+        {
+          "t": 1775720806.646,
+          "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+        },
+        {
+          "t": 1775720806.789,
+          "text": "{\"time\":0.100,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720806.809,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720806.83,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720807.095,
+          "text": "{\"time\":0.200,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720807.116,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720807.136,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        }
+      ],
+      "baseline_chunks": [
+        {
+          "t": 1775720807.422,
+          "text": "{\"time\":0.300,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720807.443,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720807.463,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720807.728,
+          "text": "{\"time\":0.400,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720807.749,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720807.769,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":"
+        },
+        {
+          "t": 1775720807.79,
+          "text": "0,\"profile_stored\":0,\"profile_dirty\":0}"
+        }
+      ],
+      "after_chunks": [
+        {
+          "t": 1775720808.016,
+          "text": "{\"ack\":\"ok\",\"item\":\"start\"}\r\n"
+        },
+        {
+          "t": 1775720808.056,
+          "text": "{\"time\":0.500,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading"
+        },
+        {
+          "t": 1775720808.076,
+          "text": "\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.64,\"pwm_r\":0.64},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_sp"
+        },
+        {
+          "t": 1775720808.097,
+          "text": "eed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\""
+        },
+        {
+          "t": 1775720808.362,
+          "text": "{\"time\":0.600,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading"
+        },
+        {
+          "t": 1775720808.383,
+          "text": "\":15.91,\"v_left\":4.55,\"v_right\":0.00},\"control\":{\"pwm_l\":0.74,\"pwm_r\":0.07},\"errors\":{\"e\":-15.91,\"ec\":-146.87,\"ei\":-0.81},\"gains\":{\"heading\":{\"kp\":1.2444,\"ki\":0.0746,\"kd\":0.2366},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"tar"
+        },
+        {
+          "t": 1775720808.403,
+          "text": "get_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":9.196,\"window_ise\":0.634,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_"
+        },
+        {
+          "t": 1775720808.671,
+          "text": "{\"time\":0.700,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"faul"
+        },
+        {
+          "t": 1775720808.692,
+          "text": "t_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":32.28,\"v_left\":4.55,\"v_right\":0.00},\"control\":{\"pwm_l\":0.40,\"pwm_r\":0.00},\"errors\":{\"e\":-32.29,\"ec\":-180.00,\"ei\":-3.26"
+        },
+        {
+          "t": 1775720808.713,
+          "text": "},\"gains\":{\"heading\":{\"kp\":1.3644,\"ki\":0.0594,\"kd\":0.3166},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":71.529,\"window_ise\":4.119,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{"
+        },
+        {
+          "t": 1775720808.733,
+          "text": "\"retrain\":0,\"profile_stored\":0,\"profile"
+        },
+        {
+          "t": 1775720808.999,
+          "text": "{\"time\":0.800,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading"
+        },
+        {
+          "t": 1775720809.02,
+          "text": "\":14.28,\"v_left\":0.00,\"v_right\":4.55},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.56},\"errors\":{\"e\":-14.29,\"ec\":180.00,\"ei\":-5.50},\"gains\":{\"heading\":{\"kp\":1.4844,\"ki\":0.0794,\"kd\":0.3128},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"targ"
+        },
+        {
+          "t": 1775720809.04,
+          "text": "et_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":124.324,\"window_ise\":4.469,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile"
+        },
+        {
+          "t": 1775720809.326,
+          "text": "{\"time\":0.900,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading"
+        },
+        {
+          "t": 1775720809.346,
+          "text": "\":28.68,\"v_left\":4.55,\"v_right\":4.55},\"control\":{\"pwm_l\":0.41,\"pwm_r\":0.00},\"errors\":{\"e\":-28.69,\"ec\":-179.98,\"ei\":-7.56},\"gains\":{\"heading\":{\"kp\":1.6044,\"ki\":0.0599,\"kd\":0.3225},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"tar"
+        },
+        {
+          "t": 1775720809.367,
+          "text": "get_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":169.383,\"window_ise\":4.778,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profil"
+        },
+        {
+          "t": 1775720809.631,
+          "text": "{\"time\":1.000,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"faul"
+        },
+        {
+          "t": 1775720809.651,
+          "text": "t_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":46.68,\"v_left\":4.55,\"v_right\":0.00},\"control\":{\"pwm_l\":0.32,\"pwm_r\":0.00},\"errors\":{\"e\":-46.69,\"ec\":-180.00,\"ei\":-11.4"
+        },
+        {
+          "t": 1775720809.672,
+          "text": "2},\"gains\":{\"heading\":{\"kp\":1.7244,\"ki\":0.0594,\"kd\":0.3230},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":320.957,\"window_ise\":11.186,\"overshoot\":0.00,\"settling\":0.00},\"flags"
+        },
+        {
+          "t": 1775720809.693,
+          "text": "\":{\"retrain\":0,\"profile_stored\":0,\"prof"
+        },
+        {
+          "t": 1775720809.959,
+          "text": "{\"time\":1.100,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading"
+        },
+        {
+          "t": 1775720809.98,
+          "text": "\":64.68,\"v_left\":4.55,\"v_right\":0.00},\"control\":{\"pwm_l\":0.41,\"pwm_r\":0.00},\"errors\":{\"e\":-64.69,\"ec\":-180.00,\"ei\":-17.08},\"gains\":{\"heading\":{\"kp\":1.8444,\"ki\":0.0594,\"kd\":0.3230},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"ta"
+        },
+        {
+          "t": 1775720810.0,
+          "text": "rget_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":643.846,\"window_ise\":23.909,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"prof"
+        },
+        {
+          "t": 1775720810.265,
+          "text": "{\"time\":1.200,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading"
+        },
+        {
+          "t": 1775720810.286,
+          "text": "\":82.68,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.58,\"pwm_r\":0.00},\"errors\":{\"e\":-82.69,\"ec\":-180.00,\"ei\":-24.54},\"gains\":{\"heading\":{\"kp\":1.9644,\"ki\":0.0594,\"kd\":0.3230},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"ta"
+        },
+        {
+          "t": 1775720810.306,
+          "text": "rget_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":1202.851,\"window_ise\":43.040,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"pro"
+        }
+      ]
+    },
+    {
+      "name": "tune_fixed",
+      "command": "{\"tune\":\"fixed\"}",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "saw_boot_ack": true,
+      "reset_chunks": [
+        {
+          "t": 1775720811.768,
+          "text": "{\"time\":1.400,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":75.48,\"v_left\":9.09,\"v_right\":0.00},\"control\":{\"pwm_l\":0.23,\"pwm_r\":0.00},\"errors\":{\"e\":-75.49,\"ec\":-180.00,\"ei\":-39.02},\"gains\":{\"heading\":{\"kp\":2.0436,\"ki\":0.0594,\"kd\":0.3230},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":2259.399,\"window_ise\":49.366,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"pro{\"time\":1.500,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"running\",\"boot\":{\"count\":114,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":57.48,\"v_left\":4.55,\"v_right\":0.00},\"control\":{\"pwm_l\":0.32,\"pwm_r\":0.00},\"errors\":{\"e\":-57.49,\"ec\":180.00,\"ei\":-45.58},\"gains\":{\"heading\":{\"kp\":2.0436,\"ki\":0.0594,\"kd\":0.3230},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":2692.246,\"window_ise\":45.022,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"prof"
+        },
+        {
+          "t": 1775720814.4,
+          "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+        },
+        {
+          "t": 1775720814.564,
+          "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+        },
+        {
+          "t": 1775720814.687,
+          "text": "{\"time\":0.100,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720814.707,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720814.727,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720815.012,
+          "text": "{\"time\":0.200,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720815.032,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720815.053,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        }
+      ],
+      "baseline_chunks": [
+        {
+          "t": 1775720815.319,
+          "text": "{\"time\":0.300,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720815.339,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720815.36,
+          "text": ":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        },
+        {
+          "t": 1775720815.645,
+          "text": "{\"time\":0.400,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720815.665,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720815.685,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}"
+        }
+      ],
+      "after_chunks": [
+        {
+          "t": 1775720815.849,
+          "text": "{\"ack\":\"ok\",\"item\":\"tune\"}\r\n"
+        },
+        {
+          "t": 1775720815.951,
+          "text": "{\"time\":0.500,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720815.971,
+          "text": "0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720815.992,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}"
+        },
+        {
+          "t": 1775720816.258,
+          "text": "{\"time\":0.600,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720816.278,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.01,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720816.299,
+          "text": ":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":"
+        },
+        {
+          "t": 1775720816.319,
+          "text": "0,\"profile_stored\":0,\"profile_dirty\":1}"
+        },
+        {
+          "t": 1775720816.584,
+          "text": "{\"time\":0.700,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720816.605,
+          "text": "0.01,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720816.625,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}"
+        },
+        {
+          "t": 1775720816.909,
+          "text": "{\"time\":0.800,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720816.93,
+          "text": "0.01,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720816.951,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}"
+        },
+        {
+          "t": 1775720817.216,
+          "text": "{\"time\":0.900,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720817.236,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.01,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720817.257,
+          "text": ":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}"
+        },
+        {
+          "t": 1775720817.523,
+          "text": "{\"time\":1.000,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720817.544,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.01,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720817.565,
+          "text": ":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}"
+        },
+        {
+          "t": 1775720817.85,
+          "text": "{\"time\":1.100,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-"
+        },
+        {
+          "t": 1775720817.87,
+          "text": "0.02,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed"
+        },
+        {
+          "t": 1775720817.89,
+          "text": "\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}"
+        },
+        {
+          "t": 1775720818.156,
+          "text": "{\"time\":1.200,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720818.177,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.02,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\""
+        },
+        {
+          "t": 1775720818.197,
+          "text": ":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}"
+        }
+      ]
+    },
+    {
+      "name": "mode_track",
+      "command": "{\"mode\":\"track\"}",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "saw_boot_ack": true,
+      "reset_chunks": [
+        {
+          "t": 1775720819.7,
+          "text": "{\"time\":1.400,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.02,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}{\"time\":1.500,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"idle\",\"boot\":{\"count\":115,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.02,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.2000,\"ki\":0.0800,\"kd\":0.2200},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}{\"time\":1.600,\"mode\":\"straight\",\"tune\":\"fixed\",\"state\":\"�"
+        },
+        {
+          "t": 1775720822.335,
+          "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+        },
+        {
+          "t": 1775720822.478,
+          "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+        },
+        {
+          "t": 1775720822.621,
+          "text": "{\"time\":0.100,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":0"
+        },
+        {
+          "t": 1775720822.642,
+          "text": ".01,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\""
+        },
+        {
+          "t": 1775720822.662,
+          "text": ":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}}"
+        },
+        {
+          "t": 1775720822.927,
+          "text": "{\"time\":0.200,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720822.947,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":"
+        },
+        {
+          "t": 1775720822.968,
+          "text": "{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}}"
+        }
+      ],
+      "baseline_chunks": [
+        {
+          "t": 1775720823.253,
+          "text": "{\"time\":0.300,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":0"
+        },
+        {
+          "t": 1775720823.274,
+          "text": ".00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\""
+        },
+        {
+          "t": 1775720823.294,
+          "text": ":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":0}}"
+        },
+        {
+          "t": 1775720823.56,
+          "text": "{\"time\":0.400,\"mode\":\"straight\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_c"
+        },
+        {
+          "t": 1775720823.58,
+          "text": "ode\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":"
+        },
+        {
+          "t": 1775720823.6,
+          "text": "{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0"
+        },
+        {
+          "t": 1775720823.621,
+          "text": ",\"profile_stored\":0,\"profile_dirty\":0}}"
+        }
+      ],
+      "after_chunks": [
+        {
+          "t": 1775720823.763,
+          "text": "{\"ack\":\"ok\",\"item\":\"mode\"}\r\n"
+        },
+        {
+          "t": 1775720823.865,
+          "text": "{\"time\":0.500,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code"
+        },
+        {
+          "t": 1775720823.885,
+          "text": "\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"h"
+        },
+        {
+          "t": 1775720823.905,
+          "text": "eading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35"
+        },
+        {
+          "t": 1775720823.926,
+          "text": ".00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        },
+        {
+          "t": 1775720824.19,
+          "text": "{\"time\":0.600,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":0.00"
+        },
+        {
+          "t": 1775720824.21,
+          "text": ",\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"h"
+        },
+        {
+          "t": 1775720824.231,
+          "text": "eading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        },
+        {
+          "t": 1775720824.516,
+          "text": "{\"time\":0.700,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.0"
+        },
+        {
+          "t": 1775720824.536,
+          "text": "0,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":3"
+        },
+        {
+          "t": 1775720824.557,
+          "text": "5.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        },
+        {
+          "t": 1775720824.822,
+          "text": "{\"time\":0.800,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code"
+        },
+        {
+          "t": 1775720824.842,
+          "text": "\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\""
+        },
+        {
+          "t": 1775720824.862,
+          "text": "heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        },
+        {
+          "t": 1775720825.127,
+          "text": "{\"time\":0.900,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code"
+        },
+        {
+          "t": 1775720825.147,
+          "text": "\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\""
+        },
+        {
+          "t": 1775720825.168,
+          "text": "heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        },
+        {
+          "t": 1775720825.453,
+          "text": "{\"time\":1.000,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.0"
+        },
+        {
+          "t": 1775720825.473,
+          "text": "0,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":3"
+        },
+        {
+          "t": 1775720825.494,
+          "text": "5.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        },
+        {
+          "t": 1775720825.759,
+          "text": "{\"time\":1.100,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code"
+        },
+        {
+          "t": 1775720825.779,
+          "text": "\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.00,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\""
+        },
+        {
+          "t": 1775720825.799,
+          "text": "heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":35.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\""
+        },
+        {
+          "t": 1775720825.82,
+          "text": "profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        },
+        {
+          "t": 1775720826.085,
+          "text": "{\"time\":1.200,\"mode\":\"track\",\"tune\":\"fuzzy\",\"state\":\"idle\",\"boot\":{\"count\":116,\"reset\":\"soft\",\"fault\":\"none\",\"fault_code\":0,\"fault_addr_src\":\"none\",\"fault_addr\":\"0x00000000\",\"cfsr\":\"0x00000000\",\"hfsr\":\"0x00000000\"},\"sensors\":{\"heading\":-0.0"
+        },
+        {
+          "t": 1775720826.106,
+          "text": "0,\"v_left\":0.00,\"v_right\":0.00},\"control\":{\"pwm_l\":0.00,\"pwm_r\":0.00},\"errors\":{\"e\":0.00,\"ec\":0.00,\"ei\":0.00},\"gains\":{\"heading\":{\"kp\":1.1244,\"ki\":0.1246,\"kd\":0.1566},\"speed\":{\"kp\":1.8000,\"ki\":0.3500,\"kd\":0.0200}},\"config\":{\"target_speed\":3"
+        },
+        {
+          "t": 1775720826.127,
+          "text": "5.00,\"trim\":0.00},\"performance\":{\"ise\":0.000,\"window_ise\":0.000,\"overshoot\":0.00,\"settling\":0.00},\"flags\":{\"retrain\":0,\"profile_stored\":0,\"profile_dirty\":1}}\r\n"
+        }
+      ]
+    }
+  ]
+}

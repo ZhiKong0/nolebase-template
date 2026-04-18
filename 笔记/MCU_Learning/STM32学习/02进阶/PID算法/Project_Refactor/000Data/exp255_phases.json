@@ -1,0 +1,39 @@
+{
+  "pattern": "wobbling_straight_then_spin_turn",
+  "confidence": 0.89,
+  "phase_count": 3,
+  "phases": [
+    {
+      "kind": "wobbling_straight",
+      "t0_s": 0.0,
+      "t1_s": 2.836,
+      "window_count": 5,
+      "yaw_switches": 3,
+      "forward_progress": 9.320840883223717,
+      "lateral_span": 1.2118222146941422,
+      "path_len": 9.4435,
+      "line_dev_abs_max": 2.248899435128471,
+      "yaw_delta_abs_mean": 5.773,
+      "curve_abs_mean": 0.013637501346386725,
+      "non_straight_ratio": 0.8,
+      "wobble_score": 4.0
+    },
+    {
+      "kind": "launch_hesitation",
+      "t0_s": 0.0,
+      "t1_s": 6.081,
+      "window_count": 10,
+      "slow_window_count": 10
+    },
+    {
+      "kind": "spin_turn",
+      "t0_s": 3.041,
+      "t1_s": 3.874,
+      "window_count": 2,
+      "bias": "right_biased",
+      "yaw_abs_mean": 8.421866666666666,
+      "out_diff_abs_mean": 1.5333333333333332,
+      "ed_abs_mean": 1.7666666666666666
+    }
+  ]
+}

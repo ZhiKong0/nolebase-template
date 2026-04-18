@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python binary_protocol.py)",
+      "Bash(python -c \"import struct; print\\(''I:'', struct.calcsize\\(''I''\\)\\); print\\(''h:'', struct.calcsize\\(''h''\\)\\); print\\(''i:'', struct.calcsize\\(''i''\\)\\); print\\(''H:'', struct.calcsize\\(''H''\\)\\); print\\(''Total:'', struct.calcsize\\(''<IhhhhhhiiH''\\)\\)\")",
+      "Bash(python sensor_fusion.py)",
+      "Bash(python pid_controller.py)",
+      "Bash(\"D:\\\\keil\\\\Keil-v5\\\\Arm\\\\UV4\\\\UV4.exe\" -b project.uvprojx -o build.log)",
+      "Bash(\"E:\\\\STMcubeProgrammer\\\\programmer\\\\bin\\\\STM32_Programmer_CLI.exe\" -c port=SWD -w \"F:\\\\Documents\\\\GitHub\\\\nolebase-template\\\\笔记\\\\MCU_Learning\\\\STM32学习\\\\02进阶\\\\PID算法\\\\Project\\\\Objects\\\\project.hex\" -v -rst)"
+    ]
+  }
+}

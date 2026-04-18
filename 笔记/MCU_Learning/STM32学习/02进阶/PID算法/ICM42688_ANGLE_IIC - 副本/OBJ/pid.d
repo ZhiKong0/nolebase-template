@@ -1,0 +1,16 @@
+..\obj\pid.o: ..\HARDWARE\MOTOR_CONTROL\PID.c
+..\obj\pid.o: ..\HARDWARE\MOTOR_CONTROL\PID.h
+..\obj\pid.o: ..\USER\stm32f10x.h
+..\obj\pid.o: ..\CORE\core_cm3.h
+..\obj\pid.o: D:\keil\Keil-v5\Arm\ARM\ARMCC\Bin\..\include\stdint.h
+..\obj\pid.o: ..\USER\system_stm32f10x.h
+..\obj\pid.o: ..\USER\stm32f10x_conf.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\stm32f10x_flash.h
+..\obj\pid.o: ..\USER\stm32f10x.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\stm32f10x_fsmc.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\stm32f10x_gpio.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\stm32f10x_rcc.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\stm32f10x_spi.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\stm32f10x_tim.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\stm32f10x_usart.h
+..\obj\pid.o: ..\STM32F10x_FWLib\inc\misc.h

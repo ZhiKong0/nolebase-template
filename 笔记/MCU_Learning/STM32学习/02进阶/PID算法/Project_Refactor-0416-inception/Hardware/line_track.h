@@ -65,7 +65,22 @@ typedef struct {
     uint8_t  rightAngleAssist; /* 1=当前cornerTurning来自直角专用逻辑 */
     uint32_t rightAngleRearmTick; /* 直角专用逻辑的重入锁定 */
     uint8_t  rightAngleAcceptSeen; /* R90: 已经看到过一次目标方向线(带最小角度门槛) */
+    uint8_t  leftRightAngleConfirmCount; /* 左侧R90触发前的连续确认计数 */
+    uint8_t  turnIntentSide;   /* 最近一次观察到的转向意图侧, 用于短时屏蔽另一侧干扰 */
+    uint32_t turnIntentUntilTick; /* 转向意图侧保持到何时失效 */
+    uint8_t  startupSkipSecondTurnEnabled; /* 1=启动后启用实验版启动期转角屏蔽链 */
+    uint8_t  startupSkipPrimarySide; /* 启动后首个可见转角所在侧, 后续对侧补挡基于该方向 */
+    uint8_t  startupSkipBlockStage; /* 0=等首个可见转角,1=挡第2个可见转角,2=挡第3个可见转角,3=等稳定回线后对侧,4=挡对侧1次,5=完成 */
+    uint8_t  startupSkipOppositeBlockedOnce; /* 第2/3个可见转角里是否已经挡过一次对侧 */
+    uint8_t  startupSkipBlockedSide; /* 当前短屏蔽窗口是由哪一侧触发, 窗口内需抑制其对侧的交叉线干扰 */
+    uint8_t  startupSkipStableTrackCount; /* 回线稳定计数, 用于解锁“对侧再挡1次” */
+    uint8_t  startupSkipStableTrackLatched; /* 短屏蔽后见过稳定TRK则锁存, 到期后再允许对侧屏蔽 */
+    uint32_t startupSkipTurnUntilTick; /* 当前 one-shot 短屏蔽保持到何时, 只用于挡住同一段扰动 */
+    uint8_t  shortLossRecoverPending; /* 直线短时全灭后, 等重新见线时打开短恢复窗口 */
+    uint32_t shortLossRecoverUntilTick; /* 短时全灭恢复窗口, 用于压住 sb=0 -> 单侧见线 的第一下抽动 */
+    uint32_t _currentTickMs;   /* 当前控制周期时间戳, 供输出层判断短屏蔽窗口是否仍激活 */
     float    _currentYaw;      /* 由LineTrack_Update传入的当前偏航角 */
+    float    _currentYawRate;  /* 由LineTrack_Update传入的当前偏航角速度, 用于高速全灭时的提早接管 */
 
     uint8_t  crossing;         /* total crossings to count before auto-stop */
     uint8_t  crossCount;       /* crossings detected so far */
@@ -75,6 +90,8 @@ typedef struct {
     int16_t  weightedPos;      /* current weighted position [-350..+350] */
     int16_t  lastPos;          /* previous weightedPos for D term */
     float    filteredDPos;      /* D项低通滤波后的位置变化率 */
+    int16_t  lastTrackOutL;    /* 上一次实际下发给电机的左轮PWM, 用于TRK输出斜率限制 */
+    int16_t  lastTrackOutR;    /* 上一次实际下发给电机的右轮PWM, 用于TRK输出斜率限制 */
 
     float    kp;               /* runtime P gain (default: PID_TRACK_LINE_KP) */
     float    kd;               /* runtime D gain (default: PID_TRACK_LINE_KD) */
@@ -117,12 +134,15 @@ void LineTrack_Stop(void);
  *  Handles corners (blocking pivot) and cross detection internally.
  *  @param tickMs   current system tick (ms), used for corner timeout.
  *  @param basePwm  speed-loop output (pwmCore) used as base motor PWM. */
-void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw);
+void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw, float currentYawRate);
 
 /** @return 1 if tracking is actively running. */
 uint8_t LineTrack_IsRunning(void);
 
 /** Set PID gains at runtime (e.g. from serial #LKP=/#LKD= commands). */
 void LineTrack_SetPID(float kp, float kd);
+
+/** Configure whether the next TRACK run should enable the experimental startup second-turn skip chain. */
+void LineTrack_SetStartupSkipSecondTurnEnabled(uint8_t enable);
 
 #endif /* __LINE_TRACK_H */

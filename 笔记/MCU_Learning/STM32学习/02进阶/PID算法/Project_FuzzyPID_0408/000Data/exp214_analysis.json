@@ -1,0 +1,102 @@
+{
+  "experiment": "exp214",
+  "mcu_exp_id": 214,
+  "exp_ms": 10000,
+  "sample_count": 129,
+  "run_sample_count": 49,
+  "anomaly_count": 4,
+  "anomaly_breakdown": {
+    "yaw_jump": 4
+  },
+  "yaw_min": -10.834,
+  "yaw_max": 14.106,
+  "parameters": {
+    "ts": 20.0,
+    "skp": 0.1,
+    "ski": 0.012,
+    "skd": 0.0,
+    "akp": 8.0,
+    "aki": 0.0024,
+    "akd": 0.32,
+    "cal_wait_s": 0.2
+  },
+  "anomalies": [
+    {
+      "host_time_s": 1775040633.3094072,
+      "tick": 21593,
+      "t_ms": 0.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": 8.885,
+      "left_encoder": 16.0,
+      "right_encoder": 11.0,
+      "left_output": 15.0,
+      "right_output": 9.0
+    },
+    {
+      "host_time_s": 1775040635.2779956,
+      "tick": 23585,
+      "t_ms": 2902.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": 2.526,
+      "left_encoder": 17.0,
+      "right_encoder": 10.0,
+      "left_output": 15.0,
+      "right_output": 9.0
+    },
+    {
+      "host_time_s": 1775040635.496694,
+      "tick": 23810,
+      "t_ms": 3127.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": 12.261,
+      "left_encoder": 12.0,
+      "right_encoder": 15.0,
+      "left_output": 9.0,
+      "right_output": 15.0
+    },
+    {
+      "host_time_s": 1775040636.4948688,
+      "tick": 24801,
+      "t_ms": 4118.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": -8.979,
+      "left_encoder": 14.0,
+      "right_encoder": 12.0,
+      "left_output": 15.0,
+      "right_output": 9.0
+    }
+  ],
+  "final_x": 121.91494156847772,
+  "final_y": 4.106742019138877,
+  "path": 123.02900000000002,
+  "direct": 121.98409038746445,
+  "sinuosity": 1.0085659499465591,
+  "lat_abs_max": 4.641683727186557,
+  "mean_y": 1.8817204360765905,
+  "mean_abs_y": 1.8966991869688856,
+  "final_y_per_path": 0.033380276350607384,
+  "y_pos_ratio": 0.6730769230769231,
+  "y_neg_ratio": 0.0,
+  "y_zero_ratio": 0.3269230769230769,
+  "bias_ratio": 0.033380276350607384,
+  "bias_severity": "moderate",
+  "trajectory_side_eps": 1.0,
+  "heading_change": -8.448000000000002,
+  "heading_variation": 216.13264,
+  "stability": "unstable_or_wobbling",
+  "reuse_recommendation": "needs_tuning",
+  "dominant_side": "right",
+  "dominant_conf": 1.0,
+  "point_n": 52,
+  "pattern": "wobbling_straight_then_spin_turn",
+  "pattern_conf": 0.73,
+  "phase_n": 2
+}

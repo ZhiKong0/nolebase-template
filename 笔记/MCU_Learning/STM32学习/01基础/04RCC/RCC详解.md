@@ -10,9 +10,10 @@
 
 ### 1.1 什么是 RCC？
 
-**RCC** 全称 **Reset and Clock Control**（复位与时钟控制器），是 STM32 中负责**时钟管理**和**系统复位**的控制单元。
+**RCC** 全称 **Reset and Clock Control**（复位与时钟控制器），是 STM32 中负责**时钟管理**和**系统复位**的控制单元。  
 
 **核心功能**：
+
 - 选择和配置系统时钟源（HSE/HSI/PLL）
 - 配置各总线时钟频率（AHB/APB1/APB2）
 - 控制各外设时钟的使能/禁用
@@ -20,14 +21,14 @@
 
 ### 1.2 RCC 的核心特性
 
-| 特性 | 说明 |
-|------|------|
-| **时钟源** | 4种独立时钟源：HSE、HSI、LSE、LSI |
-| **PLL锁相环** | 支持时钟倍频（最高72MHz@STM32F1） |
-| **总线架构** | AHB（高速）+ APB1（低速）+ APB2（高速） |
-| **时钟安全** | CSS时钟安全系统，HSE失效自动切换HSI |
-| **外设控制** | 每个外设独立时钟使能，降低功耗 |
-| **位置** | **芯片外设**，通过寄存器配置 |
+| 特性                | 说明                                    |
+| ------------------- | --------------------------------------- |
+| **时钟源**    | 4种独立时钟源：HSE、HSI、LSE、LSI       |
+| **PLL锁相环** | 支持时钟倍频（最高72MHz@STM32F1）       |
+| **总线架构**  | AHB（高速）+ APB1（低速）+ APB2（高速） |
+| **时钟安全**  | CSS时钟安全系统，HSE失效自动切换HSI     |
+| **外设控制**  | 每个外设独立时钟使能，降低功耗          |
+| **位置**      | **芯片外设**，通过寄存器配置      |
 
 > **注意**：RCC 是 STM32 芯片厂商设计的外设，不同系列（F1/F4/H7）的 RCC 结构和寄存器有所差异。
 
@@ -39,12 +40,12 @@
 
 STM32F1 有 **4个独立时钟源**：
 
-| 时钟源 | 英文 | 频率 | 精度 | 用途 |
-|--------|------|------|------|------|
-| **HSE** | High Speed External | 4~16MHz（通常8MHz） | 高（晶振） | 系统主时钟源 |
-| **HSI** | High Speed Internal | 8MHz | 中（RC振荡器） | 备用/启动时钟 |
-| **LSE** | Low Speed External | 32.768kHz | 高 | RTC时钟 |
-| **LSI** | Low Speed Internal | 约40kHz | 低 | 独立看门狗(IWDG) |
+| 时钟源        | 英文                | 频率                | 精度           | 用途             |
+| ------------- | ------------------- | ------------------- | -------------- | ---------------- |
+| **HSE** | High Speed External | 4~16MHz（通常8MHz） | 高（晶振）     | 系统主时钟源     |
+| **HSI** | High Speed Internal | 8MHz                | 中（RC振荡器） | 备用/启动时钟    |
+| **LSE** | Low Speed External  | 32.768kHz           | 高             | RTC时钟          |
+| **LSI** | Low Speed Internal  | 约40kHz             | 低             | 独立看门狗(IWDG) |
 
 ### 2.2 时钟源选择策略
 
@@ -62,13 +63,13 @@ STM32F1 有 **4个独立时钟源**：
 
 ### 2.3 时钟源对比
 
-| 场景 | 推荐时钟源 | 原因 |
-|------|-----------|------|
-| 需要串口/USB精确通信 | HSE | 精度高，波特率误差小 |
-| 快速原型开发 | HSI | 省去晶振，电路简单 |
-| 低功耗应用 | HSI + 时钟分频 | 无需外部元件 |
-| RTC实时时钟 | LSE | 32.768kHz标准频率 |
-| 看门狗 | LSI | 独立时钟，不受主时钟影响 |
+| 场景                 | 推荐时钟源     | 原因                     |
+| -------------------- | -------------- | ------------------------ |
+| 需要串口/USB精确通信 | HSE            | 精度高，波特率误差小     |
+| 快速原型开发         | HSI            | 省去晶振，电路简单       |
+| 低功耗应用           | HSI + 时钟分频 | 无需外部元件             |
+| RTC实时时钟          | LSE            | 32.768kHz标准频率        |
+| 看门狗               | LSI            | 独立时钟，不受主时钟影响 |
 
 ---
 
@@ -138,11 +139,11 @@ STM32F1 有 **4个独立时钟源**：
 
 ### 3.2 总线时钟频率限制
 
-| 总线 | 最高频率 | 连接外设 | 备注 |
-|------|:--------:|:---------|:-----|
-| **AHB** | 72MHz | DMA、FSMC、FLASH | 系统主总线 |
-| **APB1** | 36MHz | TIM2~7、USART2~3、SPI2、I2C1~2、UART4~5 | 低速外设 |
-| **APB2** | 72MHz | TIM1、USART1、SPI1、ADC1~3、GPIOA~G | 高速外设 |
+| 总线           | 最高频率 | 连接外设                                  | 备注       |
+| -------------- | :------: | :---------------------------------------- | :--------- |
+| **AHB**  |  72MHz  | DMA、FSMC、FLASH                          | 系统主总线 |
+| **APB1** |  36MHz  | TIM2~7、USART2~3、SPI2、I2C1~2、UART4~5 | 低速外设   |
+| **APB2** |  72MHz  | TIM1、USART1、SPI1、ADC1~3、GPIOA~G      | 高速外设   |
 
 > **重要**：APB1 上的定时器（TIM2~7）时钟为 36MHz 时，由于倍频机制，定时器实际时钟为 72MHz。
 
@@ -167,21 +168,21 @@ SYSCLK = (HSE 或 HSI/2) × PLLMUL
 
 ### 4.2 PLL 配置参数
 
-| 参数 | 选项 | 说明 |
-|------|------|------|
-| **PLLSRC** | HSE 或 HSI/2 | PLL输入时钟源选择 |
-| **PLLMUL** | ×2 ~ ×16 | 倍频系数 |
-| **HSE分频** | /1 或 /2 | HSE输入PLL前的预分频 |
+| 参数              | 选项         | 说明                 |
+| ----------------- | ------------ | -------------------- |
+| **PLLSRC**  | HSE 或 HSI/2 | PLL输入时钟源选择    |
+| **PLLMUL**  | ×2 ~ ×16   | 倍频系数             |
+| **HSE分频** | /1 或 /2     | HSE输入PLL前的预分频 |
 
 ### 4.3 常用 PLL 配置
 
-| 目标SYSCLK | 时钟源 | 源频率 | PLLMUL | 计算 |
-|:----------:|:------:|:------:|:------:|:----:|
-| 72MHz | HSE | 8MHz | ×9 | 8×9=72 |
-| 72MHz | HSE | 12MHz | ×6 | 12×6=72 |
-| 64MHz | HSE | 8MHz | ×8 | 8×8=64 |
-| 48MHz | HSE | 8MHz | ×6 | 8×6=48 |
-| 24MHz | HSI | 8MHz/2=4MHz | ×6 | 4×6=24 |
+| 目标SYSCLK | 时钟源 |   源频率   | PLLMUL |   计算   |
+| :--------: | :----: | :---------: | :----: | :------: |
+|   72MHz   |  HSE  |    8MHz    |  ×9  | 8×9=72 |
+|   72MHz   |  HSE  |    12MHz    |  ×6  | 12×6=72 |
+|   64MHz   |  HSE  |    8MHz    |  ×8  | 8×8=64 |
+|   48MHz   |  HSE  |    8MHz    |  ×6  | 8×6=48 |
+|   24MHz   |  HSI  | 8MHz/2=4MHz |  ×6  | 4×6=24 |
 
 ---
 
@@ -207,19 +208,19 @@ RCC_GetClocksFreq(&RCC_Clocks);
 
 ### 5.2 常用 RCC 配置函数
 
-| 函数 | 功能 |
-|------|------|
-| `RCC_HSEConfig(RCC_HSE_ON)` | 启用/禁用HSE |
-| `RCC_HSICmd(ENABLE)` | 启用HSI |
-| `RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9)` | 配置PLL |
-| `RCC_PLLCmd(ENABLE)` | 启用PLL |
-| `RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK)` | 切换系统时钟源 |
-| `RCC_HCLKConfig(RCC_SYSCLK_Div1)` | 配置AHB预分频 |
-| `RCC_PCLK1Config(RCC_HCLK_Div2)` | 配置APB1预分频 |
-| `RCC_PCLK2Config(RCC_HCLK_Div1)` | 配置APB2预分频 |
+| 函数                                                     | 功能             |
+| -------------------------------------------------------- | ---------------- |
+| `RCC_HSEConfig(RCC_HSE_ON)`                            | 启用/禁用HSE     |
+| `RCC_HSICmd(ENABLE)`                                   | 启用HSI          |
+| `RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9)`  | 配置PLL          |
+| `RCC_PLLCmd(ENABLE)`                                   | 启用PLL          |
+| `RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK)`            | 切换系统时钟源   |
+| `RCC_HCLKConfig(RCC_SYSCLK_Div1)`                      | 配置AHB预分频    |
+| `RCC_PCLK1Config(RCC_HCLK_Div2)`                       | 配置APB1预分频   |
+| `RCC_PCLK2Config(RCC_HCLK_Div1)`                       | 配置APB2预分频   |
 | `RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE)` | 使能APB2外设时钟 |
-| `RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE)` | 使能APB1外设时钟 |
-| `RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE)` | 使能AHB外设时钟 |
+| `RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE)`  | 使能APB1外设时钟 |
+| `RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE)`    | 使能AHB外设时钟  |
 
 ### 5.3 标准时钟配置流程（72MHz）
 
@@ -233,7 +234,7 @@ void RCC_Configuration(void)
     // ==================== 第1步：启用 HSE ====================
     // 启用外部高速晶振（8MHz）
     RCC_HSEConfig(RCC_HSE_ON);
-    
+  
     // 等待 HSE 就绪（必须有超时检测，避免死等）
     ErrorStatus HSEStartUpStatus;
     HSEStartUpStatus = RCC_WaitForHSEStartUp();
@@ -243,30 +244,30 @@ void RCC_Configuration(void)
         // 当 SYSCLK > 48MHz 时，Flash 需要 2个等待周期
         FLASH_PrefetchBufferCmd(FLASH_PrefetchBuffer_Enable);
         FLASH_SetLatency(FLASH_Latency_2);
-        
+      
         // ==================== 第3步：配置 AHB/APB 分频器 ====================
         // AHB = SYSCLK / 1 = 72MHz
         RCC_HCLKConfig(RCC_SYSCLK_Div1);
-        
+      
         // APB1 = HCLK / 2 = 36MHz（不能超过36MHz！）
         RCC_PCLK1Config(RCC_HCLK_Div2);
-        
+      
         // APB2 = HCLK / 1 = 72MHz
         RCC_PCLK2Config(RCC_HCLK_Div1);
-        
+      
         // ==================== 第4步：配置 PLL ====================
         // PLLCLK = HSE × 9 = 8MHz × 9 = 72MHz
         RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9);
-        
+      
         // 启用 PLL
         RCC_PLLCmd(ENABLE);
-        
+      
         // 等待 PLL 就绪
         while (RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET);
-        
+      
         // ==================== 第5步：切换系统时钟到 PLL ====================
         RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK);
-        
+      
         // 等待系统时钟切换完成
         while (RCC_GetSYSCLKSource() != 0x08);  // 0x08 表示 PLL 作为系统时钟
     }
@@ -285,22 +286,22 @@ void RCC_Configuration(void)
 
 ### 6.1 外设时钟总线分布
 
-| 总线 | 外设 | 时钟使能函数 |
-|------|------|-------------|
-| **AHB** | DMA1/DMA2 | `RCC_AHBPeriphClockCmd()` |
-| | FSMC | `RCC_AHBPeriphClockCmd()` |
-| | CRC | `RCC_AHBPeriphClockCmd()` |
-| **APB1** | TIM2~7 | `RCC_APB1PeriphClockCmd()` |
-| | USART2~3, UART4~5 | `RCC_APB1PeriphClockCmd()` |
-| | SPI2, I2C1~2 | `RCC_APB1PeriphClockCmd()` |
-| | CAN1~2, USB | `RCC_APB1PeriphClockCmd()` |
-| | PWR, BKP | `RCC_APB1PeriphClockCmd()` |
-| **APB2** | TIM1, TIM8~11 | `RCC_APB2PeriphClockCmd()` |
-| | USART1 | `RCC_APB2PeriphClockCmd()` |
-| | SPI1 | `RCC_APB2PeriphClockCmd()` |
-| | ADC1~3 | `RCC_APB2PeriphClockCmd()` |
-| | GPIOA~G | `RCC_APB2PeriphClockCmd()` |
-| | AFIO | `RCC_APB2PeriphClockCmd()` |
+| 总线           | 外设               | 时钟使能函数                 |
+| -------------- | ------------------ | ---------------------------- |
+| **AHB**  | DMA1/DMA2          | `RCC_AHBPeriphClockCmd()`  |
+|                | FSMC               | `RCC_AHBPeriphClockCmd()`  |
+|                | CRC                | `RCC_AHBPeriphClockCmd()`  |
+| **APB1** | TIM2~7             | `RCC_APB1PeriphClockCmd()` |
+|                | USART2~3, UART4~5 | `RCC_APB1PeriphClockCmd()` |
+|                | SPI2, I2C1~2       | `RCC_APB1PeriphClockCmd()` |
+|                | CAN1~2, USB        | `RCC_APB1PeriphClockCmd()` |
+|                | PWR, BKP           | `RCC_APB1PeriphClockCmd()` |
+| **APB2** | TIM1, TIM8~11      | `RCC_APB2PeriphClockCmd()` |
+|                | USART1             | `RCC_APB2PeriphClockCmd()` |
+|                | SPI1               | `RCC_APB2PeriphClockCmd()` |
+|                | ADC1~3             | `RCC_APB2PeriphClockCmd()` |
+|                | GPIOA~G            | `RCC_APB2PeriphClockCmd()` |
+|                | AFIO               | `RCC_APB2PeriphClockCmd()` |
 
 ### 6.2 外设时钟使能示例
 
@@ -312,39 +313,39 @@ void Enable_Peripheral_Clocks(void)
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | 
                            RCC_APB2Periph_GPIOB | 
                            RCC_APB2Periph_GPIOC, ENABLE);
-    
+  
     // 复用功能时钟（使用外部中断、重映射等需要）
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO, ENABLE);
-    
+  
     // USART1 时钟
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-    
+  
     // TIM1 时钟
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_TIM1, ENABLE);
-    
+  
     // ADC1 时钟
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_ADC1, ENABLE);
-    
+  
     // ==================== APB1 外设时钟 ====================
     // TIM2 时钟
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-    
+  
     // TIM3 时钟
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
-    
+  
     // USART2 时钟
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);
-    
+  
     // SPI2 时钟
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_SPI2, ENABLE);
-    
+  
     // I2C1 时钟
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE);
-    
+  
     // ==================== AHB 外设时钟 ====================
     // DMA1 时钟
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
-    
+  
     // DMA2 时钟（大容量产品）
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA2, ENABLE);
 }
@@ -352,11 +353,11 @@ void Enable_Peripheral_Clocks(void)
 
 ### 6.3 外设时钟使能注意事项
 
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| 外设不工作 | 忘记使能时钟 | 检查对应总线的时钟使能 |
-| 低功耗异常 | 未禁用不需要的外设时钟 | 使用 `...ClockCmd(..., DISABLE)` |
-| GPIO 不响应 | 忘记使能 AFIO 时钟 | 重映射和外部中断需要 AFIO |
+| 问题        | 原因                   | 解决                               |
+| ----------- | ---------------------- | ---------------------------------- |
+| 外设不工作  | 忘记使能时钟           | 检查对应总线的时钟使能             |
+| 低功耗异常  | 未禁用不需要的外设时钟 | 使用 `...ClockCmd(..., DISABLE)` |
+| GPIO 不响应 | 忘记使能 AFIO 时钟     | 重映射和外部中断需要 AFIO          |
 
 ---
 
@@ -364,11 +365,11 @@ void Enable_Peripheral_Clocks(void)
 
 ### 7.1 三种系统复位源
 
-| 复位源 | 触发条件 | 复位范围 |
-|--------|---------|---------|
-| **电源复位** | 上电/掉电/POR/PDR | 全部寄存器 |
-| **系统复位** | NRST引脚/看门狗/软件复位 | 除备份域外全部 |
-| **备份域复位** | BKP相关 | 仅备份域寄存器 |
+| 复位源               | 触发条件                 | 复位范围       |
+| -------------------- | ------------------------ | -------------- |
+| **电源复位**   | 上电/掉电/POR/PDR        | 全部寄存器     |
+| **系统复位**   | NRST引脚/看门狗/软件复位 | 除备份域外全部 |
+| **备份域复位** | BKP相关                  | 仅备份域寄存器 |
 
 ### 7.2 软件复位
 
@@ -427,7 +428,7 @@ void NMI_Handler(void)
     {
         // HSE 失效！系统已自动切换到 HSI
         // 进行应急处理：报警、记录日志、尝试恢复等
-        
+      
         // 清除 CSS 中断标志
         RCC_ClearITPendingBit(RCC_IT_CSS);
     }
@@ -440,21 +441,21 @@ void NMI_Handler(void)
 
 ### 9.1 时钟配置陷阱
 
-| 问题 | 原因 | 解决 |
-|------|------|------|
-| 系统死机 | APB1 时钟超过36MHz | 检查 `RCC_PCLK1Config`，必须≤36MHz |
-| Flash 错误 | SYSCLK>48MHz但Flash等待周期=0 | 设置 `FLASH_SetLatency(FLASH_Latency_2)` |
-| HSE 启动失败 | 晶振未起振或连接错误 | 检查晶振电路，或改用 HSI |
-| 外设不工作 | 未使能外设时钟 | 检查 `RCC_APBxPeriphClockCmd` |
-| 串口乱码 | 波特率计算错误（时钟配置与实际不符） | 确认 PCLK1/PCLK2 频率正确 |
+| 问题         | 原因                                 | 解决                                       |
+| ------------ | ------------------------------------ | ------------------------------------------ |
+| 系统死机     | APB1 时钟超过36MHz                   | 检查 `RCC_PCLK1Config`，必须≤36MHz      |
+| Flash 错误   | SYSCLK>48MHz但Flash等待周期=0        | 设置 `FLASH_SetLatency(FLASH_Latency_2)` |
+| HSE 启动失败 | 晶振未起振或连接错误                 | 检查晶振电路，或改用 HSI                   |
+| 外设不工作   | 未使能外设时钟                       | 检查 `RCC_APBxPeriphClockCmd`            |
+| 串口乱码     | 波特率计算错误（时钟配置与实际不符） | 确认 PCLK1/PCLK2 频率正确                  |
 
 ### 9.2 Flash 等待周期配置
 
-| SYSCLK 频率 | Flash 等待周期 | 配置代码 |
-|:----------:|:--------------:|:---------|
-| 0 < SYSCLK ≤ 24MHz | 0 | `FLASH_SetLatency(FLASH_Latency_0)` |
-| 24 < SYSCLK ≤ 48MHz | 1 | `FLASH_SetLatency(FLASH_Latency_1)` |
-| 48 < SYSCLK ≤ 72MHz | 2 | `FLASH_SetLatency(FLASH_Latency_2)` |
+|     SYSCLK 频率     | Flash 等待周期 | 配置代码                              |
+| :------------------: | :------------: | :------------------------------------ |
+| 0 < SYSCLK ≤ 24MHz |       0       | `FLASH_SetLatency(FLASH_Latency_0)` |
+| 24 < SYSCLK ≤ 48MHz |       1       | `FLASH_SetLatency(FLASH_Latency_1)` |
+| 48 < SYSCLK ≤ 72MHz |       2       | `FLASH_SetLatency(FLASH_Latency_2)` |
 
 ### 9.3 最佳实践
 
@@ -471,6 +472,7 @@ void NMI_Handler(void)
 ### 10.1 工程概述
 
 本示例演示完整的 RCC 配置流程：
+
 - **系统时钟**：72MHz（HSE 8MHz × 9）
 - **AHB 时钟**：72MHz
 - **APB1 时钟**：36MHz
@@ -512,14 +514,14 @@ int main(void)
 {
     // ==================== 第1步：配置系统时钟 ====================
     RCC_Configuration();
-    
+  
     // ==================== 第2步：获取并打印时钟信息 ====================
     Print_Clock_Info();
-    
+  
     // ==================== 第3步：配置外设 ====================
     GPIO_Configuration();
     USART1_Configuration();
-    
+  
     // ==================== 主循环 ====================
     printf("\r\n========== System Started ==========\r\n");
     printf("System Clock: %lu MHz\r\n", g_SysClockFreq / 1000000);
@@ -527,16 +529,16 @@ int main(void)
     printf("APB1 Clock:   %lu MHz\r\n", g_APB1_ClockFreq / 1000000);
     printf("APB2 Clock:   %lu MHz\r\n", g_APB2_ClockFreq / 1000000);
     printf("=====================================\r\n\r\n");
-    
+  
     while (1)
     {
         // LED 闪烁（使用 PA8）
         GPIO_WriteBit(GPIOA, GPIO_Pin_8, 
             (BitAction)(1 - GPIO_ReadOutputDataBit(GPIOA, GPIO_Pin_8)));
-        
+      
         // 延时（简单循环延时，实际项目建议用定时器）
         for (volatile uint32_t i = 0; i < 5000000; i++);
-        
+      
         printf("System Running... SYSCLK=%luMHz\r\n", g_SysClockFreq / 1000000);
     }
 }
@@ -548,47 +550,47 @@ int main(void)
 void RCC_Configuration(void)
 {
     ErrorStatus HSEStartUpStatus;
-    
+  
     // ==================== 第1步：复位 RCC 寄存器 ====================
     RCC_DeInit();
-    
+  
     // ==================== 第2步：启用 HSE ====================
     RCC_HSEConfig(RCC_HSE_ON);
     HSEStartUpStatus = RCC_WaitForHSEStartUp();
-    
+  
     if (HSEStartUpStatus == SUCCESS)
     {
         // ==================== 第3步：配置 Flash 等待周期 ====================
         // SYSCLK = 72MHz > 48MHz，需要 2 个等待周期
         FLASH_PrefetchBufferCmd(FLASH_PrefetchBuffer_Enable);
         FLASH_SetLatency(FLASH_Latency_2);
-        
+      
         // ==================== 第4步：配置预分频器 ====================
         // HCLK = SYSCLK / 1 = 72MHz
         RCC_HCLKConfig(RCC_SYSCLK_Div1);
-        
+      
         // PCLK1 = HCLK / 2 = 36MHz（APB1不能超过36MHz！）
         RCC_PCLK1Config(RCC_HCLK_Div2);
-        
+      
         // PCLK2 = HCLK / 1 = 72MHz
         RCC_PCLK2Config(RCC_HCLK_Div1);
-        
+      
         // ADC 时钟 = PCLK2 / 6 = 12MHz（不超过14MHz）
         RCC_ADCCLKConfig(RCC_PCLK2_Div6);
-        
+      
         // ==================== 第5步：配置 PLL ====================
         // PLLCLK = HSE × 9 = 8MHz × 9 = 72MHz
         RCC_PLLConfig(RCC_PLLSource_HSE_Div1, RCC_PLLMul_9);
-        
+      
         // 启用 PLL
         RCC_PLLCmd(ENABLE);
-        
+      
         // 等待 PLL 就绪
         while (RCC_GetFlagStatus(RCC_FLAG_PLLRDY) == RESET);
-        
+      
         // ==================== 第6步：切换到 PLL 作为系统时钟 ====================
         RCC_SYSCLKConfig(RCC_SYSCLKSource_PLLCLK);
-        
+      
         // 等待切换完成
         while (RCC_GetSYSCLKSource() != 0x08);  // 0x08 = PLL
     }
@@ -598,20 +600,20 @@ void RCC_Configuration(void)
         // HSI = 8MHz，不使用 PLL
         RCC_SYSCLKConfig(RCC_SYSCLKSource_HSI);
         while (RCC_GetSYSCLKSource() != 0x00);  // 0x00 = HSI
-        
+      
         // 记录错误（实际项目中应进行错误处理）
         // HSE_Error_Handler();
     }
-    
+  
     // ==================== 第7步：使能外设时钟 ====================
     // 使能 GPIOA、GPIOB、AFIO 时钟
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | 
                            RCC_APB2Periph_GPIOB | 
                            RCC_APB2Periph_AFIO, ENABLE);
-    
+  
     // 使能 USART1 时钟（在 APB2 上）
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
-    
+  
     // 使能 TIM2 时钟（在 APB1 上）
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 }
@@ -622,10 +624,10 @@ void RCC_Configuration(void)
 void Print_Clock_Info(void)
 {
     RCC_ClocksTypeDef RCC_Clocks;
-    
+  
     // 获取当前各总线时钟频率
     RCC_GetClocksFreq(&RCC_Clocks);
-    
+  
     // 保存到全局变量
     g_SysClockFreq = RCC_Clocks.SYSCLK_Frequency;
     g_AHB_ClockFreq = RCC_Clocks.HCLK_Frequency;
@@ -639,19 +641,19 @@ void Print_Clock_Info(void)
 void GPIO_Configuration(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct;
-    
+  
     // PA8: LED 输出
     GPIO_InitStruct.GPIO_Pin = GPIO_Pin_8;
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &GPIO_InitStruct);
-    
+  
     // PA9: USART1 TX（复用推挽）
     GPIO_InitStruct.GPIO_Pin = GPIO_Pin_9;
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF_PP;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(GPIOA, &GPIO_InitStruct);
-    
+  
     // PA10: USART1 RX（浮空输入）
     GPIO_InitStruct.GPIO_Pin = GPIO_Pin_10;
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_IN_FLOATING;
@@ -664,7 +666,7 @@ void GPIO_Configuration(void)
 void USART1_Configuration(void)
 {
     USART_InitTypeDef USART_InitStruct;
-    
+  
     // 计算波特率时使用 PCLK2 = 72MHz
     USART_InitStruct.USART_BaudRate = 115200;
     USART_InitStruct.USART_WordLength = USART_WordLength_8b;
@@ -672,7 +674,7 @@ void USART1_Configuration(void)
     USART_InitStruct.USART_Parity = USART_Parity_No;
     USART_InitStruct.USART_Mode = USART_Mode_Tx;  // 仅发送
     USART_InitStruct.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
-    
+  
     USART_Init(USART1, &USART_InitStruct);
     USART_Cmd(USART1, ENABLE);
 }
@@ -698,6 +700,7 @@ PUTCHAR_PROTOTYPE
 ### 10.3 代码要点说明
 
 #### A. 时钟配置顺序
+
 ```c
 // 正确顺序：
 RCC_DeInit();           // 第1步：复位
@@ -710,6 +713,7 @@ RCC_SYSCLKConfig(PLL);  // 第7步：切换系统时钟
 ```
 
 #### B. 频率验证
+
 ```c
 // 配置完成后验证时钟频率
 RCC_ClocksTypeDef clocks;
@@ -723,6 +727,7 @@ if (clocks.SYSCLK_Frequency != 72000000)
 ```
 
 #### C. APB1 时钟限制
+
 ```c
 // APB1 不能超过 36MHz！
 // 错误示例：
@@ -735,6 +740,7 @@ RCC_PCLK1Config(RCC_HCLK_Div2);  // PCLK1 = 36MHz
 ### 10.4 编译与调试
 
 **编译配置**:
+
 1. 在 Keil/VS Code 中创建 STM32F103 工程
 2. 添加标准库文件（StdPeriph）
 3. 配置编译选项：
@@ -743,6 +749,7 @@ RCC_PCLK1Config(RCC_HCLK_Div2);  // PCLK1 = 36MHz
    - 包含路径添加标准库头文件
 
 **调试观察**:
+
 1. 在 `RCC_Configuration()` 设置断点，逐步观察时钟配置过程
 2. 在 `Print_Clock_Info()` 处检查各时钟频率是否正确
 3. 使用示波器观察 HSE 晶振波形（OSC_IN/OSC_OUT）
@@ -788,9 +795,10 @@ RCC_PCLK1Config(RCC_HCLK_Div2);  // PCLK1 = 36MHz
 ---
 
 **参考文档**:
+
 - 《STM32F10xxx 参考手册》第6章 RCC
 - 《STM32F10xxx 闪存编程手册》
 - 《STM32 时钟配置工具 AN2867》
 
-**文档版本**: v1.0  
+**文档版本**: v1.0
 **更新日期**: 2026年3月

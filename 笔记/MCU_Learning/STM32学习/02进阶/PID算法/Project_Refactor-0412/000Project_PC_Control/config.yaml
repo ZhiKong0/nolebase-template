@@ -1,0 +1,77 @@
+serial:
+  port: COM18
+  baudrate: 115200
+  timeout_s: 0.05
+  read_chunk_size: 512
+  mode: STRAIGHT
+  duration_s: 35.0
+  start_after_config: true
+  start_command: "#RUN!"
+  stop_command: "#STOP!"
+telemetry:
+  protocol: TEXT
+robot:
+  wheel_diameter_m: 0.065
+  track_width_m: 0.145
+  encoder_counts_per_rev: 390.0
+  left_count_sign: 1.0
+  right_count_sign: 1.0
+  initial_pose: [0.0, 0.0, 0.0]
+  max_dt_s: 1.0
+line_sensor:
+  enabled: true
+  positions_m: [-0.035, -0.025, -0.015, -0.005, 0.005, 0.015, 0.025, 0.035]
+  min_active_count: 1
+  variance_m2: 0.0004
+reference_path:
+  enabled: false
+  type: line
+  heading_deg: 0.0
+  offset_m: 0.0
+  csv_path: ""
+ekf:
+  process_noise:
+    position_m2: 0.0004
+    heading_rad2: 0.0008
+    speed_mps2: 0.04
+    omega_radps2: 0.08
+    gyro_bias_radps2: 0.0005
+  encoder_variance:
+    linear_mps2: 0.015
+    omega_radps2: 0.03
+  yaw_variance_rad2: 0.0015
+  gyro_variance_radps2: 0.01
+  slip_threshold_radps: 0.9
+  slip_encoder_variance_scale: 5.0
+optimization:
+  enabled: false
+  trigger_interval_s: 0.5
+  window_size: 40
+  max_nfev: 40
+  motion_weight: 1.0
+  yaw_weight: 1.0
+  gyro_weight: 1.0
+  speed_weight: 0.5
+  line_weight: 0.5
+analysis:
+  motion_threshold_mps: 0.05
+  yaw_jump_threshold_deg: 20.0
+  pwm_bias_threshold: 5.0
+output:
+  root_dir: "000Data/trajectory_reconstruction"
+  csv_name_prefix: "trajectory"
+  save_raw_bin: true
+  save_summary_json: true
+  save_plot_png: true
+  live_plot: true
+commands:
+  straight:
+    target_speed: 10.0
+    speed_pid: [1.50, 0.10, 0.0]
+    angle_pid: [6.00, 0.060, 3.20]
+    feedforward_gain: 8.7
+  track:
+    target_speed: 20.0
+    speed_pid: [1.50, 0.10, 0.0]
+    line_pid: [0.18, 2.0]
+    feedforward_gain: 8.7

@@ -14,6 +14,8 @@
 #define TB6612_BIN2_PORT	GPIOB
 #define TB6612_BIN2_PIN		GPIO_Pin_10
 
+#define MOTORB_DIR_INVERT	1
+
 static void Motor_GPIO_Init(void)
 {
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB, ENABLE);
@@ -67,6 +69,9 @@ void MotorA_SetDir(MotorDir_t Dir)
 
 void MotorB_SetDir(MotorDir_t Dir)
 {
+	#if (MOTORB_DIR_INVERT)
+	Dir = (Dir == MOTOR_DIR_FORWARD) ? MOTOR_DIR_BACKWARD : MOTOR_DIR_FORWARD;
+	#endif
 	if (Dir == MOTOR_DIR_FORWARD)
 	{
 		GPIO_SetBits(TB6612_BIN1_PORT, TB6612_BIN1_PIN);

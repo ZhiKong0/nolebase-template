@@ -38,6 +38,23 @@ static int16_t weighted_position(uint8_t bits)
     return (int16_t)(sum / (int32_t)count);
 }
 
+static int16_t apply_track_center_bias(uint8_t bits, int16_t pos)
+{
+    (void)bits;
+
+    /* 当前硬件直线段更常落在 S5 单灯而非 S4/S5 同亮。
+       先只对右侧正向位置做零点回拨，把 sb=16, lp≈+50 校回到 0 附近；
+       左侧先不动，避免把已有左侧边缘判据整体再推得更激进。 */
+    if (pos > 0)
+    {
+        pos = (int16_t)(pos - TRACK_CENTER_RIGHT_POS_OFFSET);
+        if (pos < 0)
+            pos = 0;
+    }
+
+    return pos;
+}
+
 /* Map weighted position to bearing_dev [-7, +7].
  * Positive = car偏左 = need steer right (same convention as 5-sensor).
  *
@@ -81,14 +98,46 @@ static void track_motor_stop(void)
 {
     MotorDriver_Stop();
     MotorDriver_Disable();
+    g_lineTrack.lastTrackOutL = 0;
+    g_lineTrack.lastTrackOutR = 0;
 }
 
 static void track_motor_forward(int16_t left, int16_t right)
 {
     /* 不用 SetDiffPWM! 那个函数会对每个轮子独立加死区，会吞掉差速。
-       用 SetTurnPWM 直接设置 PWM，死区已在 basePwm(速度环输出) 中体现。 */
+    用 SetTurnPWM 直接设置 PWM，死区已在 basePwm(速度环输出) 中体现。 */
     MotorDriver_Enable();
     MotorDriver_SetTurnPWM(left, right);
+    g_lineTrack.lastTrackOutL = left;
+    g_lineTrack.lastTrackOutR = right;
+}
+
+static int16_t clamp_toward_with_step(int16_t current, int16_t target, int16_t step)
+{
+    if (step <= 0)
+        return target;
+
+    if (target > (int16_t)(current + step))
+        return (int16_t)(current + step);
+
+    if (target < (int16_t)(current - step))
+        return (int16_t)(current - step);
+
+    return target;
+}
+
+static int16_t clamp_toward_with_asymmetric_step(int16_t current, int16_t target,
+                                                 int16_t riseStep, int16_t fallStep)
+{
+    if (riseStep <= 0)
+        riseStep = fallStep;
+    if (fallStep <= 0)
+        fallStep = riseStep;
+
+    if (target > current)
+        return clamp_toward_with_step(current, target, riseStep);
+
+    return clamp_toward_with_step(current, target, fallStep);
 }
 
 static void acute_enter_recover(uint32_t tickMs)
@@ -123,6 +172,11 @@ static void acute_drive_recovery(int16_t basePwm)
 
     if (g_lineTrack.acuteSide == LT_DIR_LEFT)
     {
+        diff = TRACK_ACUTE_RECOVER_LEFT_DIFF_PWM;
+        /* 左锐角恢复时一旦已经扫到右半边, 不再继续加同向左弧线，
+           先直着带过去，避免 ARC 阶段越修越过。 */
+        if (g_lineTrack.sensorBits & (LT_MASK_RIGHT | LT_MASK_FAR_RIGHT))
+            diff = 0;
         left = (int16_t)(base - diff);
         right = (int16_t)(base + diff);
     }
@@ -157,6 +211,7 @@ static void acute_enter_corner_search(uint32_t tickMs, float currentYaw)
 static uint8_t acute_recover_line_ready(uint8_t bits, int16_t pos)
 {
     int16_t absPos = (pos >= 0) ? pos : (int16_t)(-pos);
+    uint8_t leftEdgeRecover = 0u;
 
     if ((bits & LT_MASK_ACUTE_ZONE) == 0)
         return 0;
@@ -175,10 +230,26 @@ static uint8_t acute_recover_line_ready(uint8_t bits, int16_t pos)
             return 0;
     }
 
+    /* 左锐角恢复时, 线常常会先以 S3 单点从左边缘重新扫回来。
+       这种情况下不必强求马上回到中心区, 否则很容易从 ARC 超时掉进 CSR。 */
+    if (g_lineTrack.acuteSide == LT_DIR_LEFT
+        && (bits & LT_MASK_MID) == 0
+        && (bits & LT_MASK_LEFT)
+        && !(bits & (LT_MASK_FAR_LEFT | LT_MASK_RIGHT | LT_MASK_FAR_RIGHT)))
+    {
+        leftEdgeRecover = 1u;
+    }
+
     /* 居中约束:
        若当前没有S4/S5，则要求位置偏差已经明显回到中心附近。 */
-    if ((bits & LT_MASK_MID) == 0 && absPos > TRACK_ACUTE_RECOVER_EXIT_POS_MAX)
-        return 0;
+    if ((bits & LT_MASK_MID) == 0)
+    {
+        int16_t exitPosMax = leftEdgeRecover
+            ? TRACK_ACUTE_RECOVER_LEFT_EDGE_POS_MAX
+            : TRACK_ACUTE_RECOVER_EXIT_POS_MAX;
+        if (absPos > exitPosMax)
+            return 0;
+    }
 
     return 1;
 }
@@ -195,6 +266,273 @@ static uint8_t left_sparse_right_angle_trigger_match(uint8_t bits)
     if (bits & LT_MASK_FAR_RIGHT)
         return 0u;
     return 1u;
+}
+
+static void expire_turn_intent(uint32_t tickMs)
+{
+    if (g_lineTrack.turnIntentSide != 0u
+        && tickMs >= g_lineTrack.turnIntentUntilTick)
+    {
+        g_lineTrack.turnIntentSide = 0u;
+        g_lineTrack.turnIntentUntilTick = 0u;
+    }
+}
+
+static void refresh_turn_intent(uint32_t tickMs, uint8_t side)
+{
+    g_lineTrack.turnIntentSide = side;
+    g_lineTrack.turnIntentUntilTick = tickMs + TRACK_TURN_INTENT_HOLD_MS;
+}
+
+static uint8_t turn_intent_allows(uint32_t tickMs, uint8_t side)
+{
+    if (g_lineTrack.turnIntentSide == 0u || tickMs >= g_lineTrack.turnIntentUntilTick)
+        return 1u;
+    return (g_lineTrack.turnIntentSide == side) ? 1u : 0u;
+}
+
+static uint8_t opposite_turn_side(uint8_t side)
+{
+    if (side == LT_DIR_LEFT)
+        return LT_DIR_RIGHT;
+    if (side == LT_DIR_RIGHT)
+        return LT_DIR_LEFT;
+    return 0u;
+}
+
+#define STARTUP_SKIP_STAGE_WAIT_FIRST_VISIBLE      0u
+#define STARTUP_SKIP_STAGE_WAIT_SECOND_VISIBLE     1u
+#define STARTUP_SKIP_STAGE_WAIT_THIRD_VISIBLE      2u
+#define STARTUP_SKIP_STAGE_WAIT_OPPOSITE_REARM     3u
+#define STARTUP_SKIP_STAGE_WAIT_OPPOSITE_ONCE      4u
+#define STARTUP_SKIP_STAGE_DONE                    5u
+
+static void startup_skip_begin_short_block(uint32_t tickMs, uint8_t side)
+{
+    uint32_t blockUntil = tickMs + TRACK_STARTUP_SKIP_SHORT_BLOCK_MS;
+
+    g_lineTrack.startupSkipTurnUntilTick = blockUntil;
+    g_lineTrack.startupSkipBlockedSide = side;
+    g_lineTrack.leftRightAngleConfirmCount = 0u;
+    g_lineTrack.turnIntentSide = 0u;
+    g_lineTrack.turnIntentUntilTick = 0u;
+    g_lineTrack.startupSkipStableTrackCount = 0u;
+    g_lineTrack.startupSkipStableTrackLatched = 0u;
+    if (g_lineTrack.rightAngleRearmTick < blockUntil)
+        g_lineTrack.rightAngleRearmTick = blockUntil;
+    if (g_lineTrack.acuteRearmTick < blockUntil)
+        g_lineTrack.acuteRearmTick = blockUntil;
+}
+
+static void startup_skip_extend_active_window(uint32_t extendMs)
+{
+    uint32_t blockUntil = g_lineTrack.startupSkipTurnUntilTick + extendMs;
+
+    g_lineTrack.startupSkipTurnUntilTick = blockUntil;
+    if (g_lineTrack.rightAngleRearmTick < blockUntil)
+        g_lineTrack.rightAngleRearmTick = blockUntil;
+    if (g_lineTrack.acuteRearmTick < blockUntil)
+        g_lineTrack.acuteRearmTick = blockUntil;
+}
+
+static uint8_t startup_turn_window_active(uint32_t tickMs)
+{
+    if (!g_lineTrack.startupSkipSecondTurnEnabled)
+        return 0u;
+
+    return (tickMs < g_lineTrack.startupSkipTurnUntilTick) ? 1u : 0u;
+}
+
+static uint8_t short_loss_recover_active(uint32_t tickMs)
+{
+    return (tickMs < g_lineTrack.shortLossRecoverUntilTick) ? 1u : 0u;
+}
+
+static void startup_skip_update_track_rearm(uint32_t tickMs)
+{
+    int16_t pos;
+    int16_t absPos;
+    uint8_t stableTrack = 0u;
+
+    if (!g_lineTrack.startupSkipSecondTurnEnabled)
+        return;
+
+    if (g_lineTrack.startupSkipBlockStage != STARTUP_SKIP_STAGE_WAIT_OPPOSITE_REARM)
+        return;
+
+    if (g_lineTrack.cornerTurning
+        || g_lineTrack.acuteState != LT_ACUTE_IDLE
+        || g_lineTrack.overrunCount != 0u
+        || g_lineTrack.sensorBits == 0x00u)
+    {
+        if (!g_lineTrack.startupSkipStableTrackLatched)
+            g_lineTrack.startupSkipStableTrackCount = 0u;
+    }
+    else
+    {
+        pos = g_lineTrack.weightedPos;
+        absPos = (pos >= 0) ? pos : (int16_t)(-pos);
+        if ((g_lineTrack.sensorBits & LT_MASK_MID) != 0u
+            && absPos <= TRACK_STARTUP_SKIP_REARM_POS_MAX)
+        {
+            stableTrack = 1u;
+        }
+        else if ((g_lineTrack.sensorBits & (LT_MASK_FAR_LEFT | LT_MASK_FAR_RIGHT)) == 0u
+                 && absPos <= TRACK_STARTUP_SKIP_REARM_EDGE_POS_MAX)
+        {
+            /* exp95 这类回线期常长期挂在 S3/S6 一侧，尚未回到 S4/S5；
+               允许这种“边缘但已重新挂线”的状态也能 re-arm 额外短屏蔽。 */
+            stableTrack = 1u;
+        }
+
+        if (stableTrack)
+        {
+            if (g_lineTrack.startupSkipStableTrackCount < 255u)
+                g_lineTrack.startupSkipStableTrackCount++;
+
+            if (g_lineTrack.startupSkipStableTrackCount >= TRACK_STARTUP_SKIP_REARM_STABLE_COUNT)
+                g_lineTrack.startupSkipStableTrackLatched = 1u;
+        }
+        else if (!g_lineTrack.startupSkipStableTrackLatched)
+        {
+            g_lineTrack.startupSkipStableTrackCount = 0u;
+        }
+    }
+
+    if (tickMs < g_lineTrack.startupSkipTurnUntilTick)
+        return;
+
+    if (!g_lineTrack.startupSkipStableTrackLatched)
+        return;
+
+    g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_WAIT_OPPOSITE_ONCE;
+    g_lineTrack.startupSkipStableTrackCount = 0u;
+    g_lineTrack.startupSkipStableTrackLatched = 0u;
+}
+
+static uint8_t startup_visible_turn_blocked(uint32_t tickMs, uint8_t side)
+{
+    if (!g_lineTrack.startupSkipSecondTurnEnabled)
+        return 0u;
+
+    if (side != LT_DIR_LEFT && side != LT_DIR_RIGHT)
+        return 0u;
+
+    if (startup_turn_window_active(tickMs))
+        return 1u;
+
+    if (g_lineTrack.startupSkipBlockStage == STARTUP_SKIP_STAGE_WAIT_FIRST_VISIBLE)
+    {
+        g_lineTrack.startupSkipPrimarySide = side;
+        g_lineTrack.startupSkipOppositeBlockedOnce = 0u;
+        g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_WAIT_SECOND_VISIBLE;
+        return 0u;
+    }
+
+    if (g_lineTrack.startupSkipBlockStage == STARTUP_SKIP_STAGE_WAIT_SECOND_VISIBLE)
+    {
+        if (side == opposite_turn_side(g_lineTrack.startupSkipPrimarySide))
+            g_lineTrack.startupSkipOppositeBlockedOnce = 1u;
+        g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_WAIT_THIRD_VISIBLE;
+        startup_skip_begin_short_block(tickMs, side);
+        startup_skip_extend_active_window(TRACK_STARTUP_SKIP_SHORT_BLOCK_MS);
+        return 1u;
+    }
+
+    if (g_lineTrack.startupSkipBlockStage == STARTUP_SKIP_STAGE_WAIT_THIRD_VISIBLE)
+    {
+        if (side == opposite_turn_side(g_lineTrack.startupSkipPrimarySide))
+            g_lineTrack.startupSkipOppositeBlockedOnce = 1u;
+
+        if (g_lineTrack.startupSkipOppositeBlockedOnce)
+            g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_DONE;
+        else
+            g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_WAIT_OPPOSITE_REARM;
+        startup_skip_begin_short_block(tickMs, side);
+        startup_skip_extend_active_window(TRACK_STARTUP_SKIP_SHORT_BLOCK_MS);
+        return 1u;
+    }
+
+    if (g_lineTrack.startupSkipBlockStage == STARTUP_SKIP_STAGE_WAIT_OPPOSITE_ONCE
+        && side == opposite_turn_side(g_lineTrack.startupSkipPrimarySide))
+    {
+        g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_DONE;
+        startup_skip_begin_short_block(tickMs, side);
+        startup_skip_extend_active_window(TRACK_STARTUP_SKIP_SHORT_BLOCK_MS);
+        return 1u;
+    }
+
+    return 0u;
+}
+
+static uint8_t corner_fallback_dir_from_history(void)
+{
+    uint8_t lastBits = g_lineTrack.lastCornerBits;
+    float yawRate = g_lineTrack._currentYawRate;
+
+    if ((lastBits & LT_MASK_FAR_LEFT) && !(lastBits & LT_MASK_FAR_RIGHT))
+        return LT_DIR_LEFT;
+
+    if ((lastBits & LT_MASK_FAR_RIGHT) && !(lastBits & LT_MASK_FAR_LEFT))
+        return LT_DIR_RIGHT;
+
+    if (g_lineTrack.turnIntentSide == LT_DIR_LEFT || g_lineTrack.turnIntentSide == LT_DIR_RIGHT)
+        return g_lineTrack.turnIntentSide;
+
+    if (yawRate >= TRACK_CORNER_FALLBACK_YAWRATE_DPS)
+        return LT_DIR_LEFT;
+
+    if (yawRate <= -TRACK_CORNER_FALLBACK_YAWRATE_DPS)
+        return LT_DIR_RIGHT;
+
+    return (g_lineTrack.weightedPos < 0) ? LT_DIR_LEFT : LT_DIR_RIGHT;
+}
+
+static uint8_t corner_fast_fallback_ready(void)
+{
+    int16_t pos = g_lineTrack.weightedPos;
+    int16_t absPos = (pos >= 0) ? pos : (int16_t)(-pos);
+    float yawRate = g_lineTrack._currentYawRate;
+    float absYawRate = (yawRate >= 0.0f) ? yawRate : -yawRate;
+
+    if (g_lineTrack.overrunCount < TRACK_CORNER_FAST_CONFIRM)
+    {
+        if (g_lineTrack.overrunCount >= TRACK_CORNER_FAST_YAWRATE_CONFIRM
+            && absYawRate >= TRACK_CORNER_FAST_YAWRATE_DPS)
+            return 1u;
+        return 0u;
+    }
+
+    return (absPos >= TRACK_CORNER_FAST_EDGE_POS_MIN) ? 1u : 0u;
+}
+
+static uint8_t left_direct_right_angle_trigger_match(uint8_t bits)
+{
+    /* 左侧R90入口收紧:
+       允许 S1/S2/S3 连成一片, 可带 S4, 但不接受 S5/右半边仍亮的对角图样。
+       这样可以把“左转回线早期的斜线图样”留给 PD 继续拉回。 */
+    if ((bits & (LT_MASK_FAR_LEFT | LT_MASK_LEFT)) != (LT_MASK_FAR_LEFT | LT_MASK_LEFT))
+        return 0u;
+    if (bits & (LT_MASK_MID_R | LT_MASK_RIGHT | LT_MASK_FAR_RIGHT))
+        return 0u;
+    return 1u;
+}
+
+static uint8_t left_confirm_right_angle_trigger_match(uint8_t bits, uint32_t tickMs)
+{
+    if (left_direct_right_angle_trigger_match(bits))
+        return 1u;
+
+    /* 已经锁定左转意图时，允许短时忽略右侧插入的干扰位；
+       只要左侧S1+S3仍在，就继续推动左侧R90确认。 */
+    if (turn_intent_allows(tickMs, LT_DIR_LEFT)
+        && g_lineTrack.turnIntentSide == LT_DIR_LEFT
+        && ((bits & (0x01u | LT_MASK_LEFT)) == (0x01u | LT_MASK_LEFT)))
+    {
+        return 1u;
+    }
+
+    return 0u;
 }
 
 static uint8_t acute_trigger_allowed(uint8_t bits, uint8_t side)
@@ -252,11 +590,39 @@ static uint8_t corner_current_frame_consistent(uint8_t bits, uint8_t dir, uint8_
     return 1;
 }
 
+static uint8_t corner_search_exit_ready(uint8_t bits, uint8_t dir)
+{
+    int16_t currentPos;
+    int16_t absPos;
+
+    if (bits == 0x00u)
+        return 0u;
+
+    if (!corner_current_frame_consistent(bits, dir, 0u))
+        return 0u;
+
+    currentPos = apply_track_center_bias(bits, weighted_position(bits));
+    absPos = (currentPos >= 0) ? currentPos : (int16_t)(-currentPos);
+
+    if (bits & LT_MASK_MID)
+        return 1u;
+
+    if (absPos > TRACK_CORNER_EXIT_POS_MAX)
+        return 0u;
+
+    if (dir == LT_DIR_LEFT)
+        return (bits & (LT_MASK_LEFT | LT_MASK_MID)) ? 1u : 0u;
+
+    if (dir == LT_DIR_RIGHT)
+        return (bits & (LT_MASK_RIGHT | LT_MASK_MID)) ? 1u : 0u;
+
+    return 0u;
+}
+
 static uint8_t right_angle_trigger_match(uint8_t bits, uint8_t side)
 {
     if (side == LT_DIR_LEFT)
-        return ((((bits & (LT_MASK_FAR_LEFT | LT_MASK_LEFT)) == (LT_MASK_FAR_LEFT | LT_MASK_LEFT))
-                 || left_sparse_right_angle_trigger_match(bits)) ? 1u : 0u);
+        return left_direct_right_angle_trigger_match(bits);
     if (side == LT_DIR_RIGHT)
         return (((bits & (LT_MASK_FAR_RIGHT | LT_MASK_RIGHT)) == (LT_MASK_FAR_RIGHT | LT_MASK_RIGHT)) ? 1u : 0u);
     return 0u;
@@ -267,6 +633,7 @@ static void enter_right_angle_turn(uint32_t tickMs, uint8_t dir, uint8_t bits)
     g_lineTrack.cornerTurning = 1;
     g_lineTrack.rightAngleAssist = 1;
     g_lineTrack.rightAngleAcceptSeen = 0;
+    g_lineTrack.leftRightAngleConfirmCount = 0;
     g_lineTrack.cornerDir = dir;
     g_lineTrack.cornerStartTick = tickMs;
     g_lineTrack.cornerStartYaw = g_lineTrack._currentYaw;
@@ -324,6 +691,8 @@ static void signal_handler(volatile uint32_t *pTickMs)
     uint8_t bits;
     int16_t rawPos;
 
+    expire_turn_intent(*pTickMs);
+
     g_lineTrack.filterTimes++;
     if (g_lineTrack.filterTimes >= TRACK_CROSS_FILTER)
         g_lineTrack.filterTimes = TRACK_CROSS_FILTER;
@@ -331,13 +700,29 @@ static void signal_handler(volatile uint32_t *pTickMs)
     bits = read_sensor_bits();
     g_lineTrack.sensorBits = bits;
 
+    if ((bits != 0x00u) && g_lineTrack.shortLossRecoverPending)
+    {
+        g_lineTrack.shortLossRecoverUntilTick = *pTickMs + TRACK_SHORT_LOSS_RECOVER_MS;
+        g_lineTrack.shortLossRecoverPending = 0u;
+    }
+
+    if (!g_lineTrack.cornerTurning && g_lineTrack.acuteState == LT_ACUTE_IDLE)
+    {
+        if ((bits & 0x01u) && !(bits & 0x80u))
+            refresh_turn_intent(*pTickMs, LT_DIR_LEFT);
+        else if ((bits & 0x80u) && !(bits & 0x01u))
+            refresh_turn_intent(*pTickMs, LT_DIR_RIGHT);
+    }
+
     /* ===== 锐角检测: 时间窗监控 (acuteState==1) =====
      * 在时间窗T内: 对侧S8/S1也亮→交叉口, 撤销; T到期对侧没亮→确认锐角 */
     if (g_lineTrack.acuteState == LT_ACUTE_WINDOW)
     {
         uint32_t elapsed = *pTickMs - g_lineTrack.acuteStartTick;
         uint8_t oppBit = (g_lineTrack.acuteSide == LT_DIR_LEFT) ? 0x80 : 0x01;
-        if (bits & oppBit)
+        if ((bits & oppBit)
+            && !(g_lineTrack.turnIntentSide == g_lineTrack.acuteSide
+                 && *pTickMs < g_lineTrack.turnIntentUntilTick))
         {
             g_lineTrack.acuteState = LT_ACUTE_IDLE;  /* 对侧也亮 → 交叉口, 不是锐角 */
             g_lineTrack.acuteRearmTick = *pTickMs + TRACK_ACUTE_REARM_MS;
@@ -387,75 +772,113 @@ static void signal_handler(volatile uint32_t *pTickMs)
     else if (g_lineTrack.acuteState == LT_ACUTE_RECOVER)
     {
         g_lineTrack.overrunCount = 0;
-        rawPos = (bits != 0x00) ? weighted_position(bits) : 0;
+        rawPos = (bits != 0x00) ? apply_track_center_bias(bits, weighted_position(bits)) : 0;
         g_lineTrack.bearingDev = position_to_bearing(rawPos);
     }
     /* ===== Case 1: 全灭 — 弯道/脱轨 ===== */
     else if (bits == 0x00)
     {
+        uint8_t fastFallbackReady;
+        int16_t absPos = g_lineTrack.weightedPos;
+        float yawRate = g_lineTrack._currentYawRate;
+        float absYawRate = (yawRate >= 0.0f) ? yawRate : -yawRate;
+
+        if (absPos < 0)
+            absPos = (int16_t)(-absPos);
+
         if (!g_lineTrack.cornerTurning)
             g_lineTrack.overrunCount++;  /* 旋转模式下不累加, 由IMU角度控制 */
+
+        fastFallbackReady = corner_fast_fallback_ready();
 
         if (g_lineTrack.cornerTurning)
         {
             /* 正在旋转找线: 保持位置冻结, 由Update中的IMU逻辑控制 */
             rawPos = g_lineTrack.weightedPos;
         }
-        else if (g_lineTrack.overrunCount < TRACK_CORNER_CONFIRM)
+        else if (!fastFallbackReady
+                 && g_lineTrack.overrunCount < TRACK_CORNER_CONFIRM)
         {
-            /* 短暂丢线: 冻结当前位置, PD保持惯性转向 */
-            rawPos = g_lineTrack.weightedPos;
+            /* 直线短时全灭: 不再完全冻结, 先轻微往中心衰减一拍；
+               重新见线后再开一个很短的恢复窗口, 压住 sb=0 -> 单侧见线 的抽动。 */
+            if ((g_lineTrack.acuteState == LT_ACUTE_IDLE)
+                && (absPos <= TRACK_SHORT_LOSS_ARM_POS_MAX)
+                && (absYawRate <= TRACK_SHORT_LOSS_YAWRATE_MAX))
+            {
+                g_lineTrack.shortLossRecoverPending = 1u;
+                rawPos = clamp_toward_with_step(g_lineTrack.weightedPos, 0, TRACK_SHORT_LOSS_DECAY_STEP);
+            }
+            else
+            {
+                g_lineTrack.shortLossRecoverPending = 0u;
+                rawPos = g_lineTrack.weightedPos;
+            }
         }
         else if (g_lineTrack.overrunCount < TRACK_OVERRUN_LIMIT)
         {
-            /* 进入非阻塞原地旋转模式 */
-            g_lineTrack.cornerTurning = 1;
-            g_lineTrack.cornerStartTick = *pTickMs;
-            g_lineTrack.cornerStartYaw = g_lineTrack._currentYaw;
-            g_lineTrack.rightAngleAssist = 0;
-            g_lineTrack.rightAngleAcceptSeen = 0;
-            if (g_lineTrack.lastCornerBits & LT_MASK_FAR_LEFT)
-                g_lineTrack.cornerDir = LT_DIR_LEFT;
-            else
-                g_lineTrack.cornerDir = LT_DIR_RIGHT;
+            /* 强边缘全灭时不再硬等完整确认窗，直接按历史方向提早接管。 */
+            uint8_t fallbackDir = corner_fallback_dir_from_history();
+            g_lineTrack.shortLossRecoverPending = 0u;
+            g_lineTrack.shortLossRecoverUntilTick = 0u;
+            /* CSR 是真正可见的转角入口，启动期阶段推进应发生在这里，
+               而不是更早的隐藏候选上。 */
+            if (!startup_visible_turn_blocked(*pTickMs, fallbackDir))
+            {
+                g_lineTrack.cornerTurning = 1;
+                g_lineTrack.cornerStartTick = *pTickMs;
+                g_lineTrack.cornerStartYaw = g_lineTrack._currentYaw;
+                g_lineTrack.rightAngleAssist = 0;
+                g_lineTrack.rightAngleAcceptSeen = 0;
+                g_lineTrack.cornerDir = fallbackDir;
+            }
             rawPos = g_lineTrack.weightedPos;
         }
         else
         {
             /* 超时: 不停车, 重置计数继续尝试, 只靠手动按键停 */
             g_lineTrack.overrunCount = 0;
+            g_lineTrack.shortLossRecoverPending = 0u;
+            g_lineTrack.shortLossRecoverUntilTick = 0u;
             rawPos = g_lineTrack.weightedPos;
         }
     }
     /* ===== Case 2+3: 有传感器亮 — 正常巡线 (交叉口检测已移除) ===== */
     else
     {
-        rawPos = weighted_position(bits);
+        rawPos = apply_track_center_bias(bits, weighted_position(bits));
         g_lineTrack.bearingDev = position_to_bearing(rawPos);
 
         /* 锐角触发检测: 中间区域有线(S3~S6) + 最外侧S1或S8同时亮
          * 放宽中间判定: 小车稍偏时入线可能在S3或S6而非S4/S5
          * 正常弯道线渐移到边缘时中间区不亮, 只有锐角V型才同时亮 */
-        if (g_lineTrack.acuteState == LT_ACUTE_IDLE
+        if (!g_lineTrack.cornerTurning
+            && g_lineTrack.acuteState == LT_ACUTE_IDLE
             && *pTickMs >= g_lineTrack.acuteRearmTick
             && (bits & LT_MASK_ACUTE_ZONE))
         {
             if (bits & 0x01)       /* S1 (最左) 触发 → 左侧锐角 */
             {
-                if (acute_trigger_allowed(bits, LT_DIR_LEFT))
+                /* 先做锐角资格过滤；启动期阶段推进只在真正进入 AWN 时发生。 */
+                if (turn_intent_allows(*pTickMs, LT_DIR_LEFT)
+                    && acute_trigger_allowed(bits, LT_DIR_LEFT)
+                    && !startup_visible_turn_blocked(*pTickMs, LT_DIR_LEFT))
                 {
                     g_lineTrack.acuteState = LT_ACUTE_WINDOW;
                     g_lineTrack.acuteSide = LT_DIR_LEFT;
                     g_lineTrack.acuteStartTick = *pTickMs;
+                    refresh_turn_intent(*pTickMs, LT_DIR_LEFT);
                 }
             }
             else if (bits & 0x80)  /* S8 (最右) 触发 → 右侧锐角 */
             {
-                if (acute_trigger_allowed(bits, LT_DIR_RIGHT))
+                if (turn_intent_allows(*pTickMs, LT_DIR_RIGHT)
+                    && acute_trigger_allowed(bits, LT_DIR_RIGHT)
+                    && !startup_visible_turn_blocked(*pTickMs, LT_DIR_RIGHT))
                 {
                     g_lineTrack.acuteState = LT_ACUTE_WINDOW;
                     g_lineTrack.acuteSide = LT_DIR_RIGHT;
                     g_lineTrack.acuteStartTick = *pTickMs;
+                    refresh_turn_intent(*pTickMs, LT_DIR_RIGHT);
                 }
             }
         }
@@ -476,14 +899,55 @@ static void signal_handler(volatile uint32_t *pTickMs)
 
 static int16_t dev_speed_pid(int16_t pos)
 {
+    int16_t posForPid = pos;
+    int16_t absPosForPid;
     float dPos = (float)(pos - g_lineTrack.lastPos);
+    float deriv;
+    float kp = g_lineTrack.kp;
+    float kd = g_lineTrack.kd;
+    float pwm_f;
+    uint8_t centerTrack = 0u;
+    uint8_t edgeTrack = 0u;
+
+    if (posForPid >= -TRACK_PID_POS_DEADBAND && posForPid <= TRACK_PID_POS_DEADBAND)
+        posForPid = 0;
+
+    absPosForPid = (posForPid >= 0) ? posForPid : (int16_t)(-posForPid);
 
     /* D项低通滤波：平滑传感器离散跳变，防止D尖峰 */
     g_lineTrack.filteredDPos = TRACK_DERIV_LPF * dPos
                              + (1.0f - TRACK_DERIV_LPF) * g_lineTrack.filteredDPos;
 
-    float pwm_f = g_lineTrack.kp * (float)pos
-                + g_lineTrack.kd * g_lineTrack.filteredDPos;
+    deriv = g_lineTrack.filteredDPos;
+    if (deriv > -TRACK_PID_D_DEADBAND && deriv < TRACK_PID_D_DEADBAND)
+        deriv = 0.0f;
+    if (deriv > TRACK_PID_D_MAX)
+        deriv = TRACK_PID_D_MAX;
+    if (deriv < -TRACK_PID_D_MAX)
+        deriv = -TRACK_PID_D_MAX;
+
+    if ((g_lineTrack.sensorBits & LT_MASK_MID) != 0u)
+    {
+        if (absPosForPid <= TRACK_PID_CENTER_POS_MAX)
+            centerTrack = 1u;
+    }
+    else if (absPosForPid >= TRACK_PID_EDGE_POS_MIN)
+    {
+        edgeTrack = 1u;
+    }
+
+    if (centerTrack)
+    {
+        kp *= TRACK_PID_CENTER_KP_SCALE;
+        kd *= TRACK_PID_CENTER_KD_SCALE;
+    }
+    else if (edgeTrack)
+    {
+        kp *= TRACK_PID_EDGE_KP_SCALE;
+        kd *= TRACK_PID_EDGE_KD_SCALE;
+    }
+
+    pwm_f = kp * (float)posForPid + kd * deriv;
     int16_t pwm = (int16_t)pwm_f;
     g_lineTrack.lastPos = pos;
     return pwm;
@@ -492,22 +956,103 @@ static int16_t dev_speed_pid(int16_t pos)
 static void compute_and_drive(int16_t basePwm)
 {
     int16_t left, right, devMax;
+    int16_t driveBase;
+    int16_t pos;
+    int16_t absPos;
+    int16_t riseStep;
+    int16_t fallStep;
+    float absYawRate;
+    uint8_t centeredTrack = 0u;
+    uint8_t oppositeInterference = 0u;
+    uint8_t shortLossRecover = 0u;
+
+    driveBase = basePwm;
+    pos = g_lineTrack.weightedPos;
+    absPos = (pos >= 0) ? pos : (int16_t)(-pos);
+    shortLossRecover = short_loss_recover_active(g_lineTrack._currentTickMs);
+    absYawRate = (g_lineTrack._currentYawRate >= 0.0f)
+        ? g_lineTrack._currentYawRate
+        : -g_lineTrack._currentYawRate;
+
+    if ((absPos >= TRACK_EDGE_SPEED_CAP_POS)
+        || (((g_lineTrack.sensorBits & LT_MASK_MID) == 0u)
+            && (g_lineTrack.sensorBits & (LT_MASK_LEFT | LT_MASK_RIGHT | LT_MASK_FAR_LEFT | LT_MASK_FAR_RIGHT))))
+    {
+        if (driveBase > TRACK_EDGE_BASE_PWM_MAX)
+            driveBase = TRACK_EDGE_BASE_PWM_MAX;
+    }
+
+    if ((g_lineTrack.sensorBits == 0u) && driveBase > TRACK_ZERO_LOSS_BASE_PWM_MAX)
+        driveBase = TRACK_ZERO_LOSS_BASE_PWM_MAX;
+
+    if ((absYawRate >= TRACK_CURVE_YAWRATE_CAP_DPS)
+        && driveBase > TRACK_CURVE_BASE_PWM_MAX)
+    {
+        driveBase = TRACK_CURVE_BASE_PWM_MAX;
+    }
+
+    if (shortLossRecover && driveBase > TRACK_SHORT_LOSS_RECOVER_BASE_PWM_MAX)
+        driveBase = TRACK_SHORT_LOSS_RECOVER_BASE_PWM_MAX;
 
     g_lineTrack.devSpeed = dev_speed_pid(g_lineTrack.weightedPos);
 
+    if (startup_turn_window_active(g_lineTrack._currentTickMs)
+        && g_lineTrack.startupSkipBlockedSide != 0u)
+    {
+        uint8_t oppositeSide = opposite_turn_side(g_lineTrack.startupSkipBlockedSide);
+        if ((oppositeSide == LT_DIR_LEFT && pos < 0)
+            || (oppositeSide == LT_DIR_RIGHT && pos > 0))
+        {
+            oppositeInterference = 1u;
+        }
+    }
+
     /* 限制差速幅度: 内轮至少保留 (1-RATIO)*basePwm 的前进速度,
      * 防止内轮频繁停转导致走走停停 */
-    devMax = (int16_t)(basePwm * TRACK_DEV_MAX_RATIO);
+    devMax = (int16_t)(driveBase * TRACK_DEV_MAX_RATIO);
     if (g_lineTrack.devSpeed > devMax)  g_lineTrack.devSpeed = devMax;
     if (g_lineTrack.devSpeed < -devMax) g_lineTrack.devSpeed = -devMax;
 
-    left  = (int16_t)(basePwm + g_lineTrack.devSpeed);
-    right = (int16_t)(basePwm - g_lineTrack.devSpeed);
+    if (shortLossRecover)
+    {
+        if (g_lineTrack.devSpeed > TRACK_SHORT_LOSS_RECOVER_DEV_MAX)
+            g_lineTrack.devSpeed = TRACK_SHORT_LOSS_RECOVER_DEV_MAX;
+        if (g_lineTrack.devSpeed < -TRACK_SHORT_LOSS_RECOVER_DEV_MAX)
+            g_lineTrack.devSpeed = -TRACK_SHORT_LOSS_RECOVER_DEV_MAX;
+    }
+
+    if (oppositeInterference)
+    {
+        if (g_lineTrack.devSpeed > TRACK_STARTUP_SKIP_WINDOW_OPPOSITE_DEV_MAX)
+            g_lineTrack.devSpeed = TRACK_STARTUP_SKIP_WINDOW_OPPOSITE_DEV_MAX;
+        if (g_lineTrack.devSpeed < -TRACK_STARTUP_SKIP_WINDOW_OPPOSITE_DEV_MAX)
+            g_lineTrack.devSpeed = -TRACK_STARTUP_SKIP_WINDOW_OPPOSITE_DEV_MAX;
+    }
+
+    left  = (int16_t)(driveBase + g_lineTrack.devSpeed);
+    right = (int16_t)(driveBase - g_lineTrack.devSpeed);
 
     if (left > TRACK_PWM_MAX)  left  = TRACK_PWM_MAX;
     if (left < TRACK_PWM_MIN)  left  = TRACK_PWM_MIN;
     if (right > TRACK_PWM_MAX) right = TRACK_PWM_MAX;
     if (right < TRACK_PWM_MIN) right = TRACK_PWM_MIN;
+
+    if ((g_lineTrack.sensorBits & LT_MASK_MID) != 0u
+        && absPos <= TRACK_OUTPUT_SLEW_BYPASS_POS_MAX)
+    {
+        centeredTrack = 1u;
+    }
+
+    riseStep = TRACK_OUTPUT_SLEW_STEP;
+    fallStep = TRACK_OUTPUT_SLEW_STEP;
+    if ((g_lineTrack.sensorBits == 0u) || shortLossRecover)
+        fallStep = TRACK_OUTPUT_RISK_DROP_STEP;
+
+    if (!centeredTrack)
+    {
+        left = clamp_toward_with_asymmetric_step(g_lineTrack.lastTrackOutL, left, riseStep, fallStep);
+        right = clamp_toward_with_asymmetric_step(g_lineTrack.lastTrackOutR, right, riseStep, fallStep);
+    }
 
     track_motor_forward(left, right);
 }
@@ -519,6 +1064,7 @@ void LineTrack_Init(void)
     /* GPIO init is done by LineSensor_Init() in main */
     g_lineTrack.kp = PID_TRACK_LINE_KP;   /* load compile-time defaults */
     g_lineTrack.kd = PID_TRACK_LINE_KD;
+    g_lineTrack.startupSkipSecondTurnEnabled = 1u;
     LineTrack_Stop();
 }
 
@@ -538,6 +1084,8 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.weightedPos = 0;
     g_lineTrack.lastPos = 0;
     g_lineTrack.filteredDPos = 0.0f;
+    g_lineTrack.lastTrackOutL = 0;
+    g_lineTrack.lastTrackOutR = 0;
     g_lineTrack.cornerDone = 0;
     g_lineTrack.cornerTurning = 0;
     g_lineTrack.cornerDir = 0;
@@ -545,6 +1093,21 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.rightAngleAssist = 0;
     g_lineTrack.rightAngleRearmTick = 0;
     g_lineTrack.rightAngleAcceptSeen = 0;
+    g_lineTrack.leftRightAngleConfirmCount = 0;
+    g_lineTrack.turnIntentSide = 0;
+    g_lineTrack.turnIntentUntilTick = 0;
+    g_lineTrack.startupSkipPrimarySide = 0;
+    g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_WAIT_FIRST_VISIBLE;
+    g_lineTrack.startupSkipOppositeBlockedOnce = 0u;
+    g_lineTrack.startupSkipBlockedSide = 0u;
+    g_lineTrack.startupSkipStableTrackCount = 0;
+    g_lineTrack.startupSkipStableTrackLatched = 0;
+    g_lineTrack.startupSkipTurnUntilTick = 0;
+    g_lineTrack.shortLossRecoverPending = 0u;
+    g_lineTrack.shortLossRecoverUntilTick = 0u;
+    g_lineTrack._currentTickMs = 0;
+    g_lineTrack._currentYaw = 0.0f;
+    g_lineTrack._currentYawRate = 0.0f;
     g_lineTrack.acuteState = LT_ACUTE_IDLE;
     g_lineTrack.acuteSide = 0;
     g_lineTrack.acuteStartTick = 0;
@@ -565,13 +1128,22 @@ void LineTrack_Stop(void)
 {
     g_lineTrack.state = LT_STATE_IDLE;
     g_lineTrack.autoFlag = LT_FLAG_STOP;
+    g_lineTrack.shortLossRecoverPending = 0u;
+    g_lineTrack.shortLossRecoverUntilTick = 0u;
     track_motor_stop();
 }
 
-void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
+void LineTrack_SetStartupSkipSecondTurnEnabled(uint8_t enable)
+{
+    g_lineTrack.startupSkipSecondTurnEnabled = enable ? 1u : 0u;
+}
+
+void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw, float currentYawRate)
 {
     volatile uint32_t tick = tickMs;
+    g_lineTrack._currentTickMs = tickMs;
     g_lineTrack._currentYaw = currentYaw;  /* 供 signal_handler 记录起始角度 */
+    g_lineTrack._currentYawRate = currentYawRate;
 
     switch (g_lineTrack.state)
     {
@@ -583,6 +1155,7 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
 
     case LT_STATE_RUNNING:
         signal_handler(&tick);
+        startup_skip_update_track_rearm(tickMs);
         g_lineTrack.dbgTrackState = 0;
         g_lineTrack.dbgCornerDir = 0;
         g_lineTrack.dbgCornerYawDelta = 0.0f;
@@ -595,14 +1168,77 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
             && g_lineTrack.acuteState == LT_ACUTE_IDLE
             && tickMs >= g_lineTrack.rightAngleRearmTick)
         {
-            if ((g_lineTrack.sensorBits & 0x01u) && right_angle_trigger_match(g_lineTrack.sensorBits, LT_DIR_LEFT))
+            uint8_t leftDirectMatch = 0u;
+            uint8_t leftWeakMatch = 0u;
+            uint8_t leftCandidateHit = 0u;
+            uint8_t leftNextConfirmCount = 0u;
+            uint8_t leftReadyToEnter = 0u;
+            if ((g_lineTrack.sensorBits & 0x01u)
+                && turn_intent_allows(tickMs, LT_DIR_LEFT))
             {
-                enter_right_angle_turn(tickMs, LT_DIR_LEFT, g_lineTrack.sensorBits);
+                leftDirectMatch = left_direct_right_angle_trigger_match(g_lineTrack.sensorBits);
+                leftWeakMatch = (!leftDirectMatch
+                                 && left_confirm_right_angle_trigger_match(g_lineTrack.sensorBits, tickMs)) ? 1u : 0u;
             }
-            else if ((g_lineTrack.sensorBits & 0x80u) && right_angle_trigger_match(g_lineTrack.sensorBits, LT_DIR_RIGHT))
+            uint8_t rightMatch = ((g_lineTrack.sensorBits & 0x80u)
+                                  && turn_intent_allows(tickMs, LT_DIR_RIGHT)
+                                  && right_angle_trigger_match(g_lineTrack.sensorBits, LT_DIR_RIGHT)) ? 1u : 0u;
+
+            if (leftDirectMatch)
             {
-                enter_right_angle_turn(tickMs, LT_DIR_RIGHT, g_lineTrack.sensorBits);
+                /* 强左直角图样(S1/S2/S3干净连片)直接进入R90，不再等3帧确认，
+                   否则像 exp36 这种首个左转会在确认完成前就已经全灭出线。 */
+                leftReadyToEnter = 1u;
             }
+            else if (leftWeakMatch)
+            {
+                leftNextConfirmCount = (g_lineTrack.leftRightAngleConfirmCount < 255u)
+                    ? (uint8_t)(g_lineTrack.leftRightAngleConfirmCount + 1u)
+                    : 255u;
+                leftReadyToEnter = (leftNextConfirmCount >= TRACK_LEFT_RIGHT_ANGLE_CONFIRM_COUNT) ? 1u : 0u;
+            }
+
+            leftCandidateHit = leftDirectMatch || leftReadyToEnter;
+
+            if (startup_turn_window_active(tickMs))
+            {
+                leftDirectMatch = 0u;
+                leftWeakMatch = 0u;
+                leftReadyToEnter = 0u;
+                leftNextConfirmCount = 0u;
+                leftCandidateHit = 0u;
+                rightMatch = 0u;
+            }
+
+            if (leftWeakMatch)
+            {
+                g_lineTrack.leftRightAngleConfirmCount = leftNextConfirmCount;
+            }
+            else
+            {
+                g_lineTrack.leftRightAngleConfirmCount = 0;
+            }
+
+            if (leftCandidateHit && leftReadyToEnter)
+            {
+                if (!startup_visible_turn_blocked(tickMs, LT_DIR_LEFT))
+                {
+                    refresh_turn_intent(tickMs, LT_DIR_LEFT);
+                    enter_right_angle_turn(tickMs, LT_DIR_LEFT, g_lineTrack.sensorBits);
+                }
+            }
+            else if (rightMatch)
+            {
+                if (!startup_visible_turn_blocked(tickMs, LT_DIR_RIGHT))
+                {
+                    refresh_turn_intent(tickMs, LT_DIR_RIGHT);
+                    enter_right_angle_turn(tickMs, LT_DIR_RIGHT, g_lineTrack.sensorBits);
+                }
+            }
+        }
+        else if (!g_lineTrack.cornerTurning)
+        {
+            g_lineTrack.leftRightAngleConfirmCount = 0;
         }
 
         if (g_lineTrack.autoFlag == LT_FLAG_STOP)
@@ -610,6 +1246,16 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
             g_lineTrack.cornerTurning = 0;
             g_lineTrack.rightAngleAssist = 0;
             g_lineTrack.rightAngleAcceptSeen = 0;
+            g_lineTrack.leftRightAngleConfirmCount = 0;
+            g_lineTrack.turnIntentSide = 0;
+            g_lineTrack.turnIntentUntilTick = 0;
+            g_lineTrack.startupSkipPrimarySide = 0;
+            g_lineTrack.startupSkipBlockStage = STARTUP_SKIP_STAGE_WAIT_FIRST_VISIBLE;
+            g_lineTrack.startupSkipOppositeBlockedOnce = 0u;
+            g_lineTrack.startupSkipBlockedSide = 0u;
+            g_lineTrack.startupSkipStableTrackCount = 0;
+            g_lineTrack.startupSkipStableTrackLatched = 0;
+            g_lineTrack.startupSkipTurnUntilTick = 0;
             g_lineTrack.acuteState = LT_ACUTE_IDLE;
             track_motor_stop();
             g_lineTrack.state = LT_STATE_IDLE;
@@ -647,7 +1293,7 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
             }
             /* 差速前进: 外轮快, 内轮慢, 都正转(不自转) */
             if (g_lineTrack.acuteSide == LT_DIR_LEFT)
-                track_motor_forward(TRACK_ACUTE_INNER_PWM, TRACK_ACUTE_OUTER_PWM);
+                track_motor_forward(TRACK_ACUTE_LEFT_INNER_PWM, TRACK_ACUTE_LEFT_OUTER_PWM);
             else
                 track_motor_forward(TRACK_ACUTE_OUTER_PWM, TRACK_ACUTE_INNER_PWM);
             break;
@@ -738,19 +1384,38 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
                 uint8_t currentFrameOk = corner_current_frame_consistent(bits,
                                                                         g_lineTrack.cornerDir,
                                                                         g_lineTrack.rightAngleAssist);
+                uint8_t csrExitReady = corner_search_exit_ready(bits, g_lineTrack.cornerDir);
                 uint8_t exitAllowed = (g_lineTrack.rightAngleAssist == 0u) || yawReady;
-                if (exitAllowed
-                    && ((bits & acceptMask)
-                        || (g_lineTrack.rightAngleAcceptSeen && currentFrameOk)))
+                uint8_t exitHit = 0u;
+
+                if (g_lineTrack.rightAngleAssist)
                 {
-                    /* 找到线! 先刹车消除旋转动量, 再恢复PD循迹 */
-                    track_motor_stop();
+                    if ((bits & acceptMask)
+                        || (g_lineTrack.rightAngleAcceptSeen && currentFrameOk))
+                    {
+                        exitHit = 1u;
+                    }
+                }
+                else if (csrExitReady)
+                {
+                    exitHit = 1u;
+                }
+
+                if (exitAllowed && exitHit)
+                {
+                    /* 找到线后直接软退出到 PD。
+                     * 这里不再硬停电机, 避免 R90/CSR -> TRK 交接时出现明显顿挫。 */
                     g_lineTrack.cornerTurning = 0;
                     g_lineTrack.rightAngleAssist = 0;
                     g_lineTrack.rightAngleAcceptSeen = 0;
                     g_lineTrack.overrunCount = 0;
                     g_lineTrack.lastCornerBits = LT_MASK_MID;
+                    g_lineTrack.lastPos = g_lineTrack.weightedPos;
+                    g_lineTrack.filteredDPos = 0.0f;
+                    g_lineTrack.rightAngleRearmTick = tickMs + TRACK_RIGHT_ANGLE_REARM_MS;
+                    g_lineTrack.acuteRearmTick = tickMs + TRACK_ACUTE_REARM_MS;
                     g_lineTrack.cornerDone = 1;
+                    compute_and_drive(basePwm);
                     break;
                 }
             }

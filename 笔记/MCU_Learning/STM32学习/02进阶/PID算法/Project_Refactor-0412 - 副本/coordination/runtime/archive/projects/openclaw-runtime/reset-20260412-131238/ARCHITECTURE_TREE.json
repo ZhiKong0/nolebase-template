@@ -1,0 +1,86 @@
+{
+    "retention":  {
+                      "streamTailEntries":  25,
+                      "l2RecentHours":  72,
+                      "l2RecentCount":  20,
+                      "digestHeadEntries":  8
+                  },
+    "projectName":  "openclaw-runtime",
+    "projectId":  "openclaw-runtime",
+    "version":  1,
+    "readPriorityChain":  [
+                              "context/LIVE_STATE_BOARD.md",
+                              "STREAM_LOG/SESSION_HEADS.json",
+                              "CHANGELOG_TIER/L3_DIGEST/latest_summary.md",
+                              "CHANGELOG_TIER/L1_ACTIVE/ACTIVE_SESSIONS.json",
+                              "STREAM_LOG/NEWEST_ENTRY.json",
+                              "tasks/TASK-xxx.md",
+                              "locks/TASK-xxx.json",
+                              "SESSIONS/active/\u003csession-id\u003e/SESSION_DELTA.json",
+                              "SESSIONS/active/\u003csession-id\u003e/AI_PROMPT.md",
+                              "README_INDEX.md",
+                              "ARCHITECTURE_TREE.json",
+                              "ARCHITECTURE_INDEX.md",
+                              "CHANGELOG_TIER/L2_RECENT/RECENT_INDEX.json",
+                              "CHANGELOG_TIER/L0_BASE/BASELINE_STATE.json"
+                          ],
+    "baselineVersion":  "L0-20260412-115742",
+    "zones":  [
+                  {
+                      "paths":  [
+                                    "README_INDEX.md",
+                                    "ARCHITECTURE_INDEX.md",
+                                    "ARCHITECTURE_TREE.json",
+                                    "BOUNDARIES/"
+                                ],
+                      "name":  "control_plane",
+                      "mode":  "read_only_for_task_ai"
+                  },
+                  {
+                      "paths":  [
+                                    "STREAM_LOG/"
+                                ],
+                      "name":  "stream_plane",
+                      "mode":  "bounded_incremental_read"
+                  },
+                  {
+                      "paths":  [
+                                    "CHANGELOG_TIER/L0_BASE",
+                                    "CHANGELOG_TIER/L1_ACTIVE",
+                                    "CHANGELOG_TIER/L2_RECENT",
+                                    "CHANGELOG_TIER/L3_DIGEST",
+                                    "CHANGELOG_TIER/L4_ARCHIVE"
+                                ],
+                      "name":  "change_plane",
+                      "mode":  "tiered_read"
+                  },
+                  {
+                      "paths":  [
+                                    "SESSIONS/",
+                                    "LOGS/",
+                                    "STAGING/"
+                                ],
+                      "name":  "session_plane",
+                      "mode":  "session_scoped"
+                  },
+                  {
+                      "paths":  [
+                                    "context/",
+                                    "tasks/",
+                                    "locks/",
+                                    "activity/",
+                                    "state/"
+                                ],
+                      "name":  "shared_context",
+                      "mode":  "task_scoped"
+                  },
+                  {
+                      "paths":  [
+                                    "coordination/runtime/worktrees/{project-id}"
+                                ],
+                      "name":  "execution_plane",
+                      "mode":  "isolated_checkout"
+                  }
+              ],
+    "generatedAt":  "2026-04-12T11:57:42.5185530+08:00"
+}

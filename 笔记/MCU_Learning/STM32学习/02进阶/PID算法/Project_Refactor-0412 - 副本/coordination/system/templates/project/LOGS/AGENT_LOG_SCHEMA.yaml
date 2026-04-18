@@ -1,0 +1,84 @@
+version: 1
+type: triad_log_record
+required:
+  - timestamp
+  - session_id
+  - agent_id
+  - type
+  - content
+  - related_files
+  - status
+  - checksum
+fields:
+  session_id:
+    type: string
+  agent_id:
+    type: string
+  type:
+    type: string
+    allowed:
+      - T
+      - E
+      - M
+  content:
+    type: string
+  related_files:
+    type: array
+    items:
+      type: string
+  status:
+    type: string
+    allowed:
+      - planned
+      - started
+      - active
+      - completed
+      - blocked
+      - failed
+      - rejected
+      - conflict
+  checksum:
+    type: string
+    description: sha256 over the record payload before checksum insertion
+  timestamp:
+    type: string
+    format: date-time
+    example: "2026-04-12T04:00:00+08:00"
+  entry_id:
+    type: string
+    optional: true
+    example: "ENTRY-20260412-040000-0000001-E-abc123"
+  project_id:
+    type: string
+  task_id:
+    type: string
+    optional: true
+  action_type:
+    type: string
+    optional: true
+    allowed:
+      - read
+      - write
+      - modify
+      - delete
+      - patch
+      - claim
+      - release
+      - session_open
+      - session_close
+      - conflict
+      - other
+  target_path:
+    type: string
+    optional: true
+    example: "src/parser/index.ts"
+  delta_summary:
+    type: string
+    optional: true
+    example: "Inspect parser flow before applying patch"
+  metadata:
+    type: object
+    optional: true
+append_policy:
+  mode: append_only_jsonl
+  one_record_per_line: true

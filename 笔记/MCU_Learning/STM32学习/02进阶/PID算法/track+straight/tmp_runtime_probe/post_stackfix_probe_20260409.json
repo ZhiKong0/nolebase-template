@@ -1,0 +1,54 @@
+{
+  "reset_cmd": [
+    "pyocd",
+    "reset",
+    "-u",
+    "031305620164",
+    "-t",
+    "stm32f103rc",
+    "-M",
+    "under-reset",
+    "-m",
+    "hw"
+  ],
+  "port": "COM18",
+  "baud": 115200,
+  "cases": [
+    {
+      "name": "status_json",
+      "cmd": "{\"cmd\":\"status\"}\n",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "boot_preview": "",
+      "after_preview": ""
+    },
+    {
+      "name": "start_json",
+      "cmd": "{\"cmd\":\"start\"}\n",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "boot_preview": "",
+      "after_preview": ""
+    },
+    {
+      "name": "tune_fixed",
+      "cmd": "{\"tune\":\"fixed\"}\n",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "boot_preview": "",
+      "after_preview": ""
+    },
+    {
+      "name": "mode_track",
+      "cmd": "{\"mode\":\"track\"}\n",
+      "reset_rc": 0,
+      "reset_stdout": "",
+      "reset_stderr": "",
+      "boot_preview": "",
+      "after_preview": ""
+    }
+  ]
+}

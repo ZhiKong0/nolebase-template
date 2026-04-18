@@ -1,0 +1,106 @@
+{
+    "lossyBoundaryPolicy":  "stop_and_require_explicit_acceptance",
+    "sharedState":  {
+                        "summaryFiles":  [
+                                             "state/registry.json",
+                                             "CHANGELOG_TIER/L1_ACTIVE/ACTIVE_SESSIONS.json",
+                                             "STREAM_LOG/LATEST_TAIL.json",
+                                             "STREAM_LOG/NEWEST_ENTRY.json",
+                                             "STREAM_LOG/SESSION_HEADS.json",
+                                             "CHANGELOG_TIER/L3_DIGEST/latest_summary.md"
+                                         ],
+                        "transactions":  "state/transactions/",
+                        "streamEntries":  "STREAM_LOG/STREAM.jsonl",
+                        "stateEventLog":  "state/events/STATE_EVENTS.jsonl"
+                    },
+    "readPriorityChain":  [
+                              "context/LIVE_STATE_BOARD.md",
+                              "STREAM_LOG/SESSION_HEADS.json",
+                              "CHANGELOG_TIER/L3_DIGEST/latest_summary.md",
+                              "CHANGELOG_TIER/L1_ACTIVE/ACTIVE_SESSIONS.json",
+                              "coordination/bin/coord-read-stream.cmd -ProjectId \u003cproject-id\u003e -AgentId \u003cagent-id\u003e -OtherAgentsOnly -IncludeSessionHeads",
+                              "STREAM_LOG/NEWEST_ENTRY.json (summary only)",
+                              "STREAM_LOG/LATEST_TAIL.json (summary only)",
+                              "tasks/TASK-xxx.md",
+                              "locks/TASK-xxx.json",
+                              "SESSIONS/active/\u003csession-id\u003e/SESSION_DELTA.json",
+                              "SESSIONS/active/\u003csession-id\u003e/AI_PROMPT.md",
+                              "README_INDEX.md",
+                              "ARCHITECTURE_TREE.json",
+                              "ARCHITECTURE_INDEX.md",
+                              "CHANGELOG_TIER/L2_RECENT/RECENT_INDEX.json",
+                              "CHANGELOG_TIER/L0_BASE/BASELINE_STATE.json"
+                          ],
+    "zones":  [
+                  {
+                      "paths":  [
+                                    "README_INDEX.md",
+                                    "ARCHITECTURE_INDEX.md",
+                                    "ARCHITECTURE_TREE.json",
+                                    "BOUNDARIES/"
+                                ],
+                      "name":  "control_plane",
+                      "mode":  "read_only_for_task_ai"
+                  },
+                  {
+                      "paths":  [
+                                    "STREAM_LOG/STREAM.jsonl",
+                                    "STREAM_LOG/LATEST_TAIL.json",
+                                    "STREAM_LOG/NEWEST_ENTRY.json",
+                                    "STREAM_LOG/SESSION_HEADS.json",
+                                    "STREAM_LOG/READ_POINTERS/"
+                                ],
+                      "name":  "stream_plane",
+                      "mode":  "append_source_plus_atomic_summary"
+                  },
+                  {
+                      "paths":  [
+                                    "CHANGELOG_TIER/L0_BASE",
+                                    "CHANGELOG_TIER/L1_ACTIVE",
+                                    "CHANGELOG_TIER/L2_RECENT",
+                                    "CHANGELOG_TIER/L3_DIGEST",
+                                    "CHANGELOG_TIER/L4_ARCHIVE"
+                                ],
+                      "name":  "change_plane",
+                      "mode":  "tiered_read"
+                  },
+                  {
+                      "paths":  [
+                                    "SESSIONS/",
+                                    "LOGS/",
+                                    "STAGING/"
+                                ],
+                      "name":  "session_plane",
+                      "mode":  "session_scoped"
+                  },
+                  {
+                      "paths":  [
+                                    "context/",
+                                    "tasks/",
+                                    "locks/",
+                                    "activity/",
+                                    "state/"
+                                ],
+                      "name":  "shared_context",
+                      "mode":  "task_scoped"
+                  },
+                  {
+                      "paths":  [
+                                    "coordination/runtime/worktrees/{project-id}"
+                                ],
+                      "name":  "execution_plane",
+                      "mode":  "isolated_checkout"
+                  }
+              ],
+    "version":  2,
+    "projectId":  "openclaw-runtime",
+    "projectName":  "openclaw-runtime",
+    "generatedAt":  "2026-04-12T13:12:38.4156508+08:00",
+    "retention":  {
+                      "streamTailEntries":  25,
+                      "l2RecentHours":  72,
+                      "l2RecentCount":  20,
+                      "digestHeadEntries":  8
+                  },
+    "baselineVersion":  "L0-20260412-131238"
+}

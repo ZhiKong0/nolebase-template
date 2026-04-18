@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \":*)",
+      "Bash(python auto_test.py)",
+      "Bash(python serial_monitor.py)",
+      "Bash(python -c \"data = bytes.fromhex\\(''48 42 20 74 69 63 6B 3D 38 37 37 36 39 20 72 75 6E 3D 30 20''\\); print\\(data.decode\\(''ascii'', errors=''ignore''\\)\\)\")",
+      "Bash(python test_complete.py)",
+      "Bash(rm -f test_log_*.csv test_log_*.txt)",
+      "Bash(ls test_log_*)",
+      "Bash(python test_interactive.py)",
+      "Bash(python test_auto.py)",
+      "Bash(python test_manual_start.py)",
+      "Bash(python test_with_serial_start.py)",
+      "Bash(python test_serial_commands.py)",
+      "Bash(python test_comprehensive.py)",
+      "Bash(\"D:\\\\keil\\\\Keil-v5\\\\Arm\\\\UV4\\\\UV4.exe\" -b project.uvprojx -o build_log.txt)",
+      "Bash(python -c \"import serial.tools.list_ports; ports = serial.tools.list_ports.comports\\(\\); print\\(''Available ports:''\\); [print\\(f''  {p.device}: {p.description}''\\) for p in ports]\")",
+      "Bash(ls -lt test_log_*.csv)",
+      "Bash(python test_button_start.py)",
+      "Bash(python build_and_flash.py)",
+      "Bash(\"E:\\\\STMcubeProgrammer\\\\programmer\\\\bin\\\\STM32_Programmer_CLI.exe\" -c port=SWD -w \"F:\\\\Documents\\\\GitHub\\\\nolebase-template\\\\笔记\\\\MCU_Learning\\\\STM32学习\\\\02进阶\\\\PID算法\\\\Project\\\\Objects\\\\project.hex\" -rst)",
+      "Bash(python test_serial_debug.py)",
+      "Bash(python test_simple_serial.py)",
+      "Bash(python test_boot_messages.py)"
+    ]
+  }
+}

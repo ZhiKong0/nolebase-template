@@ -1,0 +1,99 @@
+{
+  "experiment": "exp223",
+  "mcu_exp_id": 223,
+  "exp_ms": 10000,
+  "sample_count": 147,
+  "run_sample_count": 68,
+  "anomaly_count": 3,
+  "anomaly_breakdown": {
+    "yaw_jump": 3
+  },
+  "yaw_min": -12.644,
+  "yaw_max": 12.877,
+  "parameters": {
+    "ts": 24.0,
+    "skp": 0.6,
+    "ski": 0.012,
+    "skd": 0.0,
+    "akp": 0.24,
+    "aki": 0.0024,
+    "akd": 0.05,
+    "cal_wait_s": 0.2
+  },
+  "anomalies": [
+    {
+      "host_time_s": 1775047171.0894587,
+      "tick": 45191,
+      "t_ms": 0.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": 6.432,
+      "left_encoder": 10.0,
+      "right_encoder": 7.0,
+      "left_output": 10.0,
+      "right_output": 10.0
+    },
+    {
+      "host_time_s": 1775047172.0962236,
+      "tick": 46208,
+      "t_ms": 0.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": -0.848,
+      "left_encoder": 7.0,
+      "right_encoder": 12.0,
+      "left_output": 7.0,
+      "right_output": 11.0
+    },
+    {
+      "host_time_s": 1775047174.3738558,
+      "tick": 48485,
+      "t_ms": 0.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": -8.115,
+      "left_encoder": 2.0,
+      "right_encoder": 4.0,
+      "left_output": 6.0,
+      "right_output": 6.0
+    }
+  ],
+  "final_x": 107.67147269619738,
+  "final_y": -7.3326842903503575,
+  "path": 108.37949999999998,
+  "direct": 107.92087050922973,
+  "sinuosity": 1.0042496830187357,
+  "lat_abs_max": 7.3326842903503575,
+  "mean_y": -2.344764827648024,
+  "mean_abs_y": 2.3507703378547116,
+  "final_y_per_path": -0.06765748402927084,
+  "y_pos_ratio": 0.0,
+  "y_neg_ratio": 0.5432098765432098,
+  "y_zero_ratio": 0.4567901234567901,
+  "bias_ratio": 0.06765748402927084,
+  "bias_severity": "high",
+  "trajectory_side_eps": 1.0,
+  "heading_change": -3.1989999999999963,
+  "heading_variation": 154.127422,
+  "stability": "unstable_or_wobbling",
+  "reuse_recommendation": "needs_tuning",
+  "dominant_side": "left",
+  "dominant_conf": 1.0,
+  "point_n": 81,
+  "trajectory_point_n": 81,
+  "segment_n": 24,
+  "max_line_dev_abs": 1.3268551871653087,
+  "segment_kind_counts": {
+    "straight": 3,
+    "left_curve": 14,
+    "right_curve": 4,
+    "stuck": 1,
+    "drift_right": 2
+  },
+  "pattern": "straight_to_spin_turn",
+  "pattern_conf": 0.6000000000000001,
+  "phase_n": 1
+}

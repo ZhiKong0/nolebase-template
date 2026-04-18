@@ -1,0 +1,126 @@
+{
+  "sample_count": 182,
+  "run_sample_count": 6,
+  "mode_hint": "track_mode",
+  "sensor_semantics": {
+    "sensor_order": "s1 到 s8 按从左到右排列",
+    "center_best": "s4 与 s5 同时亮",
+    "s4_only": "右偏",
+    "s5_only": "左偏"
+  },
+  "parameters": {
+    "ts_last": 14.0,
+    "st_last": 1.4,
+    "kp_last": 0.35,
+    "ki_last": 0.0,
+    "kd_last": 0.0
+  },
+  "sensor_summary": {
+    "valid_sensor_sample_count": 3,
+    "score_mean": 1.5,
+    "score_abs_mean": 1.8333333333333333,
+    "score_max": 2.5,
+    "score_min": -0.5,
+    "side_vote": "right",
+    "s4s5_both_on_ratio": 0.0,
+    "s4_only_ratio": 0.0,
+    "s5_only_ratio": 0.3333333333333333,
+    "right_bias_ratio": 0.6666666666666666,
+    "left_bias_ratio": 0.3333333333333333,
+    "balanced_ratio": 0.0,
+    "line_missing_ratio": 0.5
+  },
+  "startup_summary": {
+    "startup_side": "right",
+    "first_valid_t_s": 0.305,
+    "first_valid_state": "left_bias",
+    "first_valid_score": -0.5,
+    "first_valid_active_sensors": [
+      "s5"
+    ],
+    "first_missing_after_valid_t_s": 0.608,
+    "startup_sequence": [
+      {
+        "t_s": 0.305,
+        "sensor_state": "left_bias",
+        "sensor_score": -0.5,
+        "active_sensors": [
+          "s5"
+        ]
+      },
+      {
+        "t_s": 0.905,
+        "sensor_state": "right_bias",
+        "sensor_score": 2.5,
+        "active_sensors": [
+          "s2"
+        ]
+      },
+      {
+        "t_s": 1.208,
+        "sensor_state": "right_bias",
+        "sensor_score": 2.5,
+        "active_sensors": [
+          "s2"
+        ]
+      }
+    ]
+  },
+  "encoder_summary": {
+    "mean_abs_el": 0.125,
+    "mean_abs_er": 0.16666666666666666,
+    "mean_ed": -0.041666666666666664,
+    "ed_rms": 0.1767766952966369,
+    "encoder_ratio_er_el": 1.3333333333333333,
+    "pulse_zero_ratio": 0.16666666666666666,
+    "raw_pulse_zero_ratio": 1.0,
+    "raw_dl_mean_abs": 0.0,
+    "raw_dr_mean_abs": 0.0,
+    "clamped_ratio": 0.0,
+    "ed_sign_change_count": 1
+  },
+  "yaw_summary": {
+    "yaw_start": 0.014,
+    "yaw_end": -41.772,
+    "yaw_delta": -41.786,
+    "yaw_abs_peak": 41.772,
+    "yaw_drift_rate_deg_s": -27.931818181818183,
+    "yaw_rate_mean": 5.242833333333334,
+    "yaw_rate_abs_mean": 62.96883333333333,
+    "yaw_sign_change_count": 1
+  },
+  "pwm_summary": {
+    "left_pwm_mean": 23.333333333333332,
+    "right_pwm_mean": 21.666666666666668,
+    "left_pwm_std": 7.340905181848414,
+    "right_pwm_std": 5.343739847293799,
+    "pwm_diff_mean": 1.6666666666666667,
+    "pwm_diff_abs_mean": 11.666666666666666,
+    "pwm_diff_sign_change_count": 2,
+    "left_pwm_step_abs_mean": 6.8,
+    "right_pwm_step_abs_mean": 4.4
+  },
+  "speed_loop_summary": {
+    "target_speed_mean": 1.3999999999999997,
+    "left_target_mean": 1.3513333333333335,
+    "right_target_mean": 1.2296666666666667,
+    "left_actual_mean": 0.125,
+    "right_actual_mean": 0.16666666666666666,
+    "left_actual_abs_mean": 0.125,
+    "right_actual_abs_mean": 0.16666666666666666,
+    "left_right_actual_diff_mean": -0.041666666666666664,
+    "left_right_actual_diff_abs_mean": 0.125
+  },
+  "line_guard_summary": {
+    "miss_mean": 0.0,
+    "miss_max": 0.0,
+    "lost_mean": 0.0,
+    "lost_max": 0.0
+  },
+  "trajectory_summary": {
+    "final_x": 0.25180015383693577,
+    "final_y": -0.020691834063514037,
+    "path_len": 0.26287499999999997,
+    "sensor_y_accum": 0.281875
+  }
+}

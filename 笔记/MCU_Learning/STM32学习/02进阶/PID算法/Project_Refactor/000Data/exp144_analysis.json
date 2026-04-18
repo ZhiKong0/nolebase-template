@@ -1,0 +1,76 @@
+{
+  "experiment": "exp144",
+  "mcu_exp_id": 144,
+  "exp_ms": 60000,
+  "sample_count": 197,
+  "run_sample_count": 155,
+  "anomaly_count": 2,
+  "anomaly_breakdown": {
+    "yaw_jump": 2
+  },
+  "yaw_min": -8.158,
+  "yaw_max": 7.824,
+  "parameters": {
+    "spd": 1,
+    "skp": 0.1,
+    "ski": 0.012,
+    "skd": 0.0,
+    "akp": 0.23,
+    "aki": 0.0024,
+    "akd": 0.05,
+    "cal_wait_s": 0.2
+  },
+  "anomalies": [
+    {
+      "host_time_s": 1774677806.538422,
+      "tick": 324972,
+      "t_ms": 39127.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": -8.158,
+      "left_encoder": 16.0,
+      "right_encoder": 18.0,
+      "left_output": 14.0,
+      "right_output": 14.0
+    },
+    {
+      "host_time_s": 1774677807.7481139,
+      "tick": 326175,
+      "t_ms": 40330.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": 7.536,
+      "left_encoder": 18.0,
+      "right_encoder": 15.0,
+      "left_output": 14.0,
+      "right_output": 14.0
+    }
+  ],
+  "final_x": 927.3326254313072,
+  "final_y": -15.888742127302304,
+  "path": 928.5974999999999,
+  "direct": 927.4687327968037,
+  "sinuosity": 1.0012170407079841,
+  "lat_abs_max": 16.097817131419177,
+  "mean_y": -8.621095495166456,
+  "mean_abs_y": 8.621095495166456,
+  "final_y_per_path": -0.01711047265074729,
+  "y_pos_ratio": 0.0,
+  "y_neg_ratio": 0.9044585987261147,
+  "y_zero_ratio": 0.09554140127388536,
+  "bias_ratio": 0.01711047265074729,
+  "bias_severity": "mild",
+  "trajectory_side_eps": 1.0,
+  "heading_change": 2.0159999999999982,
+  "heading_variation": 275.66626,
+  "stability": "unstable_or_wobbling",
+  "reuse_recommendation": "needs_tuning",
+  "dominant_side": "left",
+  "dominant_conf": 1.0,
+  "point_n": 157,
+  "pattern": "wobbling_straight_then_spin_turn",
+  "pattern_conf": 0.81,
+  "phase_n": 2
+}

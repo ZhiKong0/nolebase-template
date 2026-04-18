@@ -30,6 +30,18 @@ static uint32_t g_lastImuTick = 0;
 static uint32_t g_lastDisplayTick = 0;
 static uint8_t g_displayDirty = 1;
 static float g_fastYawRate = 0.0f;
+static uint8_t g_trackStartClickPending = 0;
+static uint32_t g_trackStartClickDeadline = 0;
+static uint32_t g_experimentId = 0;
+static uint8_t g_experimentActive = 0;
+static uint32_t g_experimentHostSyncUntilTick = 0;
+
+typedef enum
+{
+    EXP_TRIGGER_AUTO = 0,
+    EXP_TRIGGER_KEY,
+    EXP_TRIGGER_UART
+} ExperimentTrigger_t;
 
 /* ========== System Timer (TIM4 1ms) ========== */
 
@@ -81,11 +93,63 @@ static uint8_t is_running(void)
     return (g_sysState == SYS_STRAIGHT || g_sysState == SYS_TRACKING) ? 1u : 0u;
 }
 
-static void transition_start(void)
+static void clear_track_start_click_request(void)
+{
+    g_trackStartClickPending = 0u;
+    g_trackStartClickDeadline = 0u;
+}
+
+static uint8_t experiment_host_sync_active(void)
+{
+    return (g_experimentHostSyncUntilTick != 0u && g_tickMs < g_experimentHostSyncUntilTick) ? 1u : 0u;
+}
+
+static const char *experiment_trigger_str(ExperimentTrigger_t trigger)
+{
+    switch (trigger)
+    {
+    case EXP_TRIGGER_KEY:  return "KEY";
+    case EXP_TRIGGER_UART: return "UART";
+    default:               return "AUTO";
+    }
+}
+
+static void report_experiment_start(ExperimentTrigger_t trigger,
+                                    uint8_t skipStartupSecondTurn)
+{
+    char buf[96];
+
+    sprintf(buf,
+            "EVT:EXP_START,id=%lu,src=%s,mode=%c,skip=%u\r\n",
+            (unsigned long)g_experimentId,
+            experiment_trigger_str(trigger),
+            (g_mode == MODE_TRACK) ? 'T' : 'S',
+             (unsigned)skipStartupSecondTurn);
+    BspUart_SendString(buf);
+}
+
+static void report_experiment_stop(ExperimentTrigger_t trigger, uint32_t durationMs)
+{
+    char buf[96];
+
+    sprintf(buf,
+            "EVT:EXP_STOP,id=%lu,src=%s,mode=%c,dur=%lu\r\n",
+            (unsigned long)g_experimentId,
+            experiment_trigger_str(trigger),
+            (g_mode == MODE_TRACK) ? 'T' : 'S',
+            (unsigned long)durationMs);
+    BspUart_SendString(buf);
+}
+
+static void transition_start_with_track_variant(uint8_t skipStartupSecondTurn,
+                                                ExperimentTrigger_t trigger)
 {
     if (is_running())
         return;
 
+    if (experiment_host_sync_active())
+        g_experimentId++;
+    g_experimentActive = 1u;
     BNO085_ResetAttitude(&g_imu);
     memset(&g_encoder, 0, sizeof(g_encoder));
     Encoder_Reset();
@@ -101,32 +165,53 @@ static void transition_start(void)
     else
     {
         g_sysState = SYS_TRACKING;
+        LineTrack_SetStartupSkipSecondTurnEnabled(skipStartupSecondTurn);
         LineTrack_Start(TRACK_DEFAULT_CROSSINGS);
     }
     g_pid.targetYaw = 0.0f;
     g_pid.speedRampTarget = SPEED_ENTRY;
 
     g_fastYawRate = 0.0f;
-    MotorDriver_Enable();
     g_runStartTick = g_tickMs;
     g_lastImuTick = g_tickMs;
+    report_experiment_start(trigger, skipStartupSecondTurn);
+    BspOled_ShowExperimentId(g_experimentId);
+    MotorDriver_Enable();
     g_displayDirty = 1;
+    clear_track_start_click_request();
 }
 
-static void transition_stop(void)
+static void transition_start(ExperimentTrigger_t trigger)
 {
+    transition_start_with_track_variant(1u, trigger);
+}
+
+static void transition_stop(ExperimentTrigger_t trigger)
+{
+    uint32_t durationMs = 0u;
+
+    if (g_experimentActive)
+    {
+        durationMs = g_tickMs - g_runStartTick;
+        report_experiment_stop(trigger, durationMs);
+    }
+
     MotorDriver_Stop();
     MotorDriver_Disable();
     LineTrack_Stop();
     DualLoop_ResetAll(&g_pid);
     g_sysState = SYS_STOP;
+    g_experimentActive = 0u;
+    BspOled_ShowExperimentId(g_experimentId);
     g_displayDirty = 1;
+    clear_track_start_click_request();
 }
 
 static void transition_toggle_mode(void)
 {
     if (is_running())
         return;
+    clear_track_start_click_request();
     g_mode = (g_mode == MODE_STRAIGHT) ? MODE_TRACK : MODE_STRAIGHT;
     if (g_mode == MODE_STRAIGHT)
         DualLoop_LoadStraightDefaults(&g_pid);
@@ -135,23 +220,66 @@ static void transition_toggle_mode(void)
     g_displayDirty = 1;
 }
 
+static void process_pending_track_start(uint32_t nowMs)
+{
+    if (!g_trackStartClickPending)
+        return;
+
+    if (is_running() || g_mode != MODE_TRACK)
+    {
+        clear_track_start_click_request();
+        return;
+    }
+
+    if (nowMs < g_trackStartClickDeadline)
+        return;
+
+    transition_start_with_track_variant(1u, EXP_TRIGGER_KEY);
+}
+
 /* ========== Key Event Handler ========== */
 
 static void process_key_event(void)
 {
     KeyEvent_t evt = BspKey_Read();
+    uint32_t now = g_tickMs;
     if (evt == KEY_EVENT_NONE)
         return;
 
     if (evt == KEY_EVENT_SHORT_PRESS)
     {
         if (is_running())
-            transition_stop();
+        {
+            transition_stop(EXP_TRIGGER_KEY);
+        }
+        else if (g_mode == MODE_TRACK)
+        {
+            if (g_trackStartClickPending)
+            {
+                if (now <= g_trackStartClickDeadline)
+                {
+                    transition_start_with_track_variant(0u, EXP_TRIGGER_KEY);
+                }
+                else
+                {
+                    transition_start_with_track_variant(1u, EXP_TRIGGER_KEY);
+                }
+            }
+            else
+            {
+                g_trackStartClickPending = 1u;
+                g_trackStartClickDeadline = now + KEY_DOUBLE_CLICK_WINDOW_MS;
+            }
+        }
         else
-            transition_start();
+        {
+            clear_track_start_click_request();
+            transition_start(EXP_TRIGGER_KEY);
+        }
     }
     else if (evt == KEY_EVENT_LONG_PRESS)
     {
+        clear_track_start_click_request();
         transition_toggle_mode();
     }
 }
@@ -176,20 +304,92 @@ static uint8_t cmd_parse_float(const char *s, float *out)
     return 0u;
 }
 
+static uint8_t cmd_parse_u32(const char *s, uint32_t *out)
+{
+    uint32_t value = 0u;
+    uint8_t digits = 0u;
+    const char *p = s;
+
+    if (*p == '+')
+        p++;
+    while (*p >= '0' && *p <= '9')
+    {
+        value = (value * 10u) + (uint32_t)(*p - '0');
+        digits = 1u;
+        p++;
+    }
+    if (!digits)
+        return 0u;
+    if (*p != '\0' && *p != '!')
+        return 0u;
+    *out = value;
+    return 1u;
+}
+
+static void send_experiment_id_response(void)
+{
+    char buf[32];
+
+    sprintf(buf, "OK:EXP=%lu\r\n", (unsigned long)g_experimentId);
+    BspUart_SendString(buf);
+}
+
+static void sync_experiment_id(uint32_t experimentId)
+{
+    g_experimentId = experimentId;
+    BspOled_ShowExperimentId(g_experimentId);
+    g_displayDirty = 1u;
+}
+
 static void handle_command(const char *cmd)
 {
     float fval;
+    uint32_t u32val;
 
     if (strcmp(cmd, "#RUN!") == 0)
     {
-        transition_start();
+        transition_start(EXP_TRIGGER_UART);
         BspUart_SendString("OK:RUN\r\n");
         return;
     }
     if (strcmp(cmd, "#STOP!") == 0)
     {
-        transition_stop();
+        transition_stop(EXP_TRIGGER_UART);
         BspUart_SendString("OK:STOP\r\n");
+        return;
+    }
+    if (strcmp(cmd, "#EXP?!") == 0)
+    {
+        send_experiment_id_response();
+        return;
+    }
+    if (strcmp(cmd, "#EXPHOST=OFF!") == 0)
+    {
+        g_experimentHostSyncUntilTick = 0u;
+        BspUart_SendString("OK:EXPHOST=OFF\r\n");
+        return;
+    }
+    if (strncmp(cmd, "#EXPHOST=", 9) == 0)
+    {
+        if (cmd_parse_u32(cmd + 9, &u32val))
+        {
+            g_experimentHostSyncUntilTick = g_tickMs + EXP_HOST_SYNC_TIMEOUT_MS;
+            if (!is_running() && g_experimentId < u32val)
+                sync_experiment_id(u32val);
+        }
+        return;
+    }
+    if (strncmp(cmd, "#EXP=", 5) == 0)
+    {
+        if (!is_running() && cmd_parse_u32(cmd + 5, &u32val))
+        {
+            sync_experiment_id(u32val);
+            send_experiment_id_response();
+        }
+        else if (is_running())
+        {
+            BspUart_SendString("ERR:EXP=RUNNING\r\n");
+        }
         return;
     }
     if (strcmp(cmd, "#MODE=STRAIGHT!") == 0)
@@ -373,14 +573,23 @@ static void run_control(uint32_t now)
         DualLoop_ComputeSpeed(&g_pid, avgSpeed, dt);
 
         /* Line-following loop (sensor → PD → differential on top of pwmCore) */
-        LineTrack_Update(now, g_pid.pwmCore, g_imu.yaw);
+        LineTrack_Update(now, g_pid.pwmCore, g_imu.yaw, g_imu.yawRate);
 
         /* 阻塞式转弯结束后重置速度PID，防止积分残留导致速度跳变 */
         if (g_lineTrack.cornerDone)
         {
+            float resumeSpeedTarget;
+
             g_lineTrack.cornerDone = 0;
             PID_Reset(&g_pid.speedPID);
-            g_pid.speedRampTarget = SPEED_ENTRY;
+            resumeSpeedTarget = g_pid.currentSpeed;
+            if (resumeSpeedTarget < SPEED_ENTRY)
+                resumeSpeedTarget = SPEED_ENTRY;
+            if (resumeSpeedTarget > TRACK_CORNER_RESUME_SPEED_MAX)
+                resumeSpeedTarget = TRACK_CORNER_RESUME_SPEED_MAX;
+            if (resumeSpeedTarget > g_pid.targetSpeed)
+                resumeSpeedTarget = g_pid.targetSpeed;
+            g_pid.speedRampTarget = resumeSpeedTarget;
         }
 
         g_pid.leftPWM  = MotorDriver_GetActualL();
@@ -388,7 +597,7 @@ static void run_control(uint32_t now)
         /* Check if track auto-stopped (crossing count reached / overrun) */
         if (!LineTrack_IsRunning())
         {
-            transition_stop();
+            transition_stop(EXP_TRIGGER_AUTO);
         }
     }
 }
@@ -431,7 +640,7 @@ static void send_telemetry(void)
         if (g_lineTrack.acuteRearmTick > g_runStartTick)
             acuteRearmTick = g_lineTrack.acuteRearmTick - g_runStartTick;
 
-        BspUart_SendTelemetryTrack(t, run,
+        BspUart_SendTelemetryTrack(t, g_experimentId, run,
                                    g_encoder.leftSpeed, g_encoder.rightSpeed,
                                    g_imu.yaw, g_imu.yawRate,
                                    g_pid.pwmCore, g_lineTrack.devSpeed,
@@ -450,7 +659,7 @@ static void send_telemetry(void)
     }
     else
     {
-        BspUart_SendTelemetryStraight(t, run,
+        BspUart_SendTelemetryStraight(t, g_experimentId, run,
                                       g_encoder.leftSpeed, g_encoder.rightSpeed,
                                       g_imu.yaw, g_fastYawRate,
                                       g_pid.pwmCore, g_pid.headingDiffPWM,
@@ -477,8 +686,8 @@ static void update_display(uint32_t now)
     BspOled_ShowStatus(g_sysState, g_mode,
                        g_imu.yaw,
                        (float)g_encoder.leftSpeed,
-                       (float)g_encoder.rightSpeed);
-    BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr());
+                       (float)g_encoder.rightSpeed,
+                       g_experimentId);
 }
 
 /* ========== Main Entry ========== */
@@ -549,5 +758,6 @@ int main(void)
 
         /* 5. Key events */
         process_key_event();
+        process_pending_track_start(g_tickMs);
     }
 }

@@ -1,0 +1,73 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: μVision V5.40.0.0
+Copyright (C) 2024 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: 00 DZ, 00, LIC=6XJT4-FGTYF-8YYVV-PYZYV-8IHFA-P65DV
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Professional  Version: 5.40.0.3
+Toolchain Path:  D:\keil\Keil-v5\Arm\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.06 update 6 (build 750)
+Assembler:       Armasm.exe V5.06 update 6 (build 750)
+Linker/Locator:  ArmLink.exe V5.06 update 6 (build 750)
+Library Manager: ArmAr.exe V5.06 update 6 (build 750)
+Hex Converter:   FromElf.exe V5.06 update 6 (build 750)
+CPU DLL:         SARMCM3.DLL V5.40.0.3
+Dialog DLL:      DCM.DLL V1.17.5.0
+Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.3.0.0
+Dialog DLL:      TCM.DLL V1.56.4.0
+ 
+<h2>Project:</h2>
+F:\Documents\GitHub\nolebase-template\笔记\MCU_Learning\STM32学习\02进阶\PID算法\PID初步\Project\project.uvprojx
+Project File Date:  03/11/2026
+
+<h2>Output:</h2>
+*** Using Compiler 'V5.06 update 6 (build 750)', folder: 'D:\keil\Keil-v5\Arm\ARM\ARMCC\Bin'
+Build target 'Target 1'
+compiling FuzzyPID.c...
+compiling VOFA.c...
+compiling stm32f10x_it.c...
+compiling Key.c...
+Hardware\Key.c(68): warning:  #1-D: last line of file ends without a newline
+  }
+Hardware\Key.c: 1 warning, 0 errors
+compiling Timer.c...
+compiling Encoder_Timer.c...
+compiling OLED.c...
+compiling MPU6050.c...
+Hardware\MPU6050.c(163): warning:  #177-D: function "MPU6050_ReadReg"  was declared but never referenced
+  static uint8_t MPU6050_ReadReg(uint8_t reg, uint8_t *out) {
+Hardware\MPU6050.c: 1 warning, 0 errors
+compiling main.c...
+User\main.c(87): warning:  #1-D: last line of file ends without a newline
+  }
+User\main.c: 1 warning, 0 errors
+compiling PID.c...
+compiling SoftSerial.c...
+Hardware\SoftSerial.c(149): warning:  #550-D: variable "lastTick"  was set but never used
+      static uint32_t lastTick = 0;
+Hardware\SoftSerial.c: 1 warning, 0 errors
+compiling Control.c...
+linking...
+Program Size: Code=15802 RO-data=2194 RW-data=72 ZI-data=2304  
+FromELF: creating hex file...
+".\Objects\project.axf" - 0 Error(s), 4 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: Keil
+                https://www.keil.com/pack/Keil.STM32F1xx_DFP.2.4.1.pack
+                Keil::STM32F1xx_DFP@2.4.1
+                STMicroelectronics STM32F1 Series Device Support, Drivers and Examples
+
+<h2>Collection of Component include folders:</h2>
+  D:/keil/keil-packs/Keil/STM32F1xx_DFP/2.4.1/Device/Include
+
+<h2>Collection of Component Files used:</h2>
+Build Time Elapsed:  00:00:01
+</pre>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{
+  "experiment": "exp056",
+  "mcu_exp_id": 56,
+  "exp_ms": 6000,
+  "sample_count": 75,
+  "run_sample_count": 17,
+  "anomaly_count": 2,
+  "anomaly_breakdown": {
+    "yaw_jump": 2
+  },
+  "yaw_min": -44.945,
+  "yaw_max": -7.401,
+  "parameters": {
+    "spd": 2,
+    "skp": 0.1,
+    "ski": 0.012,
+    "skd": 0.0,
+    "akp": 6.7,
+    "aki": 0.08,
+    "akd": 0.45,
+    "dz": 10,
+    "dzt": 1.0,
+    "dzl": 11,
+    "dzr": 12,
+    "sbf": 1,
+    "sbv": 36.0,
+    "siv": 18.0,
+    "hdt": 800,
+    "cal_wait_s": 0.2
+  },
+  "anomalies": [
+    {
+      "host_time_s": 1774578060.8317018,
+      "tick": 676412,
+      "t_ms": 0.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": -16.883,
+      "left_encoder": 24.0,
+      "right_encoder": 26.0,
+      "left_output": 21.0,
+      "right_output": 22.0
+    },
+    {
+      "host_time_s": 1774578061.4792683,
+      "tick": 677064,
+      "t_ms": 0.0,
+      "flags": [
+        "yaw_jump"
+      ],
+      "yaw": -26.784,
+      "left_encoder": 23.0,
+      "right_encoder": 25.0,
+      "left_output": 20.0,
+      "right_output": 21.0
+    }
+  ]
+}

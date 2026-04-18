@@ -1,0 +1,33 @@
+{
+  "pattern": "launch_hesitation_then_left_drift_then_spin_turn",
+  "confidence": 0.62,
+  "phase_count": 3,
+  "phases": [
+    {
+      "kind": "launch_hesitation",
+      "t0_s": 0.0,
+      "t1_s": 1.037,
+      "window_count": 2,
+      "slow_window_count": 2
+    },
+    {
+      "kind": "spin_turn",
+      "t0_s": 18.307,
+      "t1_s": 19.313,
+      "window_count": 2,
+      "bias": "right_biased",
+      "yaw_abs_mean": 15.237833333333331,
+      "out_diff_abs_mean": 5.333333333333333,
+      "ed_abs_mean": 5.333333333333334
+    },
+    {
+      "kind": "left_drift",
+      "t0_s": 1.242,
+      "t1_s": 18.307,
+      "window_count": 28,
+      "side": "left",
+      "start_window": 3,
+      "max_cum_lat": 5.613679828112146
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+[
+  {
+    "name": "tune_fixed",
+    "payload": "{\"tune\":\"fixed\"}",
+    "reset_rc": 0,
+    "boot": [],
+    "after": [
+      {
+        "t_ms": 2014,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+      },
+      {
+        "t_ms": 2215,
+        "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n{\"ack\":\"ok\",\"item\":\"tune\"}\r\n"
+      }
+    ]
+  },
+  {
+    "name": "status_text",
+    "payload": "STATUS",
+    "reset_rc": 0,
+    "boot": [
+      {
+        "t_ms": 302,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+      },
+      {
+        "t_ms": 503,
+        "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+      }
+    ],
+    "after": [
+      {
+        "t_ms": 3577,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+      },
+      {
+        "t_ms": 3679,
+        "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+      }
+    ]
+  },
+  {
+    "name": "status_json",
+    "payload": "{\"cmd\":\"status\"}",
+    "reset_rc": 0,
+    "boot": [],
+    "after": [
+      {
+        "t_ms": 1361,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+      },
+      {
+        "t_ms": 1563,
+        "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n{\"time\":0"
+      }
+    ]
+  },
+  {
+    "name": "start_json",
+    "payload": "{\"cmd\":\"start\"}",
+    "reset_rc": 0,
+    "boot": [],
+    "after": [
+      {
+        "t_ms": 2368,
+        "text": "{\"ack\":\"default\",\"item\":\"profile\"}\r\n"
+      },
+      {
+        "t_ms": 2519,
+        "text": "{\"ack\":\"ok\",\"item\":\"boot\"}\r\n"
+      },
+      {
+        "t_ms": 2570,
+        "text": "{\"ack\":\"ok\",\"item\":\"start\"}\r\n"
+      }
+    ]
+  }
+]

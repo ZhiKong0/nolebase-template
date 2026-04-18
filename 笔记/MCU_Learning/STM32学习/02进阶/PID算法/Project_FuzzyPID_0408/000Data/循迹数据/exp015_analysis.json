@@ -1,0 +1,88 @@
+{
+  "sample_count": 52,
+  "run_sample_count": 4,
+  "sensor_semantics": {
+    "sensor_order": "s1 到 s8 按从左到右排列",
+    "center_best": "s4 与 s5 同时亮",
+    "s4_only": "右偏",
+    "s5_only": "左偏"
+  },
+  "parameters": {
+    "ts_last": 18.0,
+    "kp_last": 0.5,
+    "ki_last": 0.004,
+    "kd_last": 0.0
+  },
+  "sensor_summary": {
+    "valid_sensor_sample_count": 4,
+    "score_mean": -1.5,
+    "score_abs_mean": 1.5,
+    "score_max": -0.5,
+    "score_min": -2.5,
+    "side_vote": "left",
+    "s4s5_both_on_ratio": 0.0,
+    "s4_only_ratio": 0.0,
+    "s5_only_ratio": 0.25,
+    "right_bias_ratio": 0.0,
+    "left_bias_ratio": 1.0,
+    "balanced_ratio": 0.0,
+    "line_missing_ratio": 0.0
+  },
+  "startup_summary": {
+    "startup_side": "left",
+    "first_valid_t_s": 0.303,
+    "first_valid_state": "left_bias",
+    "first_valid_score": -0.5,
+    "first_valid_active_sensors": [
+      "s5"
+    ],
+    "first_missing_after_valid_t_s": -1.0,
+    "startup_sequence": [
+      {
+        "t_s": 0.303,
+        "sensor_state": "left_bias",
+        "sensor_score": -0.5,
+        "active_sensors": [
+          "s5"
+        ]
+      },
+      {
+        "t_s": 0.617,
+        "sensor_state": "left_bias",
+        "sensor_score": -1.5,
+        "active_sensors": [
+          "s6"
+        ]
+      },
+      {
+        "t_s": 0.921,
+        "sensor_state": "left_bias",
+        "sensor_score": -2.5,
+        "active_sensors": [
+          "s7"
+        ]
+      },
+      {
+        "t_s": 1.235,
+        "sensor_state": "left_bias",
+        "sensor_score": -1.5,
+        "active_sensors": [
+          "s6"
+        ]
+      }
+    ]
+  },
+  "encoder_summary": {
+    "mean_abs_el": 0.25,
+    "mean_abs_er": 0.25,
+    "mean_ed": 0.0,
+    "ed_rms": 0.7071067811865476,
+    "encoder_ratio_er_el": 1.0
+  },
+  "trajectory_summary": {
+    "final_x": 0.31297880111507426,
+    "final_y": -0.008026186780073002,
+    "path_len": 0.314,
+    "sensor_y_accum": -0.471
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "params": {
+    "skp": 0.6,
+    "ski": 0.012,
+    "skd": 0.0,
+    "akp": 0.24,
+    "aki": 0.0024,
+    "akd": 0.05,
+    "target_speed": 1.0
+  },
+  "stat": [
+    "STAT:state=STOP,mode=STRAIGHT,spd=1.00,skp=0.6000,ski=0.01200,skd=0.0000,akp=0.2400,aki=0.00240,akd=0.0500,lkp=0.0000,lki=0.00000,lkd=0.0000"
+  ],
+  "analysis": {
+    "total_samples": 200,
+    "run_samples": 200,
+    "duration_ms": 10002,
+    "sample_period_ms": 50.26130653266332,
+    "speed_mean_el": 0.005,
+    "speed_mean_er": 0.05,
+    "speed_std_el": 0.07071067811865475,
+    "speed_std_er": 0.6399591695518295,
+    "speed_el_er_ratio": 10.0,
+    "speed_asymmetry_pct": 163.63636363636365,
+    "speed_mean_pc": 0.105,
+    "speed_std_pc": 0.505223966455875,
+    "speed_pc_range": [
+      0,
+      4
+    ],
+    "speed_rise_time_ms": 0,
+    "speed_steady_pc": 0,
+    "heading_yaw_final": 0.0,
+    "heading_yaw_drift_rate_dps": 0.0,
+    "heading_yaw_std": 0.0,
+    "heading_yaw_max_abs": 0.0,
+    "heading_mean_hd": 0,
+    "heading_std_hd": 0.0,
+    "heading_hd_range": [
+      0,
+      0
+    ],
+    "heading_hd_saturation_pct": 0.0,
+    "heading_correction_sign_ok": true,
+    "pwm_mean_ol": 0.105,
+    "pwm_mean_or": 0.105,
+    "pwm_std_ol": 0.505223966455875,
+    "pwm_std_or": 0.505223966455875,
+    "pwm_balance_mean": 0,
+    "pwm_saturation_pct": 0.0,
+    "lateral_drift_total_deg": 0.0,
+    "straightness_score": 80.0,
+    "startup_duration_ms": 2000,
+    "startup_yaw_peak": 0.0,
+    "startup_hd_peak": 0,
+    "steady_yaw_drift_rate": 0.0,
+    "steady_hd_mean": 0,
+    "speed_oscillation_detected": false,
+    "heading_oscillation_detected": false,
+    "speed_oscillation_freq_hz": 0.0,
+    "heading_oscillation_freq_hz": 0.0
+  },
+  "recommendations": [
+    "✅ 航向控制良好",
+    "⚠ 编码器不对称 (163.6%)，检查轮子/编码器",
+    "✅ 直线度评分 80/100，表现优良"
+  ],
+  "pid_suggestion": {
+    "skp": 0.6,
+    "ski": 0.012,
+    "skd": 0.0,
+    "akp": 0.24,
+    "aki": 0.0024,
+    "akd": 0.05,
+    "target_speed": 1.0
+  }
+}

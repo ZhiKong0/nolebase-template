@@ -1,0 +1,42 @@
+{
+  "pattern": "launch_hesitation_then_right_drift_then_spin_turn",
+  "confidence": 0.8099999999999999,
+  "phase_count": 4,
+  "phases": [
+    {
+      "kind": "launch_hesitation",
+      "t0_s": 0.0,
+      "t1_s": 2.003,
+      "window_count": 3,
+      "slow_window_count": 13
+    },
+    {
+      "kind": "mid_run_pause",
+      "t0_s": 3.433,
+      "t1_s": 7.923,
+      "window_count": 4,
+      "start_window": 6,
+      "max_idle_streak_s": 0.42,
+      "max_output_idle_streak_s": 0.0
+    },
+    {
+      "kind": "spin_turn",
+      "t0_s": 13.366,
+      "t1_s": 14.416,
+      "window_count": 2,
+      "bias": "right_biased",
+      "yaw_abs_mean": 2.5963333333333334,
+      "out_diff_abs_mean": 3.0,
+      "ed_abs_mean": 1.5
+    },
+    {
+      "kind": "right_drift",
+      "t0_s": 2.213,
+      "t1_s": 13.366,
+      "window_count": 18,
+      "side": "right",
+      "start_window": 4,
+      "max_cum_lat": 1.5394574666441276
+    }
+  ]
+}
