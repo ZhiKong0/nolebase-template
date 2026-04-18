@@ -134,6 +134,9 @@ void DualLoop_LoadTrackDefaults(DualLoopState_t *state)
     PID_Init(&state->speedPID,
              PID_TRACK_SPEED_KP, PID_TRACK_SPEED_KI, PID_TRACK_SPEED_KD,
              SPEED_OUTPUT_LIMIT);
+    PID_Init(&state->headingPID,
+             PID_TRACK_DIFF_KP, PID_TRACK_DIFF_KI, PID_TRACK_DIFF_KD,
+             (float)TRACK_DIFF_PWM_MAX);
     state->feedforwardGain = SPEED_FEEDFORWARD_GAIN;
 }
 
@@ -250,3 +253,39 @@ void DualLoop_ComputeStraight(DualLoopState_t *state, float avgSpeed, float yaw,
     /* left/right PWM fields updated after motor driver applies deadzone */
 }
 
+void DualLoop_ComputeTrack(DualLoopState_t *state, float targetDiffSpeed,
+                           float leftSpeed, float rightSpeed,
+                           int16_t basePwm, float dt)
+{
+    float measuredDiff;
+    float targetDiff;
+    float error;
+    float hout;
+    int16_t diff;
+
+    if (!state || dt <= 0.0f) return;
+
+    state->currentSpeed = (leftSpeed + rightSpeed) * 0.5f;
+
+    if (basePwm < TRACK_BASE_PWM_MIN)
+        basePwm = TRACK_BASE_PWM_MIN;
+    else if (basePwm > TRACK_BASE_PWM_MAX)
+        basePwm = TRACK_BASE_PWM_MAX;
+
+    measuredDiff = leftSpeed - rightSpeed;
+    targetDiff = targetDiffSpeed * TRACK_DIFF_TARGET_SCALE;
+    targetDiff = clampf(targetDiff, -(float)TRACK_DIFF_PWM_MAX, (float)TRACK_DIFF_PWM_MAX);
+    error = targetDiff - measuredDiff;
+
+    hout = PID_ComputeDOB(&state->headingPID, error, measuredDiff, dt);
+    diff = (hout >= 0.0f) ? (int16_t)(hout + 0.5f) : (int16_t)(hout - 0.5f);
+
+    state->pwmCore = basePwm;
+    state->headingDiffPWM = diff;
+    state->dTermPostDZ = (state->headingPID.filteredDerivative >= 0.0f)
+                         ? (int16_t)(state->headingPID.filteredDerivative + 0.5f)
+                         : (int16_t)(state->headingPID.filteredDerivative - 0.5f);
+    state->lastHp = state->headingPID.kp * error;
+    state->lastHi = state->headingPID.integral;
+    state->lastHd = state->headingPID.filteredDerivative;
+}

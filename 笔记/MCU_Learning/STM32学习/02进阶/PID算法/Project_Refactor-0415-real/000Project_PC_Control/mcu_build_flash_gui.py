@@ -576,8 +576,6 @@ class MCUBuildFlashApp:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("MCU 编译烧录工具")
-        self.root.geometry("460x225")
-        self.root.minsize(430, 210)
 
         self.settings = load_settings()
         self.log_queue: Queue[tuple[str, str]] = Queue()
@@ -619,6 +617,7 @@ class MCUBuildFlashApp:
         self.stc_frame: Optional[ttk.Frame] = None
         self.log_buffer: list[str] = []
         self.log_panel_visible = False
+        self.default_window_width = 460
         self.default_window_height = 225
         self.expanded_window_height = 560
         self.var_log_button_text = tk.StringVar(value="显示日志")
@@ -628,6 +627,7 @@ class MCUBuildFlashApp:
         self.refresh_ports(initial=True)
         self.update_method_frame()
         self.update_compact_summary()
+        self._fit_initial_window()
         self.root.after(120, self.process_log_queue)
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -737,6 +737,16 @@ class MCUBuildFlashApp:
     def _on_shortcut_flash(self, event: Optional[tk.Event] = None) -> str:
         self.start_workflow(build=False, flash=True)
         return "break"
+
+    def _fit_initial_window(self) -> None:
+        self.root.update_idletasks()
+        width = max(self.default_window_width, self.root.winfo_reqwidth())
+        height = max(self.default_window_height, self.root.winfo_reqheight())
+        self.default_window_width = width
+        self.default_window_height = height
+        self.expanded_window_height = max(self.expanded_window_height, height + 300)
+        self.root.minsize(width, height)
+        self.root.geometry(f"{width}x{height}")
 
     def _add_entry_row(
         self,
@@ -1010,7 +1020,8 @@ class MCUBuildFlashApp:
 
     def _resize_root_height(self, target_height: int) -> None:
         self.root.update_idletasks()
-        width = self.root.winfo_width()
+        width = max(self.root.winfo_width(), self.default_window_width)
+        target_height = max(target_height, self.root.winfo_reqheight())
         x = self.root.winfo_x()
         y = self.root.winfo_y()
         self.root.geometry(f"{width}x{target_height}+{x}+{y}")

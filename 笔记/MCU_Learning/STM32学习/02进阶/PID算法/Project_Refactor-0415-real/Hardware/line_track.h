@@ -13,7 +13,7 @@
  *   R1  = S7|S8
  *
  * 运行方式:
- *   1. 正常循迹: 8 路加权位置 -> 中心双传感器归零 -> 输入低通 -> PD -> 差速限幅 -> 自适应降速 -> 左右轮 PWM
+ *   1. 正常循迹: 8 路图案补孔 + 跨度中点解码 -> 轻度低通 -> PD -> 目标差速 + 建议基础 PWM
  *   2. 转角恢复: 等效 5 路 -> Signal_Handler -> corner_handler
  */
 #ifndef __LINE_TRACK_H
@@ -62,11 +62,11 @@ typedef struct {
     uint8_t crossState;
     uint8_t overrunCount;
 
-    int16_t weightedPos;    /* 8 路原始加权位置；S4/S5 单独触发时按中心 0 处理 */
-    int16_t devSpeed;       /* 八路位置 PD + 差速限幅后的输出 */
+    int16_t weightedPos;    /* 调试字段: 当前 8 路图案解码误差(补孔后跨度中点) */
+    int16_t devSpeed;       /* 八路图案误差 PD 后的目标差速 */
     int16_t basePwm;        /* 循迹模式基础 PWM */
-    int16_t motorLPwm;
-    int16_t motorRPwm;
+    int16_t motorLPwm;      /* 正常循迹建议左轮 PWM，供上层生成基础油门 */
+    int16_t motorRPwm;      /* 正常循迹建议右轮 PWM，供上层生成基础油门 */
 
     float   kp;             /* 八路位置误差 P 系数 */
     float   kd;             /* 八路位置误差 D 系数 */

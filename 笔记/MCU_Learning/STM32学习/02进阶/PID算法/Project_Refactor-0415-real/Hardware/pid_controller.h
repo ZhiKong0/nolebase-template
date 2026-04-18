@@ -59,6 +59,9 @@ void DualLoop_ResetAll(DualLoopState_t *state);
 int16_t DualLoop_ComputeSpeed(DualLoopState_t *state, float avgSpeed, float dt);
 
 void DualLoop_ComputeStraight(DualLoopState_t *state, float avgSpeed, float yaw, float yawRate, float gyroZ, float dt);
+void DualLoop_ComputeTrack(DualLoopState_t *state, float targetDiffSpeed,
+                           float leftSpeed, float rightSpeed,
+                           int16_t basePwm, float dt);
 
 void DualLoop_ApplySpeedRamp(DualLoopState_t *state, float dt);
 

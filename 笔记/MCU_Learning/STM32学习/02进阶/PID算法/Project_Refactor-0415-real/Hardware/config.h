@@ -207,25 +207,30 @@ typedef enum {
 #define PID_TRACK_SPEED_KD       0.0f
 
 /* 八路正常循迹:
- * - 位置输入先低通，减小单个红外对射跳变对控制输入的影响
- * - D 对平滑后的位置变化量再做限幅 + 低通
- * - D 只允许减弱当前修正，不允许把循迹方向直接反过来
- * - 大偏差时自动降速，减少八路数字输入下的扫线幅度 */
-#define PID_TRACK_LINE_KP        0.35f
-#define PID_TRACK_LINE_KD        0.45f
-#define TRACK_POS_INPUT_LPF_ALPHA 0.28f
-#define TRACK_POS_DELTA_LIMIT    80
-#define TRACK_POS_D_LPF_ALPHA    0.25f
+ * - 先补掉图案里的单个丢失位，再按黑线跨度中点解码横向误差
+ * - 双中心和宽图案都落到同一套几何解释上，不再靠历史误差兜底
+ * - P 看轻度低通后的误差，D 看滤波后误差变化并限幅
+ * - D 只能减弱/增强当前修正，不能把方向直接翻过去
+ * - line_track 只负责给出目标差速和建议基础油门
+ * - 真正下发到电机的左右差速由编码器闭环去跟踪，避免“命令差速”和“实际差速”脱节 */
+#define PID_TRACK_LINE_KP        0.16f
+#define PID_TRACK_LINE_KD        0.08f
+#define TRACK_ERROR_LPF_ALPHA    0.35f
+#define TRACK_ERROR_DELTA_LIMIT  120
 #define TRACK_D_REVERSE_GUARD_RATIO 0.35f
+#define PID_TRACK_DIFF_KP        1.20f
+#define PID_TRACK_DIFF_KI        0.0f
+#define PID_TRACK_DIFF_KD        0.08f
+#define TRACK_DIFF_TARGET_SCALE  1.0f
 
 #define TRACK_BASE_PWM_DEFAULT   220
 #define TRACK_BASE_PWM_MIN       120
 #define TRACK_BASE_PWM_MAX       420
-#define TRACK_BASE_PWM_REDUCE_MAX 20
+#define TRACK_BASE_PWM_REDUCE_MAX 35
 
 #define TRACK_PWM_MAX            600
 #define TRACK_PWM_MIN            MOTOR_DEADZONE  /* 正向输出低于死区时抬到死区，不再直接切 0 */
-#define TRACK_DIFF_PWM_MAX       120             /* 正常循迹左右差速上限，防止单边扫线过猛 */
+#define TRACK_DIFF_PWM_MAX       100             /* 正常循迹左右差速上限，防止单边扫线过猛 */
 
 #define TRACK_TURN_LEFT_L_PWM    180
 #define TRACK_TURN_LEFT_R_PWM    220

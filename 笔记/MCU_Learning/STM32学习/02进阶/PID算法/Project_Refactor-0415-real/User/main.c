@@ -483,6 +483,7 @@ static void handle_command(const char *cmd)
 static void run_control(uint32_t now)
 {
     float dt, avgSpeed, dt_norm;
+    int16_t trackBasePwm;
 
     dt = (float)(now - g_lastControlTick) * 0.001f;
     if (dt <= 0.0f)
@@ -516,16 +517,26 @@ static void run_control(uint32_t now)
     }
     else if (g_sysState == SYS_TRACKING)
     {
-        /* 循迹模式保留五路转角逻辑，正常循迹只使用八路红外位置。 */
+        /* 循迹模式保留五路转角逻辑，但正常循迹改成：
+           line_track 只给目标差速和建议基础 PWM，
+           真正的左右轮差速由编码器闭环去跟踪。 */
         LineTrack_Update(now, 0);
-        g_pid.pwmCore = LineTrack_GetBasePwm();
-        g_pid.headingDiffPWM = g_lineTrack.devSpeed;
-        g_pid.leftPWM  = MotorDriver_GetActualL();
-        g_pid.rightPWM = MotorDriver_GetActualR();
         if (!LineTrack_IsRunning())
         {
             transition_stop(EXP_TRIGGER_AUTO);
+            return;
         }
+
+        trackBasePwm = (int16_t)((g_lineTrack.motorLPwm + g_lineTrack.motorRPwm) / 2);
+        DualLoop_ComputeTrack(&g_pid,
+                              (float)g_lineTrack.devSpeed,
+                              g_encoder.filteredLeftSpeed,
+                              g_encoder.filteredRightSpeed,
+                              trackBasePwm,
+                              dt);
+        MotorDriver_SetCoreDiff(g_pid.pwmCore, g_pid.headingDiffPWM);
+        g_pid.leftPWM  = MotorDriver_GetActualL();
+        g_pid.rightPWM = MotorDriver_GetActualR();
     }
 }
 
@@ -558,7 +569,7 @@ static void send_telemetry(void)
         BspUart_SendTelemetryTrack(t, g_experimentId, run,
                                    g_encoder.leftSpeed, g_encoder.rightSpeed,
                                    g_imu.yaw, g_imu.yawRate,
-                                    g_pid.pwmCore, g_lineTrack.devSpeed,
+                                   g_pid.pwmCore, g_pid.headingDiffPWM,
                                    g_pid.leftPWM, g_pid.rightPWM,
                                    g_lineTrack.sensorBits,
                                    (float)g_lineTrack.weightedPos,
