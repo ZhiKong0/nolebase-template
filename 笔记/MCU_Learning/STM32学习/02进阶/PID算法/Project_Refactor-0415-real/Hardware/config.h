@@ -207,19 +207,25 @@ typedef enum {
 #define PID_TRACK_SPEED_KD       0.0f
 
 /* 八路正常循迹:
- * - P 直接作用于 8 路加权位置，避免只用离散档位做控制输入
- * - D 对位置变化量先限幅再低通，抑制红外跳变带来的尖峰 */
-#define PID_TRACK_LINE_KP        0.50f
-#define PID_TRACK_LINE_KD        1.60f
-#define TRACK_POS_DELTA_LIMIT    120
-#define TRACK_POS_D_LPF_ALPHA    0.35f
+ * - 位置输入先低通，减小单个红外对射跳变对控制输入的影响
+ * - D 对平滑后的位置变化量再做限幅 + 低通
+ * - D 只允许减弱当前修正，不允许把循迹方向直接反过来
+ * - 大偏差时自动降速，减少八路数字输入下的扫线幅度 */
+#define PID_TRACK_LINE_KP        0.35f
+#define PID_TRACK_LINE_KD        0.45f
+#define TRACK_POS_INPUT_LPF_ALPHA 0.28f
+#define TRACK_POS_DELTA_LIMIT    80
+#define TRACK_POS_D_LPF_ALPHA    0.25f
+#define TRACK_D_REVERSE_GUARD_RATIO 0.35f
 
-#define TRACK_BASE_PWM_DEFAULT   280
+#define TRACK_BASE_PWM_DEFAULT   220
 #define TRACK_BASE_PWM_MIN       120
 #define TRACK_BASE_PWM_MAX       420
+#define TRACK_BASE_PWM_REDUCE_MAX 20
 
 #define TRACK_PWM_MAX            600
 #define TRACK_PWM_MIN            MOTOR_DEADZONE  /* 正向输出低于死区时抬到死区，不再直接切 0 */
+#define TRACK_DIFF_PWM_MAX       120             /* 正常循迹左右差速上限，防止单边扫线过猛 */
 
 #define TRACK_TURN_LEFT_L_PWM    180
 #define TRACK_TURN_LEFT_R_PWM    220

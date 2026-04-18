@@ -516,9 +516,8 @@ static void run_control(uint32_t now)
     }
     else if (g_sysState == SYS_TRACKING)
     {
-        /* 循迹模式完全改成五路参考风格:
-           不再使用当前工程原来的 track 速度环/锐角判断链。 */
-        LineTrack_Update(now, 0, 0.0f);
+        /* 循迹模式保留五路转角逻辑，正常循迹只使用八路红外位置。 */
+        LineTrack_Update(now, 0);
         g_pid.pwmCore = LineTrack_GetBasePwm();
         g_pid.headingDiffPWM = g_lineTrack.devSpeed;
         g_pid.leftPWM  = MotorDriver_GetActualL();

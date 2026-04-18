@@ -13,7 +13,7 @@
  *   R1  = S7|S8
  *
  * 运行方式:
- *   1. 正常循迹: 8 路加权位置 -> PD -> 左右轮 PWM
+ *   1. 正常循迹: 8 路加权位置 -> 中心双传感器归零 -> 输入低通 -> PD -> 差速限幅 -> 自适应降速 -> 左右轮 PWM
  *   2. 转角恢复: 等效 5 路 -> Signal_Handler -> corner_handler
  */
 #ifndef __LINE_TRACK_H
@@ -62,8 +62,8 @@ typedef struct {
     uint8_t crossState;
     uint8_t overrunCount;
 
-    int16_t weightedPos;    /* 8 路加权位置，正常循迹直接使用该量 */
-    int16_t devSpeed;       /* 八路位置 PD 输出 */
+    int16_t weightedPos;    /* 8 路原始加权位置；S4/S5 单独触发时按中心 0 处理 */
+    int16_t devSpeed;       /* 八路位置 PD + 差速限幅后的输出 */
     int16_t basePwm;        /* 循迹模式基础 PWM */
     int16_t motorLPwm;
     int16_t motorRPwm;
@@ -89,7 +89,7 @@ extern LineTrack_State_t g_lineTrack;
 void LineTrack_Init(void);
 void LineTrack_Start(uint8_t crossings);
 void LineTrack_Stop(void);
-void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw);
+void LineTrack_Update(uint32_t tickMs, int16_t basePwm);
 uint8_t LineTrack_IsRunning(void);
 void LineTrack_SetPID(float kp, float kd);
 void LineTrack_SetBasePwm(int16_t basePwm);

@@ -5,10 +5,13 @@
  * 当前实现把“正常循迹”和“转角判定”拆开处理：
  *
  *   1. 正常循迹直接使用 8 路原始传感器的加权位置做控制输入。
+ *      S4/S5 是双中心传感器，只要线落在中心对上，就按 0 偏差处理。
  *   2. 转角/全灭恢复仍沿用五路参考逻辑：
  *      把 8 路映射成 L1/L0/M/R0/R1，再按 last outer hit 决定转向。
- *   3. D 项不再直接吃离散档位跳变，而是对 8 路位置误差做限幅 + 低通。
- *   4. 正常循迹输出不再把低于阈值的正向 PWM 直接切成 0。
+ *   3. 位置输入先低通，再做 D 项限幅 + 低通，减小 8 路对射抖动。
+ *   4. 正常循迹输出增加左右差速上限，并在大偏差时自动降速。
+ *   5. 回到中心或瞬时无信号时，立即卸掉残留转向，避免左右来回扫。
+ *   6. 正常循迹输出不再把低于阈值的正向 PWM 直接切成 0。
  */
 
 #include "line_track.h"
@@ -20,9 +23,12 @@
 
 LineTrack_State_t g_lineTrack;
 
-static const int16_t s_weights[8] = { -350, -250, -150, -50, 50, 150, 250, 350 };
+/* S4/S5 为双中心，对直线区不主动施加左右偏置；
+   邻近 S3/S6 的权重也略收窄，减少数字量输入下的中心摆动。 */
+static const int16_t s_weights[8] = { -260, -180, -90, 0, 0, 90, 180, 260 };
 
 static int16_t s_trackLastPosError = 0;
+static float   s_trackFilteredPos = 0.0f;
 static float   s_trackFilteredDelta = 0.0f;
 
 static int16_t weighted_position(uint8_t bits)
@@ -30,6 +36,9 @@ static int16_t weighted_position(uint8_t bits)
     int32_t sum = 0;
     uint8_t count = 0u;
     uint8_t i;
+
+    if ((bits & (uint8_t)(~LT_MASK_MID)) == 0u)
+        return 0;
 
     for (i = 0u; i < 8u; i++)
     {
@@ -102,6 +111,7 @@ static void track_turn_right(int16_t leftPwm, int16_t rightPwm)
 static void reset_track_pid_runtime(void)
 {
     s_trackLastPosError = 0;
+    s_trackFilteredPos = 0.0f;
     s_trackFilteredDelta = 0.0f;
 }
 
@@ -118,10 +128,39 @@ static void read_equivalent_data(void)
 
 static int16_t position_pd_output(int16_t positionError)
 {
+    int16_t filteredError;
     int16_t delta;
+    int16_t steerRef;
+    float pTerm;
+    float dTerm;
     float pwmf;
 
-    delta = (int16_t)(positionError - s_trackLastPosError);
+    s_trackFilteredPos += TRACK_POS_INPUT_LPF_ALPHA * ((float)positionError - s_trackFilteredPos);
+    filteredError = (int16_t)s_trackFilteredPos;
+
+    /* Once the line is back on the center pair, or no sensor is active in
+       the non-corner path, clear the residual steer immediately. */
+    if (positionError == 0)
+    {
+        s_trackFilteredPos = 0.0f;
+        s_trackFilteredDelta = 0.0f;
+        s_trackLastPosError = 0;
+        return 0;
+    }
+
+    /* Eight digital sensors jump side-to-side in discrete steps. When the
+       raw position crosses to the other side, do not let the LPF lag keep
+       steering in the old direction for another few cycles. */
+    if ((positionError > 0 && filteredError < 0) ||
+        (positionError < 0 && filteredError > 0))
+    {
+        s_trackFilteredPos = (float)positionError;
+        filteredError = positionError;
+        s_trackFilteredDelta = 0.0f;
+        s_trackLastPosError = filteredError;
+    }
+
+    delta = (int16_t)(filteredError - s_trackLastPosError);
     if (delta > TRACK_POS_DELTA_LIMIT)
         delta = TRACK_POS_DELTA_LIMIT;
     else if (delta < -TRACK_POS_DELTA_LIMIT)
@@ -129,17 +168,44 @@ static int16_t position_pd_output(int16_t positionError)
 
     s_trackFilteredDelta += TRACK_POS_D_LPF_ALPHA * ((float)delta - s_trackFilteredDelta);
 
-    pwmf = g_lineTrack.kp * (float)positionError
-         + g_lineTrack.kd * s_trackFilteredDelta;
+    pTerm = g_lineTrack.kp * (float)filteredError;
+    dTerm = g_lineTrack.kd * s_trackFilteredDelta;
+    pwmf = pTerm + dTerm;
+    steerRef = (positionError != 0) ? positionError : filteredError;
 
-    s_trackLastPosError = positionError;
+    /* Pure digital 8-sensor input is still coarse; let D damp P, but never
+       flip the steering direction away from the current line side. */
+    if ((steerRef > 0 && pwmf < 0.0f) ||
+        (steerRef < 0 && pwmf > 0.0f))
+    {
+        pwmf = TRACK_D_REVERSE_GUARD_RATIO * g_lineTrack.kp * (float)steerRef;
+    }
+
+    if (pwmf > TRACK_DIFF_PWM_MAX)
+        pwmf = (float)TRACK_DIFF_PWM_MAX;
+    else if (pwmf < -(float)TRACK_DIFF_PWM_MAX)
+        pwmf = -(float)TRACK_DIFF_PWM_MAX;
+
+    s_trackLastPosError = filteredError;
     return (int16_t)pwmf;
 }
 
 static void Compute_PWM(void)
 {
-    g_lineTrack.motorLPwm = (int16_t)(g_lineTrack.basePwm + g_lineTrack.devSpeed);
-    g_lineTrack.motorRPwm = (int16_t)(g_lineTrack.basePwm - g_lineTrack.devSpeed);
+    int16_t absDiff;
+    int16_t effectiveBase;
+    int32_t reduce;
+
+    absDiff = (g_lineTrack.devSpeed >= 0) ? g_lineTrack.devSpeed : (int16_t)(-g_lineTrack.devSpeed);
+    reduce = ((int32_t)absDiff * (int32_t)TRACK_BASE_PWM_REDUCE_MAX) / (int32_t)TRACK_DIFF_PWM_MAX;
+    effectiveBase = (int16_t)(g_lineTrack.basePwm - (int16_t)reduce);
+    if (effectiveBase < TRACK_BASE_PWM_MIN)
+        effectiveBase = TRACK_BASE_PWM_MIN;
+    else if (effectiveBase > TRACK_BASE_PWM_MAX)
+        effectiveBase = TRACK_BASE_PWM_MAX;
+
+    g_lineTrack.motorLPwm = (int16_t)(effectiveBase + g_lineTrack.devSpeed);
+    g_lineTrack.motorRPwm = (int16_t)(effectiveBase - g_lineTrack.devSpeed);
 
     if (g_lineTrack.motorLPwm > TRACK_PWM_MAX)
         g_lineTrack.motorLPwm = TRACK_PWM_MAX;
@@ -367,11 +433,10 @@ void LineTrack_Stop(void)
     track_motor_stop();
 }
 
-void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
+void LineTrack_Update(uint32_t tickMs, int16_t basePwm)
 {
     (void)tickMs;
     (void)basePwm;
-    (void)currentYaw;
 
     switch (g_lineTrack.state)
     {
