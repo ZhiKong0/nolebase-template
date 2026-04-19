@@ -374,6 +374,34 @@ static void send_experiment_id_response(void)
     BspUart_SendString(buf);
 }
 
+static void send_track_snapshot_response(void)
+{
+    LineTrack_Snapshot_t snapshot;
+    char buf[192];
+
+    /* 待机查询和待机心跳共用同一份快照，避免脚本看到的 sb/sc/ca
+       和人工手查 `#TRACKSNAP?` 不是同一套判断口径。 */
+    LineTrack_CollectIdleSnapshot(g_imu.yaw, g_fastYawRate, &snapshot);
+    sprintf(buf,
+            "SNAP:sb=%u,cnt=%u,ld=%u,ca=%u,sc=%u,"
+            "lp=%.2f,pe=%.2f,yc=%.2f,ty=%.2f,ss=%.2f,cf=%.2f,dr=%.2f,yl=%.1f,ks=%.2f\r\n",
+            (unsigned)snapshot.sensorBits,
+            (unsigned)snapshot.sensorCount,
+            (unsigned)snapshot.lineDetected,
+            (unsigned)snapshot.captureActive,
+            (unsigned)snapshot.sCurveActive,
+            (double)snapshot.linePosition,
+            (double)snapshot.positionError,
+            (double)snapshot.yawCommand,
+            (double)snapshot.targetYaw,
+            (double)snapshot.speedScale,
+            (double)snapshot.captureAuthorityScale,
+            (double)snapshot.headingDiffRatio,
+            (double)snapshot.yawLimit,
+            (double)snapshot.lineKpScale);
+    BspUart_SendString(buf);
+}
+
 static void sync_experiment_id(uint32_t experimentId)
 {
     g_experimentId = experimentId;
@@ -440,6 +468,11 @@ static void handle_command(const char *cmd)
     if (strcmp(cmd, "#PING!") == 0)
     {
         BspUart_SendString("OK:PONG\r\n");
+        return;
+    }
+    if (strcmp(cmd, "#TRACKSNAP?!") == 0)
+    {
+        send_track_snapshot_response();
         return;
     }
     /* 通用参数协议从这里进入:
@@ -748,6 +781,7 @@ static void send_telemetry(void)
 {
     uint32_t t = g_tickMs - g_runStartTick;
     uint8_t run = is_running();
+    LineTrack_Snapshot_t trackSnapshot;
 
     if (g_sysState == SYS_TRACKING)
     {
@@ -782,6 +816,36 @@ static void send_telemetry(void)
                                    LineTrack_GetHeadingDiffRatio(),
                                    LineTrack_GetYawLimit(),
                                    LineTrack_GetLineKpScale());
+    }
+    else if (g_mode == MODE_TRACK)
+    {
+        /* 只要当前模式已经切到 TRACK，就在待机心跳里发一份空载快照。
+           这样 experiment_logger 在发 #RUN! 之前就能等到 sb/sc/ca/ld，
+           不再只能盲等“用户说已经摆回起点”。 */
+        LineTrack_CollectIdleSnapshot(g_imu.yaw, g_fastYawRate, &trackSnapshot);
+        BspUart_SendTelemetryTrack(t, g_experimentId, run,
+                                   g_encoder.leftSpeed, g_encoder.rightSpeed,
+                                   g_imu.yaw, g_fastYawRate,
+                                   0, 0,
+                                   0, 0,
+                                   trackSnapshot.sensorBits,
+                                   trackSnapshot.linePosition,
+                                   trackSnapshot.effectiveError,
+                                   trackSnapshot.yawCommand,
+                                   trackSnapshot.targetYaw,
+                                   trackSnapshot.lineDetected,
+                                   g_pid.targetSpeed,
+                                   g_pid.speedRampTarget,
+                                   trackSnapshot.speedScale,
+                                   trackSnapshot.captureActive,
+                                   trackSnapshot.captureAuthorityScale,
+                                   trackSnapshot.captureSwitchActive,
+                                   trackSnapshot.captureRateReliefScale,
+                                   trackSnapshot.recenterScale,
+                                   trackSnapshot.sCurveActive,
+                                   trackSnapshot.headingDiffRatio,
+                                   trackSnapshot.yawLimit,
+                                   trackSnapshot.lineKpScale);
     }
     else
     {

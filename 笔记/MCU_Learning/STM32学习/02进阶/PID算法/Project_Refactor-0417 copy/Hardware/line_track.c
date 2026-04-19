@@ -192,6 +192,64 @@ static float apply_min_yaw_floor(float yawCommand, float signHint, float minFloo
     return signf_nonzero(signHint) * minFloor;
 }
 
+static void compute_active_frontend_gains_for_state(uint8_t sCurveActive,
+                                                    float sCurveAuthorityScale,
+                                                    float *lineKpScale,
+                                                    float *yawLimit)
+{
+    const TuneRuntime_t *tune = TuneParams_Get();
+    float kpScale = 1.0f;
+    float limit = tune->trackLine.targetYawLimit;
+
+    if (sCurveActive && sCurveAuthorityScale > 0.0f)
+    {
+        kpScale = lerpf(1.0f,
+                        tune->trackSCurve.lineKpScale,
+                        sCurveAuthorityScale);
+        limit = lerpf(tune->trackLine.targetYawLimit,
+                      tune->trackSCurve.yawLimit,
+                      sCurveAuthorityScale);
+    }
+
+    *lineKpScale = kpScale;
+    *yawLimit = limit;
+}
+
+static void compute_heading_authority_for_state(uint8_t captureActive,
+                                                float captureScale,
+                                                uint8_t sCurveActive,
+                                                float sCurveScale,
+                                                float *diffRatio,
+                                                float *diffMin)
+{
+    const TuneRuntime_t *tune = TuneParams_Get();
+    float ratio = tune->trackLine.diffRatio;
+    float minValue = tune->trackLine.diffMin;
+
+    if (sCurveActive && sCurveScale > 0.0f)
+    {
+        ratio = lerpf(ratio,
+                      maxf(ratio, tune->trackSCurve.diffRatio),
+                      sCurveScale);
+        minValue = lerpf(minValue,
+                         maxf(minValue, tune->trackSCurve.diffMin),
+                         sCurveScale);
+    }
+
+    if (captureActive)
+    {
+        ratio = lerpf(ratio,
+                      maxf(ratio, tune->trackLine.captureDiffRatio),
+                      captureScale);
+        minValue = lerpf(minValue,
+                         maxf(minValue, tune->trackLine.captureDiffMin),
+                         captureScale);
+    }
+
+    *diffRatio = ratio;
+    *diffMin = minValue;
+}
+
 static float compute_scurve_sensor_position(const LineSensor_Data_t *line)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
@@ -230,15 +288,14 @@ static float compute_scurve_sensor_position(const LineSensor_Data_t *line)
     return weightedSum / activeGainSum;
 }
 
-static float shape_scurve_error(float error)
+static float shape_scurve_error_with_scale(float error, uint8_t sCurveActive, float authorityScale)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
-    float authorityScale = g_lineTrack.sCurveAuthorityScale;
     float absErr;
     float centerZone;
     float shaped;
 
-    if (!g_lineTrack.sCurveActive || authorityScale <= 0.001f)
+    if (!sCurveActive || authorityScale <= 0.001f)
         return error;
 
     absErr = absf(error);
@@ -258,6 +315,13 @@ static float shape_scurve_error(float error)
        authorityScale 越低，误差越接近原始 filtered/capture 误差，
        这样 capture 退掉后会自然回到更平顺的控制面。 */
     return lerpf(error, signf_nonzero(error) * shaped, authorityScale);
+}
+
+static float shape_scurve_error(float error)
+{
+    return shape_scurve_error_with_scale(error,
+                                         g_lineTrack.sCurveActive,
+                                         g_lineTrack.sCurveAuthorityScale);
 }
 
 static float compute_capture_error(float filteredError, float rawError, uint8_t sensorCount,
@@ -579,7 +643,8 @@ static void update_scurve_state(uint8_t sensorBits, float rawError, float filter
     }
 }
 
-static float apply_capture_yaw_floor(float yawCommand, float error, uint8_t captureActive)
+static float apply_capture_yaw_floor_with_scale(float yawCommand, float error,
+                                                uint8_t captureActive, float captureScale)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
     float minFloor;
@@ -587,60 +652,140 @@ static float apply_capture_yaw_floor(float yawCommand, float error, uint8_t capt
     if (!captureActive)
         return yawCommand;
 
-    minFloor = tune->trackLine.captureYawFloor * get_capture_effective_scale();
+    minFloor = tune->trackLine.captureYawFloor * captureScale;
     return apply_min_yaw_floor(yawCommand, error, minFloor);
+}
+
+static float apply_capture_yaw_floor(float yawCommand, float error, uint8_t captureActive)
+{
+    return apply_capture_yaw_floor_with_scale(yawCommand, error,
+                                              captureActive,
+                                              get_capture_effective_scale());
 }
 
 static void update_active_frontend_gains(void)
 {
-    const TuneRuntime_t *tune = TuneParams_Get();
-
-    /* exp0409 的权限链很短:
-       普通态走 trackLine；
-       scurve 态统一抬高 line_kp_scale 和 yaw_limit；
-       capture 只负责最小拉回角和更高 diff，不再单独再开第三套 yaw_limit。 */
-    g_lineTrack.activeLineKpScale = 1.0f;
-    g_lineTrack.activeYawLimit = tune->trackLine.targetYawLimit;
-
-    if (g_lineTrack.sCurveActive && g_lineTrack.sCurveAuthorityScale > 0.0f)
-    {
-        g_lineTrack.activeLineKpScale = lerpf(1.0f,
-                                              tune->trackSCurve.lineKpScale,
-                                              g_lineTrack.sCurveAuthorityScale);
-        g_lineTrack.activeYawLimit = lerpf(tune->trackLine.targetYawLimit,
-                                           tune->trackSCurve.yawLimit,
-                                           g_lineTrack.sCurveAuthorityScale);
-    }
+    /* 运行态和待机快照都要共用同一套权限映射，不再各自手写一遍。 */
+    compute_active_frontend_gains_for_state(g_lineTrack.sCurveActive,
+                                            g_lineTrack.sCurveAuthorityScale,
+                                            &g_lineTrack.activeLineKpScale,
+                                            &g_lineTrack.activeYawLimit);
 }
 
 static void update_heading_authority(uint8_t captureActive)
 {
+    compute_heading_authority_for_state(captureActive,
+                                        get_capture_effective_scale(),
+                                        g_lineTrack.sCurveActive,
+                                        g_lineTrack.sCurveAuthorityScale,
+                                        &g_lineTrack.headingDiffRatio,
+                                        &g_lineTrack.headingDiffMin);
+}
+
+void LineTrack_CollectIdleSnapshot(float currentYaw, float yawRate, LineTrack_Snapshot_t *out)
+{
     const TuneRuntime_t *tune = TuneParams_Get();
-    float diffRatio = tune->trackLine.diffRatio;
-    float diffMin = tune->trackLine.diffMin;
+    LineSensor_Data_t line;
+    float activePosition;
+    float rawError;
+    float effectiveError;
+    float lineKpScale;
+    float yawLimit;
+    float headingDiffRatio;
+    float headingDiffMin;
+    float yawCommandSeed;
+    uint8_t captureCandidate;
+    uint8_t sCurveCandidate;
 
-    if (g_lineTrack.sCurveActive && g_lineTrack.sCurveAuthorityScale > 0.0f)
+    if (!out)
+        return;
+
+    memset(out, 0, sizeof(*out));
+    out->speedScale = 1.0f;
+    out->captureRateReliefScale = 1.0f;
+    out->yawLimit = tune->trackLine.targetYawLimit;
+    out->headingDiffRatio = tune->trackLine.diffRatio;
+    out->headingDiffMin = tune->trackLine.diffMin;
+    out->lineKpScale = 1.0f;
+    out->targetYaw = currentYaw;
+
+    /* 这份快照只服务待机观测和脚本预触发:
+       1. 直接读一帧当前线位；
+       2. 用“无历史”的即时判据估算 ca/sc；
+       3. 不改 g_lineTrack，不污染真正起跑时的状态机。 */
+    LineSensor_Read(&line);
+    out->sensorBits = line.bits;
+    out->sensorCount = line.count;
+    out->lineDetected = line.lineDetected;
+
+    if (!line.lineDetected)
+        return;
+
+    activePosition = line.position;
+    rawError = activePosition - tune->trackLine.centerBias;
+    captureCandidate = should_capture(rawError, line.count);
+
+    if (captureCandidate)
     {
-        diffRatio = lerpf(diffRatio,
-                          maxf(diffRatio, tune->trackSCurve.diffRatio),
-                          g_lineTrack.sCurveAuthorityScale);
-        diffMin = lerpf(diffMin,
-                        maxf(diffMin, tune->trackSCurve.diffMin),
-                        g_lineTrack.sCurveAuthorityScale);
+        activePosition = compute_scurve_sensor_position(&line);
+        rawError = activePosition - tune->trackLine.centerBias;
+        captureCandidate = should_capture(rawError, line.count);
     }
 
-    if (captureActive)
+    if (captureCandidate && line.count <= 2u)
     {
-        diffRatio = lerpf(diffRatio,
-                          maxf(diffRatio, tune->trackLine.captureDiffRatio),
-                          get_capture_effective_scale());
-        diffMin = lerpf(diffMin,
-                        maxf(diffMin, tune->trackLine.captureDiffMin),
-                        get_capture_effective_scale());
+        activePosition = boost_sparse_capture_position(activePosition, line.bits, line.count);
+        rawError = activePosition - tune->trackLine.centerBias;
+        captureCandidate = should_capture(rawError, line.count);
     }
 
-    g_lineTrack.headingDiffRatio = diffRatio;
-    g_lineTrack.headingDiffMin = diffMin;
+    out->linePosition = activePosition;
+    out->positionError = rawError;
+    out->captureActive = captureCandidate;
+    out->captureAuthorityScale = captureCandidate ? 1.0f : 0.0f;
+    out->captureSwitchActive = 0u;
+    out->recenterScale = 0.0f;
+
+    effectiveError = rawError;
+    if (captureCandidate)
+    {
+        effectiveError = compute_capture_error(rawError, rawError, line.count, 1.0f);
+    }
+
+    yawCommandSeed = g_lineTrack.kp * effectiveError;
+    sCurveCandidate = should_enter_scurve(line.bits,
+                                          rawError,
+                                          rawError,
+                                          0.0f,
+                                          yawRate,
+                                          yawCommandSeed,
+                                          captureCandidate) ? 1u : 0u;
+    out->sCurveActive = sCurveCandidate;
+
+    if (sCurveCandidate)
+        effectiveError = shape_scurve_error_with_scale(effectiveError, 1u, 1.0f);
+    out->effectiveError = effectiveError;
+
+    compute_active_frontend_gains_for_state(sCurveCandidate, sCurveCandidate ? 1.0f : 0.0f,
+                                            &lineKpScale, &yawLimit);
+    compute_heading_authority_for_state(captureCandidate, captureCandidate ? 1.0f : 0.0f,
+                                        sCurveCandidate, sCurveCandidate ? 1.0f : 0.0f,
+                                        &headingDiffRatio, &headingDiffMin);
+
+    out->lineKpScale = lineKpScale;
+    out->yawLimit = yawLimit;
+    out->headingDiffRatio = headingDiffRatio;
+    out->headingDiffMin = headingDiffMin;
+    out->speedScale = compute_curve_speed_scale(effectiveError);
+    out->speedScale = apply_scurve_speed_floor(out->speedScale, sCurveCandidate);
+    out->speedScale = apply_capture_speed_floor(out->speedScale, captureCandidate);
+
+    out->yawCommand = (g_lineTrack.kp * lineKpScale) * effectiveError;
+    out->yawCommand = apply_capture_yaw_floor_with_scale(out->yawCommand, effectiveError,
+                                                         captureCandidate,
+                                                         captureCandidate ? 1.0f : 0.0f);
+    out->yawCommand = clampf(out->yawCommand, -yawLimit, yawLimit);
+    out->targetYaw = wrap_deg(currentYaw + out->yawCommand);
 }
 
 void LineTrack_RefreshTune(void)

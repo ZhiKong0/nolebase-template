@@ -80,6 +80,29 @@ typedef struct {
     uint32_t lastSeenTick;
 } LineTrack_State_t;
 
+typedef struct {
+    /* 待机快照专门服务“起跑前观测”，不携带运行中的历史状态。 */
+    uint8_t sensorBits;
+    uint8_t sensorCount;
+    uint8_t lineDetected;
+    uint8_t captureActive;
+    uint8_t captureSwitchActive;
+    uint8_t sCurveActive;
+    float linePosition;
+    float positionError;
+    float effectiveError;
+    float yawCommand;
+    float targetYaw;
+    float speedScale;
+    float captureAuthorityScale;
+    float captureRateReliefScale;
+    float recenterScale;
+    float headingDiffRatio;
+    float headingDiffMin;
+    float lineKpScale;
+    float yawLimit;
+} LineTrack_Snapshot_t;
+
 extern LineTrack_State_t g_lineTrack;
 
 /* 初始化循迹模块的内部状态和默认读线参数。 */
@@ -90,6 +113,8 @@ void LineTrack_Start(uint32_t tickMs, float currentYaw);
 void LineTrack_Stop(void);
 /* 每个控制周期调用一次，刷新当前目标航向和速度倍率。 */
 void LineTrack_Update(uint32_t tickMs, float currentYaw, float yawRate);
+/* 在未运行状态下采一帧“空载循迹快照”，给待机心跳和脚本预触发使用。 */
+void LineTrack_CollectIdleSnapshot(float currentYaw, float yawRate, LineTrack_Snapshot_t *out);
 /* 查询循迹状态机是否仍处于运行态。 */
 uint8_t LineTrack_IsRunning(void);
 /* 查询当前是否处于 S 弯拉回态。 */
