@@ -145,6 +145,7 @@ typedef enum
 #define CONTROL_PERIOD_MS 10          /* 主控制循环周期(ms) */
 #define TELEMETRY_PERIOD_MS 20        /* 串口遥测上报间隔(ms) */
 #define IMU_READ_PERIOD_MS 20         /* IMU 读取间隔(ms) */
+#define IMU_RECOVERY_RETRY_MS 500     /* IMU 丢失后仅在停车态重试初始化的间隔(ms) */
 #define EXP_HOST_SYNC_TIMEOUT_MS 4000 /* py 端实验编号接管的租期(ms), 超时后板子不再自动递增编号 */
 
 /*

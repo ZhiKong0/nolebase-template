@@ -42,6 +42,7 @@ static uint32_t g_runStartTick = 0;
 static uint32_t g_lastTelemetryTick = 0;
 static uint32_t g_lastControlTick = 0;
 static uint32_t g_lastImuTick = 0;
+static uint32_t g_lastImuRecoverTick = 0;
 static uint32_t g_lastDisplayTick = 0;
 static uint8_t g_displayDirty = 1;
 static float g_fastYawRate = 0.0f;
@@ -762,11 +763,22 @@ static void run_imu_update(void)
     const TuneRuntime_t *tune = TuneParams_Get();
     float dt;
     uint32_t now = g_tickMs;
+    uint8_t imuReadOk;
     /* IMU 更新时间戳独立维护，避免控制周期偶发抖动直接污染角速度估计。 */
     dt = (float)(now - g_lastImuTick) * 0.001f;
     if (dt <= 0.0f || dt > 0.5f)
         dt = 0.2f;
-    BNO085_ReadAll(&g_imu);
+    imuReadOk = BNO085_ReadAll(&g_imu);
+    if (!imuReadOk || !BNO085_IsReady() || !g_imu.ahrsInited)
+    {
+        /* IMU 一旦在运行中掉线，不能继续沿用上一拍差速。
+           这里立刻切断控制并把恢复推迟到停车态，避免“IMU=1 + 小车原地自转”。 */
+        g_fastYawRate = 0.0f;
+        g_lastImuTick = g_tickMs;
+        if (is_running())
+            transition_stop(EXP_TRIGGER_AUTO);
+        return;
+    }
     BNO085_UpdateYaw(&g_imu, dt);
     /* Update gyro LPF ONLY when fresh IMU data arrives.
        Negate gyroZf: BNO085 Z-axis is inverted relative to
@@ -885,6 +897,20 @@ static void update_display(uint32_t now)
                        g_experimentId);
 }
 
+static void service_imu_recovery(uint32_t now)
+{
+    if (is_running())
+        return;
+    if (BNO085_IsReady())
+        return;
+    if ((now - g_lastImuRecoverTick) < IMU_RECOVERY_RETRY_MS)
+        return;
+
+    g_lastImuRecoverTick = now;
+    BNO085_Service();
+    g_displayDirty = 1;
+}
+
 /* ========== Main Entry ========== */
 
 int main(void)
@@ -933,6 +959,9 @@ int main(void)
         {
             run_imu_update();
         }
+
+        /* IMU 恢复只允许在停车态做，避免运行中重初始化把控制环卡死。 */
+        service_imu_recovery(now);
 
         /* 3. Control loop (10ms period) */
         if (g_controlFlag)
