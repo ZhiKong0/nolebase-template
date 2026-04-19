@@ -76,8 +76,12 @@ static const TuneRuntime_t s_tuneDefaults = {
         TRACK_SCURVE_INNER_SENSOR_GAIN,
         TRACK_SCURVE_OUTER_SENSOR_GAIN,
         TRACK_SCURVE_EDGE_SENSOR_GAIN,
-        /* S 弯态前端误差放大倍率先从 1.20 收到 1.10，压住重新见线后的二次甩动。 */
-        1.10f,
+        TRACK_SCURVE_SIDE_TARGET_POS_START,
+        TRACK_SCURVE_SIDE_TARGET_POS_FULL,
+        TRACK_SCURVE_SIDE_TARGET_INNER,
+        TRACK_SCURVE_SIDE_TARGET_OUTER,
+        /* S 弯态前端误差放大倍率先收一档，把主导权交给“贴边目标带”。 */
+        TRACK_SCURVE_LINE_KP_SCALE,
         TRACK_SCURVE_YAW_LIMIT,
         /* S 弯态权限仍高于普通态，但先别保持在过硬的 0.94。 */
         0.88f,
@@ -179,6 +183,10 @@ static const TuneParamMeta_t s_paramTable[] = {
     { "track.scurve.inner_sensor_gain",  "track_scurve",  "f32", "float",    "ratio",    TUNE_PARAM_F32, TUNE_OFF(trackSCurve.innerSensorGain),  0.0f, 2.5f, 0.01f, 0.001f,1.0f,0u },
     { "track.scurve.outer_sensor_gain",  "track_scurve",  "f32", "float",    "ratio",    TUNE_PARAM_F32, TUNE_OFF(trackSCurve.outerSensorGain),  0.0f, 3.0f, 0.01f, 0.001f,1.0f,0u },
     { "track.scurve.edge_sensor_gain",   "track_scurve",  "f32", "float",    "ratio",    TUNE_PARAM_F32, TUNE_OFF(trackSCurve.edgeSensorGain),   0.0f, 4.0f, 0.01f, 0.001f,1.0f,0u },
+    { "track.scurve.side_pos_start",     "track_scurve",  "f32", "float",    "pos",      TUNE_PARAM_F32, TUNE_OFF(trackSCurve.sideTargetPosStart), 0.0f, 3.5f, 0.05f, 0.01f,1.0f,0u },
+    { "track.scurve.side_pos_full",      "track_scurve",  "f32", "float",    "pos",      TUNE_PARAM_F32, TUNE_OFF(trackSCurve.sideTargetPosFull),  0.5f, 3.5f, 0.05f, 0.01f,1.0f,0u },
+    { "track.scurve.side_target_inner",  "track_scurve",  "f32", "float",    "pos",      TUNE_PARAM_F32, TUNE_OFF(trackSCurve.sideTargetInner),   0.5f, 3.5f, 0.05f, 0.01f,1.0f,0u },
+    { "track.scurve.side_target_outer",  "track_scurve",  "f32", "float",    "pos",      TUNE_PARAM_F32, TUNE_OFF(trackSCurve.sideTargetOuter),   1.0f, 3.5f, 0.05f, 0.01f,1.0f,0u },
     { "track.scurve.line_kp_scale",   "track_scurve",     "f32", "float",    "ratio",    TUNE_PARAM_F32, TUNE_OFF(trackSCurve.lineKpScale),     0.5f,    3.0f,  0.05f, 0.01f,1.0f,0u },
     /* exp0409 日志里的 `yl=40`、`dr=0.94` 对应的就是这一组权限。 */
     { "track.scurve.yaw_limit",      "track_scurve",     "f32", "float",    "deg",      TUNE_PARAM_F32, TUNE_OFF(trackSCurve.yawLimit),        0.0f,   70.0f,  0.5f,  0.1f, 1.0f,0u },

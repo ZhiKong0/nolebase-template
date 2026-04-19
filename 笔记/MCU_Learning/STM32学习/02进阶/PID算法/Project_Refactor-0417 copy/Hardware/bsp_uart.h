@@ -37,7 +37,7 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
                                 int16_t pwmCore, int16_t headingDiff,
                                 int16_t pwmL, int16_t pwmR,
                                 uint8_t sensorBits, float linePos,
-                                float positionError, float yawCommand,
+                                float targetLinePos, float positionError, float yawCommand,
                                 float targetYaw, uint8_t lineDetected,
                                 float targetSpeed, float rampTarget,
                                 float speedScale, uint8_t captureActive,

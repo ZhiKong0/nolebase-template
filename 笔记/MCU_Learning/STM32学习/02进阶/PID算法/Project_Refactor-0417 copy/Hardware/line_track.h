@@ -24,14 +24,17 @@ typedef struct {
     /* captureSwitchActive=1 表示当前 capture 是“刚换边后的第一段”，
        应按更软的接管参数慢一点拉起来。 */
     uint8_t captureSwitchActive;
-    /* exp0409 的 S 弯态只有一个布尔态:
-       一旦切入，就统一使用更高的 kp/yaw_limit/diff 权限。 */
+    /* sc=1 现在不再只是“抬权限”的布尔态，而是明确表示:
+       已切入 S 弯贴边状态，前端会改用“中心退出、边缘最大”的专用观测面。 */
     uint8_t sCurveActive;
     /* 入弯证据连续确认计数:
        避免仅凭单拍角速度或位置波动就提前切进 scurve。 */
     uint8_t sCurveEnterConfirmCount;
     /* 用少量连续确认拍数避免 S 弯态在中心附近一闪一灭。 */
     uint8_t sCurveExitConfirmCount;
+    /* sCurveSideSign 记录当前 S 弯贴边方向:
+       -1 表示压左侧边缘，+1 表示压右侧边缘。 */
+    int8_t sCurveSideSign;
     /* recenterActive=1 表示“中间灯重新出现后”的回中重锁链正在生效。 */
     uint8_t recenterActive;
 
@@ -42,6 +45,10 @@ typedef struct {
     float filteredDelta;
     /* positionError 已扣除了中心偏置，0 附近表示车身大致压在线中心。 */
     float positionError;
+    /* targetLinePosition 是当前真正想把线压到哪里:
+       直线态=中心;
+       S 弯态=侧边目标带(S2/S7 或 S1/S8 一带)。 */
+    float targetLinePosition;
     /* effectiveError 是经过捕获态增强后的控制误差，直接决定转向和降速强度。 */
     float effectiveError;
     /* yawCommand 是前端直接生成的循迹转向命令。
@@ -90,6 +97,7 @@ typedef struct {
     uint8_t sCurveActive;
     float linePosition;
     float positionError;
+    float targetLinePosition;
     float effectiveError;
     float yawCommand;
     float targetYaw;
@@ -129,6 +137,8 @@ void LineTrack_RefreshTune(void);
 float LineTrack_GetTargetYaw(void);
 /* 读取当前前端直接生成的循迹转向命令。 */
 float LineTrack_GetYawCommand(void);
+/* 读取当前前端真正使用的线目标位置。 */
+float LineTrack_GetTargetLinePosition(void);
 /* 读取当前建议的速度倍率，供主循环临时压低目标速度。 */
 float LineTrack_GetSpeedScale(void);
 /* 读取当前循迹模式允许的差速比例上限。 */

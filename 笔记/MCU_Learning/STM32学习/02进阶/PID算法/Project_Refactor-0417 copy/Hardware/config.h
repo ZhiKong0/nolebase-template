@@ -320,22 +320,26 @@ typedef enum
 #define TRACK_SCURVE_CENTER_GAIN 0.44f
 #define TRACK_SCURVE_EDGE_GAIN 1.35f
 /* S 弯态专用传感器参与系数:
- * - center_sensor_gain 对应 S4/S5，设到接近 0 表示中心双灯基本不参与纠偏；
- * - inner_sensor_gain 对应 S3/S6；
- * - outer_sensor_gain 对应 S2/S7；
- * - edge_sensor_gain 对应最外侧 S1/S8，用更高权重尽快把车从边缘拉回来。 */
+ * - center_sensor_gain 对应 S4/S5，S 弯态里这里直接退到 0，中心双灯不再负责回正；
+ * - inner_sensor_gain 对应 S3/S6，只保留一层较弱约束；
+ * - outer_sensor_gain 对应 S2/S7，作为 S 弯里的主约束层；
+ * - edge_sensor_gain 对应最外侧 S1/S8，权重最高，用来把车稳稳卡在边缘附近。 */
 #define TRACK_SCURVE_CENTER_SENSOR_GAIN 0.00f
-#define TRACK_SCURVE_INNER_SENSOR_GAIN 1.00f
-#define TRACK_SCURVE_OUTER_SENSOR_GAIN 1.15f
-#define TRACK_SCURVE_EDGE_SENSOR_GAIN 1.25f
+#define TRACK_SCURVE_INNER_SENSOR_GAIN 0.35f
+#define TRACK_SCURVE_OUTER_SENSOR_GAIN 1.00f
+#define TRACK_SCURVE_EDGE_SENSOR_GAIN 1.65f
+/* S 弯态贴边目标带:
+ * - 不再把线目标固定在中心，而是按当前侧向偏移把目标带压到 S2/S7 或 S1/S8 一带；
+ * - 这样可以让车在 S 弯里更像“贴着边缘滑过去”，而不是每一拍都想抢回中线。 */
+#define TRACK_SCURVE_SIDE_TARGET_POS_START 1.00f
+#define TRACK_SCURVE_SIDE_TARGET_POS_FULL 2.60f
+#define TRACK_SCURVE_SIDE_TARGET_INNER 2.10f
+#define TRACK_SCURVE_SIDE_TARGET_OUTER 2.95f
 /* exp0409 日志里的 `ks=1.20` 来自这里。 */
 /* `line_kp_scale` 负责把前端位置误差放大后送进 yawCommand。
- * exp0547 的症状是:
- * 1. 第一次见边后前端给出的 `yc/ty` 很快顶大；
- * 2. 重新见线时又会以同样偏硬的观测面继续放大误差，造成来回甩。
- * 这里把 S 弯态前端误差放大倍率从 1.20 收到 1.10，
- * 让 S 弯仍然沿边抓线，但不要一进边缘就把前端当成“必须狠狠干拽”的状态。 */
-#define TRACK_SCURVE_LINE_KP_SCALE 1.10f
+ * 现在 S 弯态已经会主动把目标带推向边缘，不需要再用很高的前端放大倍率硬拉中线，
+ * 所以这里反而收一档，让车主要靠“贴边目标带”而不是“高 Kp 抢回中心”去过弯。 */
+#define TRACK_SCURVE_LINE_KP_SCALE 0.95f
 /* exp0409 的 S 弯底速和丢线底速。 */
 #define TRACK_SCURVE_SPEED_SCALE_MIN 0.84f
 #define TRACK_SCURVE_LOSS_SPEED_SCALE_MIN 0.66f

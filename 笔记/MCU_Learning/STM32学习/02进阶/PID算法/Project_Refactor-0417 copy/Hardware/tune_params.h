@@ -113,6 +113,13 @@ typedef struct {
     float innerSensorGain;
     float outerSensorGain;
     float edgeSensorGain;
+    /* S 弯态不再默认把线往中间拉，而是把目标位置压到侧边“目标带”:
+       1. linePos 还偏里时，先贴近 S2/S7 一带；
+       2. linePos 已经接近最外侧时，再把目标带推向 S1/S8。 */
+    float sideTargetPosStart;
+    float sideTargetPosFull;
+    float sideTargetInner;
+    float sideTargetOuter;
     /* ks=1.20 就来自这里，exp0409 日志里已经能直接看到。 */
     float lineKpScale;
     float yawLimit;
