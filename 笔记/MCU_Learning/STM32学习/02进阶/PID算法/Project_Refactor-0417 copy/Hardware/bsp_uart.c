@@ -276,17 +276,16 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
                                 float targetLinePos, float positionError, float yawCommand,
                                 float targetYaw, uint8_t lineDetected,
                                 float targetSpeed, float rampTarget,
-                                float speedScale, uint8_t captureActive,
-                                float captureAuthorityScale, uint8_t captureSwitchActive, float captureUnloadScale, float recenterScale,
+                                float speedScale, uint8_t edgeLockActive,
                                 uint8_t sCurveActive, float headingDiffRatio,
                                 float yawLimit, float lineKpScale)
 {
-    char buf[320];
+    char buf[280];
 
     sprintf(buf,
         "HB:t=%lu,m=T,run=%u,exp=%lu,el=%d,er=%d,yaw=%.1f,yr=%.1f,"
         "pc=%d,hd=%d,OL=%d,OR=%d,ts=%.2f,sr=%.2f,"
-        "sb=%u,lp=%.2f,tp=%.2f,pe=%.2f,yc=%.2f,ty=%.2f,ss=%.2f,ca=%u,cf=%.2f,cs=%u,cu=%.2f,rc=%.2f,sc=%u,dr=%.2f,yl=%.1f,ks=%.2f,ld=%u\r\n",
+        "sb=%u,lp=%.2f,tp=%.2f,pe=%.2f,yc=%.2f,ty=%.2f,ss=%.2f,ca=%u,sc=%u,dr=%.2f,yl=%.1f,ks=%.2f,ld=%u\r\n",
         (unsigned long)tMs, (unsigned)run, (unsigned long)experimentId,
         (int)encL, (int)encR,
         (double)yaw, (double)yawRate,
@@ -296,9 +295,7 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
         (unsigned)sensorBits, (double)linePos,
         (double)targetLinePos, (double)positionError, (double)yawCommand,
         (double)targetYaw, (double)speedScale,
-        (unsigned)captureActive, (double)captureAuthorityScale, (unsigned)captureSwitchActive,
-        (double)captureUnloadScale,
-        (double)recenterScale,
+        (unsigned)edgeLockActive,
         (unsigned)sCurveActive,
         (double)headingDiffRatio, (double)yawLimit, (double)lineKpScale,
         (unsigned)lineDetected);

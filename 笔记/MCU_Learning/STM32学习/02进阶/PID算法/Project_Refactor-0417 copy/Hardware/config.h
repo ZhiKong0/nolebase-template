@@ -173,7 +173,7 @@ typedef enum
  * 调参步骤建议：
  *   1. 先调速度环(SKP/SKI)，让小车能平稳地以目标速度直行
  *   2. 直线模式调航向环(AKP/AKD)，让小车走直线不跑偏
- *   3. 循迹模式主要调 LINE_KP/LINE_KD 与 track.capture / track.loss / track.scurve
+ *   3. 循迹模式主要调 LINE_KP/LINE_KD 与 track.loss / track.scurve
  *   4. 再根据速度变化补速度环和差速权限，不再先调循迹航向环
  *
  * 串口实时调参命令:
@@ -215,136 +215,48 @@ typedef enum
 #define PID_TRACK_SPEED_KI 0.10f
 #define PID_TRACK_SPEED_KD 0.0f
 
-/* 读线骨架: 位置 → 前端转向命令 */
+/* 直线态循迹前端:
+ * 只保留“中线位置 -> yawCommand -> 权限/降速”这条基础链。 */
 #define PID_TRACK_LINE_KP 4.00f
 #define PID_TRACK_LINE_KD 1.20f
 #define TRACK_POS_LPF 0.45f
-#define TRACK_CAPTURE_POS_ALPHA 1.00f
 #define TRACK_DERIV_LPF 0.35f
 #define TRACK_LINE_CENTER_BIAS 0.50f
-#define TRACK_CAPTURE_ERROR_START 0.85f
-#define TRACK_CAPTURE_ERROR_GAIN 2.10f
-/* 当边缘只剩 1~2 个灯时，普通权重平均容易把位置看得偏里。
- * 这里给一个额外的“向外推”倍率，让稀疏边缘位型更像真实的贴边状态。 */
-#define TRACK_CAPTURE_SPARSE_POS_GAIN 1.18f
-/* exp0547 证明第一次边缘捕获过硬:
- * - 一旦 S1/S2 或 S7/S8 刚出现，capture 会立刻给较大的最小拉回角；
- * - 在当前 50 速档下，这个角度叠加较大的 diff_min，很容易第一下就把车打进全灭盲区。
- * 这里先把 capture 的最低拉回角收一档，让“第一次摸到边缘”先把车往回带，
- * 但不要立刻变成近似满舵。 */
-#define TRACK_CAPTURE_YAW_FLOOR 20.0f
-#define TRACK_CAPTURE_EXIT_ERROR 0.85f
 #define TRACK_TARGET_YAW_LIMIT 30.0f
 #define TRACK_HEADING_DIFF_RATIO 0.55f
 #define TRACK_HEADING_DIFF_MIN 12.0f
-#define TRACK_CAPTURE_HEADING_DIFF_RATIO 0.86f
-/* capture 的最小差速权限和 yaw_floor 是耦合的:
- * yaw_floor 决定“至少要给多大的转向意图”，
- * diff_min 决定“这个转向意图至少能落成多大的左右轮差速”。
- * exp0547 的问题不是看不见线，而是第一次捕获时落地差速太狠，
- * 所以这里同步收一档，避免一抓到边缘就把车继续甩进盲区。 */
-#define TRACK_CAPTURE_HEADING_DIFF_MIN 96.0f
-/* capture 渐入权限:
- * 1. 第一拍只给 45% 的 capture 权限，避免 `ca=1` 当拍直接打满；
- * 2. 连续 3 拍仍然是边缘捕获，再逐步放到满额；
- * 3. 脱离边缘位型后按 0.82 衰减，避免“已经回到线附近了还死命拽”。 */
-#define TRACK_CAPTURE_ENTRY_SCALE 0.45f
-#define TRACK_CAPTURE_FULL_CONFIRM_COUNT 3u
-#define TRACK_CAPTURE_RELEASE_DECAY 0.82f
-/* 反向换边抑制:
- * 用户现在看到的问题不是“完全抓不住”，而是“刚回中又在另一侧重新见边时，
- * capture 很快重新拉满，把车头再次甩出去”。
- * 所以这里单独给换边第一段一套更软的接管参数:
- * 1. 起始权限更低;
- * 2. 连续确认拍数更长;
- * 3. 只有上一拍误差已经回到中心附近，才认定这是“换边第一段”。 */
-#define TRACK_CAPTURE_SWITCH_ENTRY_SCALE 0.22f
-#define TRACK_CAPTURE_SWITCH_CONFIRM_COUNT 6u
-#define TRACK_CAPTURE_SWITCH_ERROR_LIMIT 1.30f
-/* 顺向角速度卸力:
- * 当车头已经顺着当前边缘方向明显在转时，继续抬高 capture 权限只会越拉越深。
- * 这里把“已经在顺着弯转”的场景单独抽出来:
- * 1. 角速度超过 start 后，capture 开始主动卸力;
- * 2. 超过 full 后，capture 只保留一小部分最小钳位;
- * 3. 这样既保留沿边方向，又不会在中后段继续把车甩进盲区。 */
-#define TRACK_CAPTURE_RATE_RELIEF_START 55.0f
-#define TRACK_CAPTURE_RATE_RELIEF_FULL 130.0f
-#define TRACK_CAPTURE_RATE_RELIEF_MIN_SCALE 0.35f
-/* 回中重锁:
- * 1. 只有中间灯重新出现且原始位置已回到中心附近，才触发 recenter;
- * 2. 触发后把 scurve 的边缘观测适度拉回原始中心位置;
- * 3. 同时更快更新 filteredPosition，并主动收一档边缘权限和误差力度，
- *    避免“已经重新压到线附近，但前端还沿着上一次边缘方向继续甩头”。 */
-#define TRACK_RECENTER_ERROR_LIMIT 1.10f
-#define TRACK_RECENTER_BLEND 0.72f
-#define TRACK_RECENTER_POS_ALPHA 0.88f
-#define TRACK_RECENTER_ERROR_SCALE 0.62f
-#define TRACK_RECENTER_AUTHORITY_SCALE 0.58f
-/* 回中灯位往往只亮 1 拍左右。
- * 如果 rc 当拍亮、下一拍立刻掉成 0，就会在换边第一拍重新吃满 capture。
- * 这里给 recenter 一点短衰减，让“回中刚完成”的余力再续 1~2 拍。 */
-#define TRACK_RECENTER_RELEASE_DECAY 0.72f
-#define TRACK_CAPTURE_SPEED_SCALE_MIN 0.76f
 #define TRACK_LINE_LOSS_HOLD_MS 40u
-#define TRACK_LINE_LOSS_TIMEOUT_MS 5000u /* 离散循迹传感器会出现短暂全灭，适当放宽丢线停车阈值 */
+#define TRACK_LINE_LOSS_TIMEOUT_MS 5000u /* 离散循迹头会有短暂全灭，真正停车只看总超时 */
 #define TRACK_LINE_LOSS_YAW_DECAY 0.985f
 #define TRACK_LINE_LOSS_SPEED_SCALE 0.36f
-/* 关键改动:
- * capture 的“狠狠干拽”只应该在还能看见线时生效。
- * 一旦整排全灭，最多只保留一小段盲区钳位，然后就撤掉 capture 强约束，
- * 否则车会沿着上一次边缘方向越转越深。 */
-#define TRACK_LINE_LOSS_CAPTURE_HOLD_MS 40u
-#define TRACK_LINE_LOSS_CAPTURE_YAW_FLOOR_SCALE 0.45f
 #define TRACK_CURVE_SPEED_POS_START 0.35f
 #define TRACK_CURVE_SPEED_POS_FULL 1.30f
 #define TRACK_CURVE_SPEED_SCALE_MIN 0.30f
-/* S 弯态和普通居中稳态分开调。
- * 直线段优先追求“压中线的稳定性”；
- * S 弯态优先追求“边缘一出现就能把车强拉回来，同时不要掉太多速度”。 */
+
+/* S 弯态前端:
+ * 进入 S 弯后只保留“贴边观测 + 侧边目标带”这条链，不再找线或回中。 */
 #define TRACK_SCURVE_ENTER_YAW_RATE 32.0f
 #define TRACK_SCURVE_ENTER_ERROR 0.95f
 #define TRACK_SCURVE_ENTER_DELTA 0.42f
 #define TRACK_SCURVE_ENTER_YAW_CMD 10.0f
 #define TRACK_SCURVE_EXIT_ERROR 0.40f
-/* exp0409 的 `yl=40`、`dr=0.94` 对应的就是这组 S 弯态权限。 */
 #define TRACK_SCURVE_YAW_LIMIT 40.0f
-/* S 弯态仍要比直线态更有拉回力，但不能继续沿用过硬的 0.94。
- * exp0547 里 `sc=1` 期间长期维持高权限，导致重新见线后仍容易大幅摆动。
- * 这里把 S 弯态整体差速比例降一档，保留“能抓住边缘”的能力，
- * 同时减小“刚回线又被再次打出去”的概率。 */
 #define TRACK_SCURVE_DIFF_RATIO 0.88f
 #define TRACK_SCURVE_DIFF_MIN 94.0f
-/* S 弯态误差成形:
- * - center_zone 以内弱化中线约束，减少“刚回中线就被拉回去”的左右摆；
- * - 超过 center_zone 后，剩余误差按 edge_gain 放大，保证两侧拉回力更强。 */
 #define TRACK_SCURVE_CENTER_ZONE 0.80f
 #define TRACK_SCURVE_CENTER_GAIN 0.44f
 #define TRACK_SCURVE_EDGE_GAIN 1.35f
-/* S 弯态专用传感器参与系数:
- * - center_sensor_gain 对应 S4/S5，S 弯态里这里直接退到 0，中心双灯不再负责回正；
- * - inner_sensor_gain 对应 S3/S6，只保留一层较弱约束；
- * - outer_sensor_gain 对应 S2/S7，作为 S 弯里的主约束层；
- * - edge_sensor_gain 对应最外侧 S1/S8，权重最高，用来把车稳稳卡在边缘附近。 */
 #define TRACK_SCURVE_CENTER_SENSOR_GAIN 0.00f
 #define TRACK_SCURVE_INNER_SENSOR_GAIN 0.35f
 #define TRACK_SCURVE_OUTER_SENSOR_GAIN 1.00f
 #define TRACK_SCURVE_EDGE_SENSOR_GAIN 1.65f
-/* S 弯态贴边目标带:
- * - 不再把线目标固定在中心，而是按当前侧向偏移把目标带压到 S2/S7 或 S1/S8 一带；
- * - 这样可以让车在 S 弯里更像“贴着边缘滑过去”，而不是每一拍都想抢回中线。 */
 #define TRACK_SCURVE_SIDE_TARGET_POS_START 1.00f
 #define TRACK_SCURVE_SIDE_TARGET_POS_FULL 2.60f
 #define TRACK_SCURVE_SIDE_TARGET_INNER 2.10f
 #define TRACK_SCURVE_SIDE_TARGET_OUTER 2.95f
-/* exp0409 日志里的 `ks=1.20` 来自这里。 */
-/* `line_kp_scale` 负责把前端位置误差放大后送进 yawCommand。
- * 现在 S 弯态已经会主动把目标带推向边缘，不需要再用很高的前端放大倍率硬拉中线，
- * 所以这里反而收一档，让车主要靠“贴边目标带”而不是“高 Kp 抢回中心”去过弯。 */
 #define TRACK_SCURVE_LINE_KP_SCALE 0.95f
-/* exp0409 的 S 弯底速和丢线底速。 */
 #define TRACK_SCURVE_SPEED_SCALE_MIN 0.84f
 #define TRACK_SCURVE_LOSS_SPEED_SCALE_MIN 0.66f
-/* 只保留简单的中心/变化率/角速度退出证据，不再带时间门槛。 */
 #define TRACK_SCURVE_EXIT_CENTER_ERROR 0.90f
 #define TRACK_SCURVE_EXIT_CENTER_DELTA 0.22f
 #define TRACK_SCURVE_EXIT_CENTER_YAW_RATE 70.0f
@@ -361,7 +273,7 @@ typedef enum
 #define SPEED_OUTPUT_LIMIT 600.0f   /* 速度环PWM输出上限 */
 #define SPEED_FEEDFORWARD_GAIN 8.7f /* 前馈增益: target*ff≈87, 刚好超过死区 */
 /* 速度环负积分耦合修正:
- * 1. capture / scurve 丢线低速 这类约束态会主动压低目标速度，如果仍按全 KI 积负误差，
+ * 1. S 弯 / 丢线低速这类约束态会主动压低目标速度，如果仍按全 KI 积负误差，
  *    speedPID 会欠下一笔很大的“负积分债”，后面即使约束放开，pwmCore 也会继续往下掉；
  * 2. 这里把约束态下的负积分衰减到更小，同时在约束解除后主动释放这笔负积分，
  *    让“前端临时减速”不再污染整段后续速度。 */

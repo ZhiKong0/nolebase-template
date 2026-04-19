@@ -385,11 +385,11 @@ static void send_track_snapshot_response(void)
     LineTrack_CollectIdleSnapshot(g_imu.yaw, g_fastYawRate, &snapshot);
     sprintf(buf,
             "SNAP:sb=%u,cnt=%u,ld=%u,ca=%u,sc=%u,"
-            "lp=%.2f,tp=%.2f,pe=%.2f,yc=%.2f,ty=%.2f,ss=%.2f,cf=%.2f,dr=%.2f,yl=%.1f,ks=%.2f\r\n",
+            "lp=%.2f,tp=%.2f,pe=%.2f,yc=%.2f,ty=%.2f,ss=%.2f,dr=%.2f,yl=%.1f,ks=%.2f\r\n",
             (unsigned)snapshot.sensorBits,
             (unsigned)snapshot.sensorCount,
             (unsigned)snapshot.lineDetected,
-            (unsigned)snapshot.captureActive,
+            (unsigned)snapshot.edgeLockActive,
             (unsigned)snapshot.sCurveActive,
             (double)snapshot.linePosition,
             (double)snapshot.targetLinePosition,
@@ -397,7 +397,6 @@ static void send_track_snapshot_response(void)
             (double)snapshot.yawCommand,
             (double)snapshot.targetYaw,
             (double)snapshot.speedScale,
-            (double)snapshot.captureAuthorityScale,
             (double)snapshot.headingDiffRatio,
             (double)snapshot.yawLimit,
             (double)snapshot.lineKpScale);
@@ -798,14 +797,9 @@ static void send_telemetry(void)
 
     if (g_sysState == SYS_TRACKING)
     {
-        /* exp0409 的循迹遥测只保留核心前端量:
-           pe  看前端误差是否被捕获态放大；
-           yc  看目标航向生成是否够激进；
-           ss  看弯中降速是否介入；
-           ca  看是否真的进入了边缘捕获态；
-           sc/dr/yl/ks 用来确认当前是不是已经切进 S 弯态以及拿到了多大的权限；
-           cs 用来确认当前 capture 是否正处于“反向换边软接管”；
-           rc 用来确认“重新看到中间灯后”回中重锁有没有真正介入。 */
+        /* 新遥测只保留两态模型真正需要的量:
+           - `ca` 现在仅表示是否已经压到边缘带附近，不再代表 capture 状态机；
+           - `sc/dr/yl/ks` 用来确认当前是否已切进 S 弯贴边控制链。 */
         BspUart_SendTelemetryTrack(t, g_experimentId, run,
                                    g_encoder.leftSpeed, g_encoder.rightSpeed,
                                    g_imu.yaw, g_fastYawRate,
@@ -821,11 +815,7 @@ static void send_telemetry(void)
                                    g_pid.targetSpeed,
                                    g_pid.speedRampTarget,
                                    g_lineTrack.speedScale,
-                                   g_lineTrack.captureActive,
-                                   LineTrack_GetCaptureAuthorityScale(),
-                                   g_lineTrack.captureSwitchActive,
-                                   LineTrack_GetCaptureRateReliefScale(),
-                                   LineTrack_GetRecenterScale(),
+                                   g_lineTrack.edgeLockActive,
                                    LineTrack_IsSCurveActive(),
                                    LineTrack_GetHeadingDiffRatio(),
                                    LineTrack_GetYawLimit(),
@@ -852,11 +842,7 @@ static void send_telemetry(void)
                                    g_pid.targetSpeed,
                                    g_pid.speedRampTarget,
                                    trackSnapshot.speedScale,
-                                   trackSnapshot.captureActive,
-                                   trackSnapshot.captureAuthorityScale,
-                                   trackSnapshot.captureSwitchActive,
-                                   trackSnapshot.captureRateReliefScale,
-                                   trackSnapshot.recenterScale,
+                                   trackSnapshot.edgeLockActive,
                                    trackSnapshot.sCurveActive,
                                    trackSnapshot.headingDiffRatio,
                                    trackSnapshot.yawLimit,

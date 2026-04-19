@@ -27,68 +27,23 @@ typedef struct {
 } TuneStraightHeadingParams_t;
 
 typedef struct {
-    /* trackLine 这一组统一管理“看线 -> 转向命令/降速/捕获”前端参数。 */
+    /* trackLine 只保留直线态基础前端:
+       中线误差 -> yawCommand / 权限 / 降速。
+       不再包含 capture / recenter / 找线链。 */
     float kp;
     float kd;
     float posLpf;
-    float capturePosAlpha;
     float derivLpf;
     float centerBias;
-    float captureErrorStart;
-    float captureErrorGain;
-    /* 稀疏边缘位型时，把位置估计再往外推一点，减少“明明还压着边缘却看起来像已经回来了”。 */
-    float captureSparsePosGain;
-    float captureYawFloor;
-    float captureExitError;
     float targetYawLimit;
     float diffRatio;
     float diffMin;
-    float captureDiffRatio;
-    float captureDiffMin;
-    /* capture 不再是“刚看到边缘就全额生效”的布尔开关。
-       这里把它拆成:
-       1. 第一拍起始权限 captureEntryScale;
-       2. 连续几拍后拉满 captureFullConfirmCount;
-       3. 脱离边缘位型后按 captureReleaseDecay 放权。 */
-    float captureEntryScale;
-    uint32_t captureFullConfirmCount;
-    float captureReleaseDecay;
-    /* 反向换边抑制:
-       当车刚从一侧回到中间、又立刻在另一侧重新见边时，
-       capture 不应按普通边缘那样瞬间拉满。这里单独给换边第一段更低起始权限、
-       更长确认拍数和更窄的触发窗口。 */
-    float captureSwitchEntryScale;
-    uint32_t captureSwitchConfirmCount;
-    float captureSwitchErrorLimit;
-    /* 顺向角速度卸力:
-       如果车头已经明显顺着当前边缘方向在转，就不要让 capture 继续加码，
-       否则很容易出现“明明已经在拐，前端还越拽越狠”的过拉。 */
-    float captureRateReliefStart;
-    float captureRateReliefFull;
-    float captureRateReliefMinScale;
-    /* 回中重锁链:
-       1. 中间灯重新出现后，把观测位置更快拉回真实中心;
-       2. 同时主动压低残余边缘权限，避免“刚钳住就又摆头甩出去”。 */
-    float recenterErrorLimit;
-    float recenterBlend;
-    float recenterPosAlpha;
-    float recenterErrorScale;
-    float recenterAuthorityScale;
-    float recenterReleaseDecay;
-    /* captureSpeedScaleMin 单独约束“还能看到边缘线时”的最低速度倍率，
-       用来把捕获期速度和普通弯道/丢线降速解耦。 */
-    float captureSpeedScaleMin;
-    /* lineLossHoldMs 允许离散循迹头在短暂全灭时保持上一拍速度倍率，
-       避免速度环被几个空窗样本立刻拉回低速。 */
+    /* lineLossHoldMs 允许离散循迹头在短空窗时保留上一拍参考量，
+       但不再附带任何找线或重新接管逻辑。 */
     uint32_t lineLossHoldMs;
     uint32_t lineLossTimeoutMs;
     float lineLossYawDecay;
     float lineLossSpeedScale;
-    /* 盲区里的 capture 释放链:
-       1. 短时间全灭时允许保留一小段“沿边方向感”；
-       2. 超过保持窗后就撤掉 capture 强钳位，避免车在看不到线时越拽越弯。 */
-    uint32_t lineLossCaptureHoldMs;
-    float lineLossCaptureYawFloorScale;
     float curveSpeedPosStart;
     float curveSpeedPosFull;
     float curveSpeedScaleMin;

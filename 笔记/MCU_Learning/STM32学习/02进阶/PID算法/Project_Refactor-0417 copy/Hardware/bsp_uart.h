@@ -40,8 +40,7 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
                                 float targetLinePos, float positionError, float yawCommand,
                                 float targetYaw, uint8_t lineDetected,
                                 float targetSpeed, float rampTarget,
-                                float speedScale, uint8_t captureActive,
-                                float captureAuthorityScale, uint8_t captureSwitchActive, float captureUnloadScale, float recenterScale,
+                                float speedScale, uint8_t edgeLockActive,
                                 uint8_t sCurveActive, float headingDiffRatio,
                                 float yawLimit, float lineKpScale);
 
