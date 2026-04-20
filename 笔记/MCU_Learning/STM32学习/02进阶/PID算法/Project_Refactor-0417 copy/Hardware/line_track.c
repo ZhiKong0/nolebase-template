@@ -106,6 +106,30 @@ static uint8_t line_is_center_turn_window(const LineSensor_Data_t *line)
     return 1u;
 }
 
+static uint8_t line_is_lock_transition_window(const LineSensor_Data_t *line, int8_t sideSign)
+{
+    uint8_t sameSideWindow;
+    uint8_t oppositeSideBits;
+
+    if (!line || !line->lineDetected || (sideSign == 0))
+        return 0u;
+    if (line->count > 3u)
+        return 0u;
+
+    if (sideSign < 0)
+    {
+        sameSideWindow = (line->bits & ((1u << 1) | (1u << 2) | (1u << 3))) ? 1u : 0u;
+        oppositeSideBits = (line->bits & ((1u << 4) | (1u << 5) | (1u << 6) | (1u << 7))) ? 1u : 0u;
+    }
+    else
+    {
+        sameSideWindow = (line->bits & ((1u << 4) | (1u << 5) | (1u << 6))) ? 1u : 0u;
+        oppositeSideBits = (line->bits & ((1u << 0) | (1u << 1) | (1u << 2) | (1u << 3))) ? 1u : 0u;
+    }
+
+    return (sameSideWindow && !oppositeSideBits) ? 1u : 0u;
+}
+
 static int8_t resolve_edge_side_sign(const LineSensor_Data_t *line, float position)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
@@ -443,8 +467,11 @@ static SCurveEnterDecision_t should_enter_scurve(const LineSensor_Data_t *line,
     urgentErrorThreshold = maxf(tune->trackSCurve.enterError + 0.45f, 1.35f);
     severeSideError = (absf(centerError) >= urgentErrorThreshold) ? 1u : 0u;
     centerTurnWindow = line_is_center_turn_window(line);
-    guidedYawRateThreshold = maxf(tune->trackSCurve.enterYawRate * 0.6f, 10.0f);
-    guidedYawCmdThreshold = maxf(tune->trackSCurve.enterYawCommand * 0.8f, 8.0f);
+    /* guided entry 只前推一小步:
+       - yawRate 门槛略降，让车身已经持续转起来时更早切进 S 弯;
+       - yawCommand 门槛也略降，避免必须等到基础线环已经把目标角推得过大。 */
+    guidedYawRateThreshold = maxf(tune->trackSCurve.enterYawRate * 0.55f, 9.0f);
+    guidedYawCmdThreshold = maxf(tune->trackSCurve.enterYawCommand * 0.75f, 7.0f);
     guidedTurnEvidence = (centerTurnWindow
                        && (absf(yawRate) >= guidedYawRateThreshold)
                        && (absf(prevYawCommand) >= guidedYawCmdThreshold)) ? 1u : 0u;
@@ -609,16 +636,24 @@ static uint8_t compute_edge_lock_active(const LineSensor_Data_t *line, float lin
 {
     const TuneRuntime_t *tune = TuneParams_Get();
     float centerError = linePosition - tune->trackLine.centerBias;
+    float lockReleaseThreshold;
 
     if (!scurve_logic_enabled())
         return 0u;
     if (!g_lineTrack.sCurveActive || !line->lineDetected)
         return 0u;
-    if (line->count <= 2u)
-        return 1u;
     if (line_has_outer_bits(line->bits))
         return 1u;
     if (absf(centerError) >= tune->trackSCurve.sideTargetPosStart)
+        return 1u;
+    /* sb=12/48 -> 6/96 是首段真正把车头从中心带拉向边带的过渡窗。
+       这里给这一段单独保留更久的 lock:
+       - 只接受和当前 S 弯方向一致的一侧位型;
+       - 位置阈值比 sideTargetPosStart 稍微放宽一点;
+       - 不扩展到全段，避免 lock 挂得过久而压住后续换边。 */
+    lockReleaseThreshold = maxf(tune->trackSCurve.sideTargetPosStart - 0.30f, 0.55f);
+    if (line_is_lock_transition_window(line, g_lineTrack.sCurveSideSign)
+        && ((line->count <= 2u) || (absf(centerError) >= lockReleaseThreshold)))
         return 1u;
     return 0u;
 }
