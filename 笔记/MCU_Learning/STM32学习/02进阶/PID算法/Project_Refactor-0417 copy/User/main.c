@@ -798,7 +798,7 @@ static void send_telemetry(void)
     if (g_sysState == SYS_TRACKING)
     {
         /* 新遥测只保留两态模型真正需要的量:
-           - `ca` 现在仅表示是否已经压到边缘带附近，不再代表 capture 状态机；
+           - `ca` 现在表示“外侧灯位增强链”是否激活，不再代表旧 capture 状态机；
            - `sc/dr/yl/ks` 用来确认当前是否已切进 S 弯贴边控制链。 */
         BspUart_SendTelemetryTrack(t, g_experimentId, run,
                                    g_encoder.leftSpeed, g_encoder.rightSpeed,

@@ -50,10 +50,37 @@ typedef struct {
 } TuneTrackLineParams_t;
 
 typedef struct {
+    /* 外侧灯位增强链:
+       1. 不引入完整 S 弯状态机，只在传感器已经明显偏向两侧时临时增强约束；
+       2. S4/S5 不参与增强，S3/S6 最弱，S2/S7 次强，S1/S8 最强；
+       3. 只临时抬高前端增益、差速权限和 yawLimit，并把目标线压到同侧内侧带；
+       4. 通过 releasePos 做一层位置滞回，避免刚碰到外侧后一松手就又甩出去；
+       5. 允许在外侧增强阶段抬高最低速度倍率，避免已经稳定贴边后还跑得过慢。 */
+    uint32_t enabled;
+    float innerSensorGain;
+    float outerSensorGain;
+    float edgeSensorGain;
+    float lineKpScale;
+    float yawLimit;
+    float diffRatio;
+    float diffMin;
+    float speedScaleMin;
+    float targetPos;
+    float releasePos;
+    /* lossHoldMs 只服务外侧增强链:
+       短暂全灭时保留上一拍外侧增强权限几拍，避免离散循迹头出现短空窗时
+       立刻把 dr / yl / ks 全撤掉，导致车头刚开始回正又突然失去约束。 */
+    uint32_t lossHoldMs;
+} TuneTrackEdgeParams_t;
+
+typedef struct {
     /* exp0409 的 S 弯组只保留:
        1. 进入/退出阈值;
        2. 误差成形和传感器参与系数;
        3. S 弯态专属的 kp/yaw/diff/speed 权限。 */
+    uint32_t enabled;
+    uint32_t enterGraceMs;
+    uint32_t enterConfirmCount;
     float enterYawRate;
     float enterError;
     float enterDelta;
@@ -74,12 +101,23 @@ typedef struct {
     float sideTargetPosStart;
     float sideTargetPosFull;
     float sideTargetInner;
+    float sideTargetEntry;
+    float sideTargetLock;
     float sideTargetOuter;
     /* ks=1.20 就来自这里，exp0409 日志里已经能直接看到。 */
+    uint32_t entryBoostFrames;
+    float entryLineKpScale;
+    float entryYawLimit;
+    float entryDiffRatio;
+    float entryDiffMin;
     float lineKpScale;
+    float lockLineKpScale;
     float yawLimit;
+    float lockYawLimit;
     float diffRatio;
+    float lockDiffRatio;
     float diffMin;
+    float lockDiffMin;
     /* S 弯态仍然可以约束最低速度倍率。 */
     float speedScaleMin;
     float lossSpeedScaleMin;
@@ -119,6 +157,7 @@ typedef struct {
     TuneStraightHeadingParams_t straightHeading;
     TuneLoopParams_t trackSpeed;
     TuneTrackLineParams_t trackLine;
+    TuneTrackEdgeParams_t trackEdge;
     TuneTrackSCurveParams_t trackSCurve;
     TuneCommonParams_t common;
 } TuneRuntime_t;

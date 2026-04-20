@@ -68,6 +68,23 @@ static uint8_t line_has_outer_bits(uint8_t bits)
     return (bits & ((1u << 0) | (1u << 1) | (1u << 6) | (1u << 7))) ? 1u : 0u;
 }
 
+static uint8_t line_is_scurve_exit_window(const LineSensor_Data_t *line)
+{
+    if (!line || !line->lineDetected)
+        return 0u;
+    /* S 弯退出窗只接受真正“窄且居中”的位型:
+       1. 必须仍然看到中心灯，避免在全灭或纯边缘位型里误退相；
+       2. 不能再带外侧灯，避免像 sb=255 这类宽位型把弯中段误判成已经回正；
+       3. 传感器计数限制到 3 以内，压住大面积全亮或交叠位型导致的早退。 */
+    if (!line_has_center_bits(line->bits))
+        return 0u;
+    if (line_has_outer_bits(line->bits))
+        return 0u;
+    if (line->count > 3u)
+        return 0u;
+    return 1u;
+}
+
 static uint8_t line_has_inner_bits(uint8_t bits)
 {
     return (bits & ((1u << 2) | (1u << 5))) ? 1u : 0u;
@@ -337,6 +354,16 @@ static float compute_scurve_inner_target_line_position(int8_t sideSign)
     return (float)sideSign * TuneParams_Get()->trackSCurve.sideTargetInner;
 }
 
+static float compute_scurve_entry_target_line_position(int8_t sideSign)
+{
+    return (float)sideSign * TuneParams_Get()->trackSCurve.sideTargetEntry;
+}
+
+static float compute_scurve_locked_target_line_position(int8_t sideSign)
+{
+    return (float)sideSign * TuneParams_Get()->trackSCurve.sideTargetLock;
+}
+
 static float shape_scurve_error(float error)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
@@ -371,6 +398,8 @@ static SCurveEnterDecision_t should_enter_scurve(const LineSensor_Data_t *line,
     uint8_t strongSide;
     uint8_t dynamicEvidence;
     uint8_t urgentOuterHit;
+    uint8_t severeSideError;
+    float urgentErrorThreshold;
 
     if (!scurve_logic_enabled())
         return SCURVE_ENTER_NONE;
@@ -388,10 +417,17 @@ static SCurveEnterDecision_t should_enter_scurve(const LineSensor_Data_t *line,
                      || (absf(yawRate) >= tune->trackSCurve.enterYawRate)
                      || (absf(prevYawCommand) >= tune->trackSCurve.enterYawCommand)) ? 1u : 0u;
     urgentOuterHit = (line_has_outer_bits(line->bits) && (line->count <= 2u)) ? 1u : 0u;
+    /* 除了单灯/双灯外，再补一条“重度侧偏直接进弯”:
+       当基础 8 路位置已经偏到 S2/S7 之外时，说明车身事实上已经压进弯里。
+       这时若还继续等动态证据，很容易出现 exp624 那种 `first_sc == first_ld0`。 */
+    urgentErrorThreshold = maxf(tune->trackSCurve.enterError + 0.45f, 1.35f);
+    severeSideError = (absf(centerError) >= urgentErrorThreshold) ? 1u : 0u;
 
-    /* 外侧单灯/双灯已经命中时，不再继续等确认计数。
-     * 这类帧通常意味着车头已经压到 S 弯边缘，继续等只会等到 ld=0。 */
-    if (urgentOuterHit && dynamicEvidence)
+    /* 外侧单灯/双灯已经命中，或者基础位置已经出现重度侧偏时，直接按 urgent 进入:
+     * 这类帧本身就说明车头已经压到 S 弯边缘，继续再等姿态/导数证据，
+     * 很容易演变成“first_sc 和 first_ld0 同拍”。
+     * graceMs 仍然保留，专门挡掉起步初期轻微歪头的误触发。 */
+    if (urgentOuterHit || severeSideError)
         return SCURVE_ENTER_URGENT;
 
     return (strongSide && dynamicEvidence) ? SCURVE_ENTER_CONFIRM : SCURVE_ENTER_NONE;
@@ -404,9 +440,7 @@ static uint8_t should_exit_scurve(const LineSensor_Data_t *line,
 {
     const TuneRuntime_t *tune = TuneParams_Get();
 
-    if (!line->lineDetected)
-        return 0u;
-    if (!line_has_center_bits(line->bits))
+    if (!line_is_scurve_exit_window(line))
         return 0u;
     if (absf(centerError) > tune->trackSCurve.exitCenterError)
         return 0u;
@@ -430,6 +464,7 @@ static void update_scurve_state(const LineSensor_Data_t *line,
         g_lineTrack.sCurveActive = 0u;
         g_lineTrack.sCurveEnterConfirmCount = 0u;
         g_lineTrack.sCurveExitConfirmCount = 0u;
+        g_lineTrack.sCurveEntryBoostCount = 0u;
         g_lineTrack.sCurveSideSign = 0;
         return;
     }
@@ -460,6 +495,8 @@ static void update_scurve_state(const LineSensor_Data_t *line,
             {
                 g_lineTrack.sCurveActive = 1u;
                 g_lineTrack.sCurveExitConfirmCount = 0u;
+                g_lineTrack.sCurveEntryBoostCount =
+                    (uint8_t)clamp_u32_local(tune->trackSCurve.entryBoostFrames, 0u, 255u);
                 g_lineTrack.sCurveSideSign = resolve_scurve_side_sign(g_lineTrack.sCurveSideSign,
                                                                       centerError,
                                                                       line->bits);
@@ -485,6 +522,7 @@ static void update_scurve_state(const LineSensor_Data_t *line,
             g_lineTrack.sCurveActive = 0u;
             g_lineTrack.sCurveEnterConfirmCount = 0u;
             g_lineTrack.sCurveExitConfirmCount = 0u;
+            g_lineTrack.sCurveEntryBoostCount = 0u;
             g_lineTrack.sCurveSideSign = 0;
         }
     }
@@ -494,18 +532,34 @@ static void update_scurve_state(const LineSensor_Data_t *line,
     }
 }
 
-static void update_runtime_limits(uint8_t sCurveActive)
+static void update_runtime_limits(uint8_t sCurveActive,
+                                  uint8_t edgeLockActive,
+                                  uint8_t entryBoostActive)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
 
-    if (sCurveActive)
+    if (sCurveActive && entryBoostActive)
+    {
+        g_lineTrack.activeLineKpScale = tune->trackSCurve.entryLineKpScale;
+        g_lineTrack.activeYawLimit = tune->trackSCurve.entryYawLimit;
+        g_lineTrack.headingDiffRatio = tune->trackSCurve.entryDiffRatio;
+        g_lineTrack.headingDiffMin = tune->trackSCurve.entryDiffMin;
+    }
+    else if (sCurveActive && edgeLockActive)
+    {
+        g_lineTrack.activeLineKpScale = tune->trackSCurve.lockLineKpScale;
+        g_lineTrack.activeYawLimit = tune->trackSCurve.lockYawLimit;
+        g_lineTrack.headingDiffRatio = tune->trackSCurve.lockDiffRatio;
+        g_lineTrack.headingDiffMin = tune->trackSCurve.lockDiffMin;
+    }
+    else if (sCurveActive)
     {
         g_lineTrack.activeLineKpScale = tune->trackSCurve.lineKpScale;
         g_lineTrack.activeYawLimit = tune->trackSCurve.yawLimit;
         g_lineTrack.headingDiffRatio = tune->trackSCurve.diffRatio;
         g_lineTrack.headingDiffMin = tune->trackSCurve.diffMin;
     }
-    else if (g_lineTrack.edgeLockActive)
+    else if (edgeLockActive)
     {
         /* 纯 PID 模式下，外侧增强一旦命中就直接给全量权限，
            不再经过 blend 稀释。这样 tune 里的 edge 参数就是最终生效值。 */
@@ -596,14 +650,23 @@ static void fill_snapshot(float currentYaw,
     if (sCurveActive)
     {
         sideSign = resolve_scurve_side_sign(0, observedPosition - tune->trackLine.centerBias, line.bits);
-        if (compute_edge_lock_active(&line, observedPosition))
-            targetLinePosition = compute_scurve_inner_target_line_position(sideSign);
+        out->edgeLockActive = compute_edge_lock_active(&line, observedPosition);
+        if (out->edgeLockActive)
+        {
+            targetLinePosition = compute_scurve_locked_target_line_position(sideSign);
+            out->lineKpScale = tune->trackSCurve.lockLineKpScale;
+            out->yawLimit = tune->trackSCurve.lockYawLimit;
+            out->headingDiffRatio = tune->trackSCurve.lockDiffRatio;
+            out->headingDiffMin = tune->trackSCurve.lockDiffMin;
+        }
         else
+        {
             targetLinePosition = compute_scurve_target_line_position(&line, observedPosition, sideSign);
-        out->lineKpScale = tune->trackSCurve.lineKpScale;
-        out->yawLimit = tune->trackSCurve.yawLimit;
-        out->headingDiffRatio = tune->trackSCurve.diffRatio;
-        out->headingDiffMin = tune->trackSCurve.diffMin;
+            out->lineKpScale = tune->trackSCurve.lineKpScale;
+            out->yawLimit = tune->trackSCurve.yawLimit;
+            out->headingDiffRatio = tune->trackSCurve.diffRatio;
+            out->headingDiffMin = tune->trackSCurve.diffMin;
+        }
     }
     else
     {
@@ -655,7 +718,9 @@ void LineTrack_RefreshTune(void)
 
     g_lineTrack.kp = tune->trackLine.kp;
     g_lineTrack.kd = tune->trackLine.kd;
-    update_runtime_limits(g_lineTrack.sCurveActive);
+    update_runtime_limits(g_lineTrack.sCurveActive,
+                          g_lineTrack.edgeLockActive,
+                          (g_lineTrack.sCurveEntryBoostCount > 0u) ? 1u : 0u);
 }
 
 void LineTrack_Init(void)
@@ -755,7 +820,9 @@ void LineTrack_Update(uint32_t tickMs, float currentYaw, float yawRate)
             g_lineTrack.edgeLockActive = 0u;
         }
 
-        update_runtime_limits(g_lineTrack.sCurveActive);
+        update_runtime_limits(g_lineTrack.sCurveActive,
+                              g_lineTrack.edgeLockActive,
+                              (g_lineTrack.sCurveEntryBoostCount > 0u) ? 1u : 0u);
 
         if (unseenMs > tune->trackLine.lineLossHoldMs)
         {
@@ -800,33 +867,35 @@ void LineTrack_Update(uint32_t tickMs, float currentYaw, float yawRate)
     delta = g_lineTrack.filteredPosition - prevFiltered;
     g_lineTrack.filteredDelta += tune->trackLine.derivLpf * (delta - g_lineTrack.filteredDelta);
 
-    if (!g_lineTrack.sCurveActive)
-        ;
-
-    update_runtime_limits(g_lineTrack.sCurveActive);
-
     if (g_lineTrack.sCurveActive)
     {
+        uint8_t entryBoostActive = (g_lineTrack.sCurveEntryBoostCount > 0u) ? 1u : 0u;
+        g_lineTrack.edgeLockActive = compute_edge_lock_active(&line, g_lineTrack.filteredPosition);
+        update_runtime_limits(g_lineTrack.sCurveActive,
+                              g_lineTrack.edgeLockActive,
+                              entryBoostActive);
         g_lineTrack.sCurveSideSign = resolve_scurve_side_sign(g_lineTrack.sCurveSideSign,
                                                               g_lineTrack.filteredPosition - tune->trackLine.centerBias,
                                                               line.bits);
-        if (g_lineTrack.edgeLockActive)
-            targetLinePosition = compute_scurve_inner_target_line_position(g_lineTrack.sCurveSideSign);
+        if (entryBoostActive)
+            targetLinePosition = compute_scurve_entry_target_line_position(g_lineTrack.sCurveSideSign);
+        else if (g_lineTrack.edgeLockActive)
+            targetLinePosition = compute_scurve_locked_target_line_position(g_lineTrack.sCurveSideSign);
         else
             targetLinePosition = compute_scurve_target_line_position(&line,
                                                                      g_lineTrack.filteredPosition,
                                                                      g_lineTrack.sCurveSideSign);
+        if (g_lineTrack.sCurveEntryBoostCount > 0u)
+            g_lineTrack.sCurveEntryBoostCount--;
     }
     else
     {
+        update_runtime_limits(g_lineTrack.sCurveActive, g_lineTrack.edgeLockActive, 0u);
         if (g_lineTrack.edgeLockActive)
             targetLinePosition = compute_edge_target_line_position(&line, g_lineTrack.filteredPosition);
         else
             targetLinePosition = tune->trackLine.centerBias;
     }
-
-    if (g_lineTrack.sCurveActive)
-        g_lineTrack.edgeLockActive = compute_edge_lock_active(&line, g_lineTrack.filteredPosition);
     g_lineTrack.targetLinePosition = targetLinePosition;
     positionError = g_lineTrack.filteredPosition - targetLinePosition;
     effectiveError = g_lineTrack.sCurveActive ? shape_scurve_error(positionError) : positionError;

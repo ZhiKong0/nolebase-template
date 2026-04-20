@@ -272,10 +272,10 @@ typedef enum
  * 1 = 启用 S 弯专用进入/退出与贴边链。 */
 #define TRACK_SCURVE_ENABLE 1u
 /* 先给一段起步保护窗口，避免刚起跑时车身轻微歪头就被误判成已经进弯。 */
-#define TRACK_SCURVE_ENTER_GRACE_MS 320u
+#define TRACK_SCURVE_ENTER_GRACE_MS 240u
 /* 进入判定必须连续命中几拍，避免离散灯位单拍闪到边缘就切态。 */
-#define TRACK_SCURVE_ENTER_CONFIRM_COUNT 2u
-#define TRACK_SCURVE_ENTER_YAW_RATE 24.0f
+#define TRACK_SCURVE_ENTER_CONFIRM_COUNT 1u
+#define TRACK_SCURVE_ENTER_YAW_RATE 22.0f
 #define TRACK_SCURVE_ENTER_ERROR 0.90f
 #define TRACK_SCURVE_ENTER_DELTA 0.30f
 #define TRACK_SCURVE_ENTER_YAW_CMD 8.0f
@@ -293,14 +293,36 @@ typedef enum
 #define TRACK_SCURVE_SIDE_TARGET_POS_START 1.00f
 #define TRACK_SCURVE_SIDE_TARGET_POS_FULL 2.80f
 #define TRACK_SCURVE_SIDE_TARGET_INNER 1.80f
+/* entry boost 只服务“刚切进 S 弯的前几拍”:
+ * 目标带比 lock 再收一点，让第一拍就有明确回正误差，不再出现 sc=1 了但 hd 还很小。 */
+#define TRACK_SCURVE_SIDE_TARGET_ENTRY 1.55f
+/* 锁边阶段不再死追 inner=1.80，而是追一条更外的 locked 带。
+ * 这样在第一次压到 S1/S8 / S2/S7 时，`pe` 和 `yc` 会更大，
+ * 能更快把车头钳回弯里。 */
+#define TRACK_SCURVE_SIDE_TARGET_LOCK 2.00f
 #define TRACK_SCURVE_SIDE_TARGET_OUTER 2.70f
 #define TRACK_SCURVE_LINE_KP_SCALE 1.45f
+/* 刚进弯的前几拍比 lock 再更硬一档，避免切态后还要再等几拍才真正转起来。 */
+/* 这条链路保留下来做后续精调，但当前默认先关闭。
+ * 实测 6 帧会更早切进弯，但整体盲区反而放大，不适合作为当前默认值。 */
+#define TRACK_SCURVE_ENTRY_BOOST_FRAMES 0u
+#define TRACK_SCURVE_ENTRY_LINE_KP_SCALE 2.40f
+#define TRACK_SCURVE_ENTRY_YAW_LIMIT 72.0f
+#define TRACK_SCURVE_ENTRY_DIFF_RATIO 1.00f
+#define TRACK_SCURVE_ENTRY_DIFF_MIN 165.0f
+/* 锁边首段给一套更硬的专用权限:
+ * 1. target 直接追更外的 locked 带，避免 tp 过于贴近 lp 导致 pe 太小；
+ * 2. ks / yl / dr / diff_min 同步抬高，让刚进弯第一段就能真正把车头拉进去。 */
+#define TRACK_SCURVE_LOCK_LINE_KP_SCALE 2.10f
+#define TRACK_SCURVE_LOCK_YAW_LIMIT 66.0f
+#define TRACK_SCURVE_LOCK_DIFF_RATIO 1.00f
+#define TRACK_SCURVE_LOCK_DIFF_MIN 150.0f
 #define TRACK_SCURVE_SPEED_SCALE_MIN 0.56f
 #define TRACK_SCURVE_LOSS_SPEED_SCALE_MIN 0.66f
-#define TRACK_SCURVE_EXIT_CENTER_ERROR 0.90f
-#define TRACK_SCURVE_EXIT_CENTER_DELTA 0.22f
+#define TRACK_SCURVE_EXIT_CENTER_ERROR 0.45f
+#define TRACK_SCURVE_EXIT_CENTER_DELTA 0.18f
 #define TRACK_SCURVE_EXIT_CENTER_YAW_RATE 70.0f
-#define TRACK_SCURVE_EXIT_CONFIRM_COUNT 3u
+#define TRACK_SCURVE_EXIT_CONFIRM_COUNT 4u
 
 /* ========== 速度斜坡 ========== */
 #define SPEED_TARGET_DEFAULT 10.0f  /* 初始目标速度 (仅用于上电初始化, 切换模式时会覆盖) */

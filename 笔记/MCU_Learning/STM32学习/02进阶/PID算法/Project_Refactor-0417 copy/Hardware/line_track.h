@@ -17,12 +17,14 @@ typedef struct {
     uint8_t sensorBits;
     uint8_t sensorCount;
     uint8_t lineDetected;
-    /* edgeLockActive 只表示“当前是否已经压到边缘带附近”。
-       这个标志只服务串口观测和预触发，不再驱动额外控制分支。 */
+    /* edgeLockActive 只表示“当前是否处于外侧增强约束”:
+       - 进入条件: 真实命中外侧位型;
+       - 退出条件: 位置回到 releasePos 以内或长时间全灭。 */
     uint8_t edgeLockActive;
     uint8_t sCurveActive;
     uint8_t sCurveEnterConfirmCount;
     uint8_t sCurveExitConfirmCount;
+    uint8_t sCurveEntryBoostCount;
     int8_t sCurveSideSign;
 
     /* 原始位置由当前状态对应的观测面直接给出:
@@ -45,6 +47,7 @@ typedef struct {
     float activeYawLimit;
     float kp;
     float kd;
+    uint32_t startTick;
     uint32_t lastSeenTick;
 } LineTrack_State_t;
 
