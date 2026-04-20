@@ -291,7 +291,9 @@ static int8_t resolve_scurve_side_sign(int8_t prevSign, float centerError, uint8
     return (centerError < 0.0f) ? -1 : 1;
 }
 
-static float compute_scurve_target_line_position(float linePosition, int8_t sideSign)
+static float compute_scurve_target_line_position(const LineSensor_Data_t *line,
+                                                 float linePosition,
+                                                 int8_t sideSign)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
     float absPos = absf(linePosition);
@@ -302,7 +304,14 @@ static float compute_scurve_target_line_position(float linePosition, int8_t side
     /* S 弯态不再把线往中心拉，而是把线压到一条侧边目标带:
      * - 偏移还不大时，先把目标放在 S2/S7 一带；
      * - 偏移已经很大时，再把目标推向 S1/S8。 */
-    if (absPos <= tune->trackSCurve.sideTargetPosStart)
+    if (line && line->lineDetected && line_has_outer_bits(line->bits) && (line->count <= 2u))
+    {
+        /* 单灯/双灯压到外侧时，优先先追内带，把车头从边缘往回拉。
+         * 如果这里直接把目标放到 outer 带，tp 会跟 lp 一起跑到太外，
+         * pe 会变得过小，首段就缺少真正“回正”的约束力。 */
+        targetAbs = tune->trackSCurve.sideTargetInner;
+    }
+    else if (absPos <= tune->trackSCurve.sideTargetPosStart)
         targetAbs = tune->trackSCurve.sideTargetInner;
     else if (absPos >= tune->trackSCurve.sideTargetPosFull)
         targetAbs = tune->trackSCurve.sideTargetOuter;
@@ -582,7 +591,7 @@ static void fill_snapshot(float currentYaw,
     if (sCurveActive)
     {
         sideSign = resolve_scurve_side_sign(0, observedPosition - tune->trackLine.centerBias, line.bits);
-        targetLinePosition = compute_scurve_target_line_position(observedPosition, sideSign);
+        targetLinePosition = compute_scurve_target_line_position(&line, observedPosition, sideSign);
         out->lineKpScale = tune->trackSCurve.lineKpScale;
         out->yawLimit = tune->trackSCurve.yawLimit;
         out->headingDiffRatio = tune->trackSCurve.diffRatio;
@@ -793,7 +802,8 @@ void LineTrack_Update(uint32_t tickMs, float currentYaw, float yawRate)
         g_lineTrack.sCurveSideSign = resolve_scurve_side_sign(g_lineTrack.sCurveSideSign,
                                                               g_lineTrack.filteredPosition - tune->trackLine.centerBias,
                                                               line.bits);
-        targetLinePosition = compute_scurve_target_line_position(g_lineTrack.filteredPosition,
+        targetLinePosition = compute_scurve_target_line_position(&line,
+                                                                 g_lineTrack.filteredPosition,
                                                                  g_lineTrack.sCurveSideSign);
     }
     else
