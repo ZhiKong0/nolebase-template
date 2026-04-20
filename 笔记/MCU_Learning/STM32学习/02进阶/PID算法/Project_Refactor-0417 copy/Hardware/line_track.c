@@ -90,6 +90,22 @@ static uint8_t line_has_inner_bits(uint8_t bits)
     return (bits & ((1u << 2) | (1u << 5))) ? 1u : 0u;
 }
 
+static uint8_t line_is_center_turn_window(const LineSensor_Data_t *line)
+{
+    if (!line || !line->lineDetected)
+        return 0u;
+    /* 进入 S 弯前，经常会先出现“线还在中间，但车身已经连续转起来”的阶段。
+       这里把窄中心位型单独识别出来，给 should_enter_scurve 一个提前切态的窗口，
+       避免一直等到外侧灯亮才进弯。 */
+    if (!line_has_center_bits(line->bits))
+        return 0u;
+    if (line_has_outer_bits(line->bits))
+        return 0u;
+    if (line->count > 3u)
+        return 0u;
+    return 1u;
+}
+
 static int8_t resolve_edge_side_sign(const LineSensor_Data_t *line, float position)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
@@ -399,7 +415,11 @@ static SCurveEnterDecision_t should_enter_scurve(const LineSensor_Data_t *line,
     uint8_t dynamicEvidence;
     uint8_t urgentOuterHit;
     uint8_t severeSideError;
+    uint8_t centerTurnWindow;
+    uint8_t guidedTurnEvidence;
     float urgentErrorThreshold;
+    float guidedYawRateThreshold;
+    float guidedYawCmdThreshold;
 
     if (!scurve_logic_enabled())
         return SCURVE_ENTER_NONE;
@@ -422,6 +442,12 @@ static SCurveEnterDecision_t should_enter_scurve(const LineSensor_Data_t *line,
        这时若还继续等动态证据，很容易出现 exp624 那种 `first_sc == first_ld0`。 */
     urgentErrorThreshold = maxf(tune->trackSCurve.enterError + 0.45f, 1.35f);
     severeSideError = (absf(centerError) >= urgentErrorThreshold) ? 1u : 0u;
+    centerTurnWindow = line_is_center_turn_window(line);
+    guidedYawRateThreshold = maxf(tune->trackSCurve.enterYawRate * 0.6f, 10.0f);
+    guidedYawCmdThreshold = maxf(tune->trackSCurve.enterYawCommand * 0.8f, 8.0f);
+    guidedTurnEvidence = (centerTurnWindow
+                       && (absf(yawRate) >= guidedYawRateThreshold)
+                       && (absf(prevYawCommand) >= guidedYawCmdThreshold)) ? 1u : 0u;
 
     /* 外侧单灯/双灯已经命中，或者基础位置已经出现重度侧偏时，直接按 urgent 进入:
      * 这类帧本身就说明车头已经压到 S 弯边缘，继续再等姿态/导数证据，
@@ -429,6 +455,8 @@ static SCurveEnterDecision_t should_enter_scurve(const LineSensor_Data_t *line,
      * graceMs 仍然保留，专门挡掉起步初期轻微歪头的误触发。 */
     if (urgentOuterHit || severeSideError)
         return SCURVE_ENTER_URGENT;
+    if (guidedTurnEvidence)
+        return SCURVE_ENTER_CONFIRM;
 
     return (strongSide && dynamicEvidence) ? SCURVE_ENTER_CONFIRM : SCURVE_ENTER_NONE;
 }
