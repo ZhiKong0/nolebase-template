@@ -272,7 +272,7 @@ typedef enum
  * 1 = 启用 S 弯专用进入/退出与贴边链。 */
 #define TRACK_SCURVE_ENABLE 1u
 /* 先给一段起步保护窗口，避免刚起跑时车身轻微歪头就被误判成已经进弯。 */
-#define TRACK_SCURVE_ENTER_GRACE_MS 420u
+#define TRACK_SCURVE_ENTER_GRACE_MS 320u
 /* 进入判定必须连续命中几拍，避免离散灯位单拍闪到边缘就切态。 */
 #define TRACK_SCURVE_ENTER_CONFIRM_COUNT 2u
 #define TRACK_SCURVE_ENTER_YAW_RATE 24.0f

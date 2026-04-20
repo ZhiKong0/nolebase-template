@@ -332,6 +332,11 @@ static float compute_scurve_target_line_position(const LineSensor_Data_t *line,
     return (float)sideSign * targetAbs;
 }
 
+static float compute_scurve_inner_target_line_position(int8_t sideSign)
+{
+    return (float)sideSign * TuneParams_Get()->trackSCurve.sideTargetInner;
+}
+
 static float shape_scurve_error(float error)
 {
     const TuneRuntime_t *tune = TuneParams_Get();
@@ -591,7 +596,10 @@ static void fill_snapshot(float currentYaw,
     if (sCurveActive)
     {
         sideSign = resolve_scurve_side_sign(0, observedPosition - tune->trackLine.centerBias, line.bits);
-        targetLinePosition = compute_scurve_target_line_position(&line, observedPosition, sideSign);
+        if (compute_edge_lock_active(&line, observedPosition))
+            targetLinePosition = compute_scurve_inner_target_line_position(sideSign);
+        else
+            targetLinePosition = compute_scurve_target_line_position(&line, observedPosition, sideSign);
         out->lineKpScale = tune->trackSCurve.lineKpScale;
         out->yawLimit = tune->trackSCurve.yawLimit;
         out->headingDiffRatio = tune->trackSCurve.diffRatio;
@@ -802,9 +810,12 @@ void LineTrack_Update(uint32_t tickMs, float currentYaw, float yawRate)
         g_lineTrack.sCurveSideSign = resolve_scurve_side_sign(g_lineTrack.sCurveSideSign,
                                                               g_lineTrack.filteredPosition - tune->trackLine.centerBias,
                                                               line.bits);
-        targetLinePosition = compute_scurve_target_line_position(&line,
-                                                                 g_lineTrack.filteredPosition,
-                                                                 g_lineTrack.sCurveSideSign);
+        if (g_lineTrack.edgeLockActive)
+            targetLinePosition = compute_scurve_inner_target_line_position(g_lineTrack.sCurveSideSign);
+        else
+            targetLinePosition = compute_scurve_target_line_position(&line,
+                                                                     g_lineTrack.filteredPosition,
+                                                                     g_lineTrack.sCurveSideSign);
     }
     else
     {
