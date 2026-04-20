@@ -233,29 +233,69 @@ typedef enum
 #define TRACK_CURVE_SPEED_POS_FULL 1.30f
 #define TRACK_CURVE_SPEED_SCALE_MIN 0.30f
 
+/* 外侧灯位增强链:
+ * 1. 这是比完整 S 弯状态机更小的一层增强，不改变“追中心线”的目标；
+ * 2. 只有当灯位已经偏出中心区域时，才临时提高差速权限和 yawLimit；
+ * 3. 观测权重按“中心最弱、两端最强”重新分配:
+ *    S4/S5 不增强，S3/S6 最弱，S2/S7 次强，S1/S8 最强；
+ * 4. entry_blend + ramp_frames 控制外侧增强的渐入:
+ *    第一拍先按较柔的比例接管，连续看到外侧组合后再逐步爬到最终权限，
+ *    避免一碰到 S1/S8 / S2/S7 就因为接管太猛而再次冲出；
+ * 5. line_kp_scale 直接放大基础循迹前端的“位置误差 -> yawCommand”转换，
+ *    让外侧组合出现时不只是放权，还会更积极地把车拉回中心；
+ * 6. speed_scale_min 允许外侧增强稳定后保留更高的最低速度倍率，
+ *    避免已经贴住边缘还能巡线，但整体跑得过慢；
+ * 7. enter_pos 控制只剩 S3/S6 时是否提前接管，值越小越早，值越大越保守；
+ * 8. release_pos 是外侧增强链的释放阈值，已经进过外侧增强后，
+ *    只有位置重新回到较靠近中心的位置才松手，避免刚蹭到边又立刻失去约束；
+ * 9. loss_hold_ms 让离散循迹头短暂全灭时保留上一拍外侧增强权限一小段时间，
+ *    避免 dr / yl / ks 在短空窗里瞬间回到基础档。 */
+#define TRACK_EDGE_ENABLE 1u
+#define TRACK_EDGE_INNER_SENSOR_GAIN 0.85f
+#define TRACK_EDGE_OUTER_SENSOR_GAIN 1.65f
+#define TRACK_EDGE_EDGE_SENSOR_GAIN 2.70f
+#define TRACK_EDGE_LINE_KP_SCALE 1.60f
+#define TRACK_EDGE_YAW_LIMIT 48.0f
+#define TRACK_EDGE_DIFF_RATIO 0.96f
+#define TRACK_EDGE_DIFF_MIN 102.0f
+#define TRACK_EDGE_SPEED_SCALE_MIN 0.52f
+/* 外侧增强激活后，线环临时追同侧内带目标而不是继续死追中线。
+ * 这里再往外推半档，优先验证“首个 S1/S8 命中时拉回不够”的问题。 */
+#define TRACK_EDGE_TARGET_POS 1.10f
+#define TRACK_EDGE_RELEASE_POS 1.35f
+#define TRACK_EDGE_LOSS_HOLD_MS 140u
+
 /* S 弯态前端:
  * 进入 S 弯后只保留“贴边观测 + 侧边目标带”这条链，不再找线或回中。 */
-#define TRACK_SCURVE_ENTER_YAW_RATE 32.0f
-#define TRACK_SCURVE_ENTER_ERROR 0.95f
-#define TRACK_SCURVE_ENTER_DELTA 0.42f
-#define TRACK_SCURVE_ENTER_YAW_CMD 10.0f
+/* 临时验证开关:
+ * 0 = 完全旁路 S 弯状态机，只保留基础循迹 PID；
+ * 1 = 启用 S 弯专用进入/退出与贴边链。 */
+#define TRACK_SCURVE_ENABLE 1u
+/* 先给一段起步保护窗口，避免刚起跑时车身轻微歪头就被误判成已经进弯。 */
+#define TRACK_SCURVE_ENTER_GRACE_MS 420u
+/* 进入判定必须连续命中几拍，避免离散灯位单拍闪到边缘就切态。 */
+#define TRACK_SCURVE_ENTER_CONFIRM_COUNT 2u
+#define TRACK_SCURVE_ENTER_YAW_RATE 24.0f
+#define TRACK_SCURVE_ENTER_ERROR 0.90f
+#define TRACK_SCURVE_ENTER_DELTA 0.30f
+#define TRACK_SCURVE_ENTER_YAW_CMD 8.0f
 #define TRACK_SCURVE_EXIT_ERROR 0.40f
-#define TRACK_SCURVE_YAW_LIMIT 40.0f
-#define TRACK_SCURVE_DIFF_RATIO 0.88f
-#define TRACK_SCURVE_DIFF_MIN 94.0f
+#define TRACK_SCURVE_YAW_LIMIT 48.0f
+#define TRACK_SCURVE_DIFF_RATIO 0.96f
+#define TRACK_SCURVE_DIFF_MIN 110.0f
 #define TRACK_SCURVE_CENTER_ZONE 0.80f
 #define TRACK_SCURVE_CENTER_GAIN 0.44f
-#define TRACK_SCURVE_EDGE_GAIN 1.35f
+#define TRACK_SCURVE_EDGE_GAIN 1.55f
 #define TRACK_SCURVE_CENTER_SENSOR_GAIN 0.00f
-#define TRACK_SCURVE_INNER_SENSOR_GAIN 0.35f
-#define TRACK_SCURVE_OUTER_SENSOR_GAIN 1.00f
-#define TRACK_SCURVE_EDGE_SENSOR_GAIN 1.65f
+#define TRACK_SCURVE_INNER_SENSOR_GAIN 0.20f
+#define TRACK_SCURVE_OUTER_SENSOR_GAIN 1.25f
+#define TRACK_SCURVE_EDGE_SENSOR_GAIN 2.30f
 #define TRACK_SCURVE_SIDE_TARGET_POS_START 1.00f
-#define TRACK_SCURVE_SIDE_TARGET_POS_FULL 2.60f
-#define TRACK_SCURVE_SIDE_TARGET_INNER 2.10f
-#define TRACK_SCURVE_SIDE_TARGET_OUTER 2.95f
-#define TRACK_SCURVE_LINE_KP_SCALE 0.95f
-#define TRACK_SCURVE_SPEED_SCALE_MIN 0.84f
+#define TRACK_SCURVE_SIDE_TARGET_POS_FULL 2.80f
+#define TRACK_SCURVE_SIDE_TARGET_INNER 1.80f
+#define TRACK_SCURVE_SIDE_TARGET_OUTER 2.70f
+#define TRACK_SCURVE_LINE_KP_SCALE 1.45f
+#define TRACK_SCURVE_SPEED_SCALE_MIN 0.56f
 #define TRACK_SCURVE_LOSS_SPEED_SCALE_MIN 0.66f
 #define TRACK_SCURVE_EXIT_CENTER_ERROR 0.90f
 #define TRACK_SCURVE_EXIT_CENTER_DELTA 0.22f
