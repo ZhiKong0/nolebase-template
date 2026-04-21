@@ -39,9 +39,12 @@ static void load_runtime_config_defaults(void)
     s_trackCfg.cornerOppositeMaxHits = TRACK_CORNER_OPPOSITE_MAX_HITS;
     s_trackCfg.cornerConfirmTicks = TRACK_CORNER_CONFIRM_TICKS;
     s_trackCfg.cornerFastConfirmTicks = TRACK_CORNER_FAST_CONFIRM_TICKS;
+    s_trackCfg.lossEnterTicks = TRACK_LOSS_ENTER_TICKS;
     s_trackCfg.lossForceCornerTicks = TRACK_LOSS_FORCE_CORNER_TICKS;
     s_trackCfg.lossForceRequireRef = TRACK_LOSS_FORCE_REQUIRE_REF;
     s_trackCfg.lossSearchBearing = TRACK_LOSS_SEARCH_BEARING;
+    s_trackCfg.lossHoldBasePwmMax = TRACK_LOSS_HOLD_BASE_PWM_MAX;
+    s_trackCfg.lossHoldDevPwmMax = TRACK_LOSS_HOLD_DEV_PWM_MAX;
     s_trackCfg.lossSearchBasePwmMax = TRACK_LOSS_SEARCH_BASE_PWM_MAX;
     s_trackCfg.lossSearchDevPwmMax = TRACK_LOSS_SEARCH_DEV_PWM_MAX;
     s_trackCfg.overrunLimitTicks = TRACK_OVERRUN_LIMIT_TICKS;
@@ -449,6 +452,65 @@ static int8_t smooth_bearing_dev(int8_t rawBearing, uint8_t bits)
     return rawBearing;
 }
 
+static int8_t get_loss_hold_bearing(uint8_t dir)
+{
+    int8_t holdMag = (s_trackCfg.lossSearchBearing > 2u)
+        ? (int8_t)(s_trackCfg.lossSearchBearing - 2u)
+        : 2;
+
+    if (dir == LT_DIR_LEFT)
+        return (int8_t)(-holdMag);
+
+    return holdMag;
+}
+
+static int16_t get_loss_hold_position(uint8_t dir)
+{
+    int16_t holdPos = s_trackCfg.posMidThreshold;
+
+    if (holdPos < s_trackCfg.posNearThreshold)
+        holdPos = s_trackCfg.posNearThreshold;
+
+    if (dir == LT_DIR_LEFT)
+        return (int16_t)(-holdPos);
+
+    return holdPos;
+}
+
+static uint8_t fallback_corner_dir(void);
+
+static void start_loss_soft_hold(uint32_t tickMs)
+{
+    int16_t holdPos;
+
+    if (g_lineTrack.lossSoftHoldActive)
+        return;
+
+    g_lineTrack.lossSoftHoldActive = 1u;
+    g_lineTrack.lossSearchDir = fallback_corner_dir();
+    g_lineTrack.traceLogicState = LT_DBG_LOSS;
+    holdPos = get_loss_hold_position(g_lineTrack.lossSearchDir);
+    emit_logic_event(tickMs, "LOS", g_lineTrack.lossSearchDir, "soft_enter", g_lineTrack.sensorBits, holdPos);
+}
+
+static void update_loss_soft_hold(void)
+{
+    int8_t holdBearing = get_loss_hold_bearing(g_lineTrack.lossSearchDir);
+
+    g_lineTrack.traceLogicState = LT_DBG_LOSS;
+    g_lineTrack.weightedPos = get_loss_hold_position(g_lineTrack.lossSearchDir);
+    g_lineTrack.bearingDev = smooth_bearing_dev(holdBearing, 0u);
+}
+
+static void stop_loss_soft_hold(uint32_t tickMs, uint8_t bits, int16_t pos, const char *reason)
+{
+    if (!g_lineTrack.lossSoftHoldActive)
+        return;
+
+    g_lineTrack.lossSoftHoldActive = 0u;
+    emit_logic_event(tickMs, "TRK", g_lineTrack.lossSearchDir, reason, bits, pos);
+}
+
 static uint8_t fallback_corner_dir(void)
 {
     uint8_t dir = infer_corner_dir_from_bits(g_lineTrack.lastDirectionalBits);
@@ -480,6 +542,7 @@ static void start_loss_search(uint32_t tickMs)
     if (g_lineTrack.lossSearchActive)
         return;
 
+    g_lineTrack.lossSoftHoldActive = 0u;
     g_lineTrack.lossSearchActive = 1u;
     g_lineTrack.lossSearchDir = fallback_corner_dir();
     g_lineTrack.lossHoldReported = 0u;
@@ -493,6 +556,7 @@ static void stop_loss_search(uint32_t tickMs, uint8_t bits, int16_t pos, const c
         return;
 
     g_lineTrack.lossSearchActive = 0u;
+    g_lineTrack.lossSoftHoldActive = 0u;
     g_lineTrack.lossHoldReported = 0u;
     g_lineTrack.traceLogicState = LT_DBG_TRACK;
     emit_logic_event(tickMs, "TRK", g_lineTrack.lossSearchDir, reason, bits, pos);
@@ -759,34 +823,45 @@ static void signal_handler(uint32_t tickMs, float currentYaw)
         {
             int8_t searchBearing;
 
-            start_loss_search(tickMs);
-            g_lineTrack.dbgTrackState = LT_DBG_LOSS;
-
-            if (g_lineTrack.lossSearchDir == LT_DIR_LEFT)
+            if (g_lineTrack.overrunCount < s_trackCfg.lossEnterTicks)
             {
-                g_lineTrack.weightedPos = (int16_t)(-s_trackCfg.posEdgeThreshold);
-                searchBearing = (int8_t)(-s_trackCfg.lossSearchBearing);
+                start_loss_soft_hold(tickMs);
+                g_lineTrack.dbgTrackState = LT_DBG_LOSS;
+                update_loss_soft_hold();
+                update_last_trend(0u, g_lineTrack.weightedPos, g_lineTrack.bearingDev);
             }
             else
             {
-                g_lineTrack.weightedPos = s_trackCfg.posEdgeThreshold;
-                searchBearing = (int8_t)s_trackCfg.lossSearchBearing;
-            }
+                stop_loss_soft_hold(tickMs, 0u, g_lineTrack.weightedPos, "soft_to_loss");
+                start_loss_search(tickMs);
+                g_lineTrack.dbgTrackState = LT_DBG_LOSS;
 
-            g_lineTrack.bearingDev = smooth_bearing_dev(searchBearing, 0u);
-            update_last_trend(0u, g_lineTrack.weightedPos, g_lineTrack.bearingDev);
-
-            if (!g_lineTrack.cornerTurning
-                && g_lineTrack.overrunCount >= s_trackCfg.lossForceCornerTicks)
-            {
-                if (canForceCorner)
+                if (g_lineTrack.lossSearchDir == LT_DIR_LEFT)
                 {
-                    start_corner_search(tickMs, currentYaw);
+                    g_lineTrack.weightedPos = (int16_t)(-s_trackCfg.posEdgeThreshold);
+                    searchBearing = (int8_t)(-s_trackCfg.lossSearchBearing);
                 }
-                else if (!g_lineTrack.lossHoldReported)
+                else
                 {
-                    emit_logic_event(tickMs, "LOS", g_lineTrack.lossSearchDir, "hold", g_lineTrack.sensorBits, g_lineTrack.weightedPos);
-                    g_lineTrack.lossHoldReported = 1u;
+                    g_lineTrack.weightedPos = s_trackCfg.posEdgeThreshold;
+                    searchBearing = (int8_t)s_trackCfg.lossSearchBearing;
+                }
+
+                g_lineTrack.bearingDev = smooth_bearing_dev(searchBearing, 0u);
+                update_last_trend(0u, g_lineTrack.weightedPos, g_lineTrack.bearingDev);
+
+                if (!g_lineTrack.cornerTurning
+                    && g_lineTrack.overrunCount >= s_trackCfg.lossForceCornerTicks)
+                {
+                    if (canForceCorner)
+                    {
+                        start_corner_search(tickMs, currentYaw);
+                    }
+                    else if (!g_lineTrack.lossHoldReported)
+                    {
+                        emit_logic_event(tickMs, "LOS", g_lineTrack.lossSearchDir, "hold", g_lineTrack.sensorBits, g_lineTrack.weightedPos);
+                        g_lineTrack.lossHoldReported = 1u;
+                    }
                 }
             }
         }
@@ -799,17 +874,28 @@ static void signal_handler(uint32_t tickMs, float currentYaw)
     }
 
     g_lineTrack.weightedPos = apply_position_trim(rawPos);
-    update_directional_snapshot(bits, g_lineTrack.weightedPos);
 
-    if (g_lineTrack.lossSearchActive)
+    if (g_lineTrack.lossSoftHoldActive)
     {
-        stop_loss_search(tickMs, bits, g_lineTrack.weightedPos, "loss_exit");
-        if ((bits & LT_MASK_CENTER) == LT_MASK_CENTER
-            && abs_i16(g_lineTrack.weightedPos) <= s_trackCfg.cornerExitPosThreshold)
+        stop_loss_soft_hold(tickMs, bits, g_lineTrack.weightedPos, "soft_exit");
+        if ((bits & LT_MASK_CENTER) != 0u
+            && abs_i16(g_lineTrack.weightedPos) <= s_trackCfg.posNearThreshold)
         {
             g_lineTrack.centerLockTicks = s_trackCfg.centerLockTicks;
         }
     }
+
+    if (g_lineTrack.lossSearchActive)
+    {
+        stop_loss_search(tickMs, bits, g_lineTrack.weightedPos, "loss_exit");
+        if ((bits & LT_MASK_CENTER) != 0u
+            && abs_i16(g_lineTrack.weightedPos) <= s_trackCfg.posNearThreshold)
+        {
+            g_lineTrack.centerLockTicks = s_trackCfg.centerLockTicks;
+        }
+    }
+
+    update_directional_snapshot(bits, g_lineTrack.weightedPos);
 
     if (!g_lineTrack.cornerTurning && g_lineTrack.traceLogicState == LT_DBG_CROSS)
     {
@@ -888,6 +974,13 @@ static void compute_and_drive(int16_t basePwm)
         devLimit = s_trackCfg.edgeDevPwmMax;
     }
 
+    if (g_lineTrack.lossSoftHoldActive)
+    {
+        if (driveBase > s_trackCfg.lossHoldBasePwmMax)
+            driveBase = s_trackCfg.lossHoldBasePwmMax;
+        devLimit = s_trackCfg.lossHoldDevPwmMax;
+    }
+
     if (g_lineTrack.lossSearchActive)
     {
         if (driveBase > s_trackCfg.lossSearchBasePwmMax)
@@ -956,6 +1049,7 @@ static void handle_corner_search(uint32_t tickMs, int16_t basePwm, float current
     {
         g_lineTrack.cornerTurning = 0u;
         g_lineTrack.lossSearchActive = 0u;
+        g_lineTrack.lossSoftHoldActive = 0u;
         g_lineTrack.lossHoldReported = 0u;
         g_lineTrack.lossSearchDir = 0u;
         g_lineTrack.overrunCount = 0u;
@@ -1025,6 +1119,7 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.lastTrendDir = 0u;
     g_lineTrack.traceLogicState = LT_DBG_TRACK;
     g_lineTrack.lossSearchActive = 0u;
+    g_lineTrack.lossSoftHoldActive = 0u;
     g_lineTrack.lossHoldReported = 0u;
     g_lineTrack.lossSearchDir = 0u;
     g_lineTrack.cornerRecoverTicks = 0u;
@@ -1053,6 +1148,7 @@ void LineTrack_Stop(void)
     g_lineTrack.traceLogicState = LT_DBG_TRACK;
     g_lineTrack.crossDetectTicks = 0u;
     g_lineTrack.lossSearchActive = 0u;
+    g_lineTrack.lossSoftHoldActive = 0u;
     g_lineTrack.lossHoldReported = 0u;
     g_lineTrack.lossSearchDir = 0u;
     g_lineTrack.cornerRecoverTicks = 0u;
@@ -1185,12 +1281,18 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.cornerConfirmTicks = (uint8_t)clamp_i16((int32_t)value, 1, 40);
     else if (strcmp(name, "CORNER_FAST") == 0)
         s_trackCfg.cornerFastConfirmTicks = (uint8_t)clamp_i16((int32_t)value, 1, 10);
+    else if (strcmp(name, "LOSS_ENTER") == 0)
+        s_trackCfg.lossEnterTicks = (uint8_t)clamp_i16((int32_t)value, 1, 40);
     else if (strcmp(name, "LOSS_FORCE") == 0)
         s_trackCfg.lossForceCornerTicks = (uint8_t)clamp_i16((int32_t)value, 1, 80);
     else if (strcmp(name, "LOSS_REQ_REF") == 0)
         s_trackCfg.lossForceRequireRef = (uint8_t)clamp_i16((int32_t)value, 0, 1);
     else if (strcmp(name, "LOSS_BEAR") == 0)
         s_trackCfg.lossSearchBearing = (uint8_t)clamp_i16((int32_t)value, 1, 7);
+    else if (strcmp(name, "LOSS_HBASE") == 0)
+        s_trackCfg.lossHoldBasePwmMax = clamp_i16((int32_t)value, 0, TRACK_PWM_MAX);
+    else if (strcmp(name, "LOSS_HDEV") == 0)
+        s_trackCfg.lossHoldDevPwmMax = clamp_i16((int32_t)value, 0, TRACK_PWM_MAX);
     else if (strcmp(name, "LOSS_BASE") == 0)
         s_trackCfg.lossSearchBasePwmMax = clamp_i16((int32_t)value, 0, TRACK_PWM_MAX);
     else if (strcmp(name, "LOSS_DEV") == 0)
@@ -1228,6 +1330,8 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.cornerBasePwmMax = s_trackCfg.basePwmMax;
     if (s_trackCfg.edgeBasePwmMax > s_trackCfg.basePwmMax)
         s_trackCfg.edgeBasePwmMax = s_trackCfg.basePwmMax;
+    if (s_trackCfg.lossHoldBasePwmMax > s_trackCfg.basePwmMax)
+        s_trackCfg.lossHoldBasePwmMax = s_trackCfg.basePwmMax;
     if (s_trackCfg.lossSearchBasePwmMax > s_trackCfg.basePwmMax)
         s_trackCfg.lossSearchBasePwmMax = s_trackCfg.basePwmMax;
     if (s_trackCfg.recoverBasePwmMax > s_trackCfg.basePwmMax)
@@ -1259,9 +1363,11 @@ void LineTrack_DumpRuntimeConfig(void)
             (int)s_trackCfg.edgeBasePwmMax, (int)s_trackCfg.edgeDevPwmMax);
     BspUart_SendString(buf);
 
-    sprintf(buf, "TCFG:LOSS,LOSS_FORCE=%u,LOSS_REQ_REF=%u,LOSS_BEAR=%u,LOSS_BASE=%d,LOSS_DEV=%d,OVERRUN=%u\r\n",
+    sprintf(buf, "TCFG:LOSS,LOSS_ENTER=%u,LOSS_FORCE=%u,LOSS_REQ_REF=%u,LOSS_BEAR=%u,LOSS_HBASE=%d,LOSS_HDEV=%d,LOSS_BASE=%d,LOSS_DEV=%d,OVERRUN=%u\r\n",
+            (unsigned)s_trackCfg.lossEnterTicks,
             (unsigned)s_trackCfg.lossForceCornerTicks, (unsigned)s_trackCfg.lossForceRequireRef,
             (unsigned)s_trackCfg.lossSearchBearing,
+            (int)s_trackCfg.lossHoldBasePwmMax, (int)s_trackCfg.lossHoldDevPwmMax,
             (int)s_trackCfg.lossSearchBasePwmMax, (int)s_trackCfg.lossSearchDevPwmMax,
             (unsigned)s_trackCfg.overrunLimitTicks);
     BspUart_SendString(buf);

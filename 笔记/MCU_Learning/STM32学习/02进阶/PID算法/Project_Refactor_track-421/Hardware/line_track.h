@@ -53,6 +53,7 @@ typedef struct
     uint8_t  lastTrendDir;
     uint8_t  traceLogicState;
     uint8_t  lossSearchActive;
+    uint8_t  lossSoftHoldActive;
     uint8_t  lossSearchDir;
     uint8_t  lossHoldReported;
     uint8_t  cornerRecoverTicks;
@@ -103,9 +104,12 @@ typedef struct
     uint8_t  cornerOppositeMaxHits;
     uint8_t  cornerConfirmTicks;
     uint8_t  cornerFastConfirmTicks;
+    uint8_t  lossEnterTicks;
     uint8_t  lossForceCornerTicks;
     uint8_t  lossForceRequireRef;
     uint8_t  lossSearchBearing;
+    int16_t  lossHoldBasePwmMax;
+    int16_t  lossHoldDevPwmMax;
     int16_t  lossSearchBasePwmMax;
     int16_t  lossSearchDevPwmMax;
     uint8_t  overrunLimitTicks;
