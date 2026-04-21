@@ -135,6 +135,7 @@ typedef struct
     int16_t  curveWeightOuter;
     int16_t  curveWeightMid;
     int16_t  curveWeightInner;
+    int16_t  curveForceDivisor;
     uint8_t  cornerStrongSideHits;
     uint8_t  cornerOppositeMaxHits;
     uint8_t  cornerConfirmTicks;

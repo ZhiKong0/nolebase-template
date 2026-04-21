@@ -343,7 +343,7 @@ static void handle_command(const char *cmd)
 {
     float fval;
     uint32_t u32val;
-    const char *comma;
+    const char *valueSep;
     char paramName[24];
 
     if (strcmp(cmd, "#RUN!") == 0)
@@ -519,15 +519,18 @@ static void handle_command(const char *cmd)
     }
     if (strncmp(cmd, "#TCFG=", 6) == 0)
     {
-        comma = strchr(cmd + 6, ',');
-        if (comma != NULL)
+        valueSep = strchr(cmd + 6, ',');
+        if (valueSep == NULL)
+            valueSep = strchr(cmd + 6, '=');
+
+        if (valueSep != NULL)
         {
-            size_t nameLen = (size_t)(comma - (cmd + 6));
+            size_t nameLen = (size_t)(valueSep - (cmd + 6));
             if (nameLen < sizeof(paramName))
             {
                 memcpy(paramName, cmd + 6, nameLen);
                 paramName[nameLen] = '\0';
-                if (cmd_parse_float(comma + 1, &fval) && LineTrack_SetRuntimeParam(paramName, fval))
+                if (cmd_parse_float(valueSep + 1, &fval) && LineTrack_SetRuntimeParam(paramName, fval))
                 {
                     BspUart_SendString("OK:TCFG\r\n");
                 }

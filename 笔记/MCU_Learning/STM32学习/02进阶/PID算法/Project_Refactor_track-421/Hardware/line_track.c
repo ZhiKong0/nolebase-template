@@ -59,6 +59,7 @@ static void load_runtime_config_defaults(void)
     s_trackCfg.curveWeightOuter = TRACK_CURVE_WEIGHT_OUTER;
     s_trackCfg.curveWeightMid = TRACK_CURVE_WEIGHT_MID;
     s_trackCfg.curveWeightInner = TRACK_CURVE_WEIGHT_INNER;
+    s_trackCfg.curveForceDivisor = TRACK_CURVE_FORCE_DIVISOR;
     s_trackCfg.cornerStrongSideHits = TRACK_CORNER_STRONG_SIDE_HITS;
     s_trackCfg.cornerOppositeMaxHits = TRACK_CORNER_OPPOSITE_MAX_HITS;
     s_trackCfg.cornerConfirmTicks = TRACK_CORNER_CONFIRM_TICKS;
@@ -371,6 +372,30 @@ static int16_t curve_profile_position(uint8_t bits)
     return apply_position_trim(weighted_position_from_table(curveBits, curveWeights));
 }
 
+static int8_t curve_position_to_bearing(uint8_t bits)
+{
+    uint8_t sideBits = (uint8_t)(bits & (LT_MASK_LEFT_ALL | LT_MASK_RIGHT_ALL));
+    int16_t pos;
+    int16_t absPos;
+    int16_t mag;
+
+    if (sideBits == 0u)
+        return 0;
+
+    pos = curve_profile_position(bits);
+    absPos = abs_i16(pos);
+    if (absPos <= s_trackCfg.posCenterDeadband)
+        return 0;
+
+    mag = (int16_t)((absPos + (s_trackCfg.curveForceDivisor / 2)) / s_trackCfg.curveForceDivisor);
+    if (mag == 0)
+        mag = 1;
+    if (mag > 7)
+        mag = 7;
+
+    return (pos < 0) ? (int8_t)(-mag) : (int8_t)mag;
+}
+
 static uint8_t lerp_u8_by_pos(int16_t value,
                               int16_t inLo,
                               int16_t inHi,
@@ -552,14 +577,19 @@ static void update_curve_profile_state(uint32_t tickMs,
 
 static int8_t position_to_bearing(uint8_t bits, int16_t pos)
 {
-    int16_t effectivePos = is_curve_profile_active()
-        ? curve_profile_position(bits)
-        : blend_center_zone_position(bits, pos);
-    int16_t absPos = abs_i16(effectivePos);
-    int8_t sign = (effectivePos >= 0) ? 1 : -1;
+    int16_t effectivePos;
+    int16_t absPos;
+    int8_t sign;
     uint8_t mag = 0u;
     uint8_t centerMask = (uint8_t)(bits & LT_MASK_CENTER);
     uint8_t sideMask = (uint8_t)(bits & (LT_MASK_LEFT_ALL | LT_MASK_RIGHT_ALL));
+
+    if (is_curve_profile_active())
+        return curve_position_to_bearing(bits);
+
+    effectivePos = blend_center_zone_position(bits, pos);
+    absPos = abs_i16(effectivePos);
+    sign = (effectivePos >= 0) ? 1 : -1;
 
     effectivePos = apply_straight_assist_position(bits, effectivePos);
     absPos = abs_i16(effectivePos);
@@ -707,7 +737,9 @@ static int8_t smooth_bearing_dev(int8_t rawBearing, uint8_t bits)
     int8_t step = (int8_t)s_trackCfg.normalBearingSlew;
     int8_t prevBearing = g_lineTrack.bearingDev;
 
-    if ((bits & LT_MASK_CENTER) != 0u && abs_i16(rawBearing) <= 2)
+    if (!is_curve_profile_active()
+        && (bits & LT_MASK_CENTER) != 0u
+        && abs_i16(rawBearing) <= 2)
         step = (int8_t)s_trackCfg.centerBearingSlew;
 
     if (rawBearing > (int8_t)(prevBearing + step))
@@ -1781,6 +1813,8 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.curveWeightMid = clamp_i16((int32_t)value, 20, 800);
     else if (strcmp(name, "CURVE_INNER") == 0)
         s_trackCfg.curveWeightInner = clamp_i16((int32_t)value, 0, 400);
+    else if (strcmp(name, "CURVE_DIV") == 0)
+        s_trackCfg.curveForceDivisor = clamp_i16((int32_t)value, 20, 120);
     else if (strcmp(name, "CORNER_HITS") == 0)
         s_trackCfg.cornerStrongSideHits = (uint8_t)clamp_i16((int32_t)value, 1, 3);
     else if (strcmp(name, "CORNER_OPP") == 0)
@@ -1870,6 +1904,8 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.curveWeightMid = s_trackCfg.curveWeightOuter;
     if (s_trackCfg.curveWeightInner > s_trackCfg.curveWeightMid)
         s_trackCfg.curveWeightInner = s_trackCfg.curveWeightMid;
+    if (s_trackCfg.curveForceDivisor < 20)
+        s_trackCfg.curveForceDivisor = 20;
     if (s_trackCfg.turnPwmMin > s_trackCfg.turnPwm)
         s_trackCfg.turnPwmMin = s_trackCfg.turnPwm;
     if (s_trackCfg.posNearThreshold > s_trackCfg.posMidThreshold)
@@ -1942,9 +1978,10 @@ void LineTrack_DumpRuntimeConfig(void)
             (unsigned)s_trackCfg.curveBitDeltaEnter, (unsigned)s_trackCfg.curveBitDeltaExit);
     BspUart_SendString(buf);
 
-    sprintf(buf, "TCFG:CURVEW,CURVE_OUTER=%d,CURVE_MID=%d,CURVE_INNER=%d\r\n",
+    sprintf(buf, "TCFG:CURVEW,CURVE_OUTER=%d,CURVE_MID=%d,CURVE_INNER=%d,CURVE_DIV=%d\r\n",
             (int)s_trackCfg.curveWeightOuter,
             (int)s_trackCfg.curveWeightMid,
-            (int)s_trackCfg.curveWeightInner);
+            (int)s_trackCfg.curveWeightInner,
+            (int)s_trackCfg.curveForceDivisor);
     BspUart_SendString(buf);
 }
