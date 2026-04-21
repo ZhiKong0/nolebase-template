@@ -20,6 +20,9 @@ DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "000Data" / "serial_runs" / "experiments"
 EXP_FILE_RE = re.compile(r"^exp_(\d+)_")
 HOST_KEEPALIVE_INTERVAL_S = 1.5
 RECONNECT_RETRY_INTERVAL_S = 1.0
+SERIAL_BOOT_SETTLE_S = 0.8
+MODE_SWITCH_RETRY_COUNT = 3
+MODE_SWITCH_SETTLE_S = 0.2
 
 
 def parse_kv_line(line: str, prefix: str) -> dict[str, str] | None:
@@ -134,6 +137,22 @@ def send_stop_and_collect(port: serial.Serial, timeout_s: float = 2.5) -> tuple[
     return False, lines
 
 
+def set_mode_with_retry(port: serial.Serial, mode: str,
+                        retries: int = MODE_SWITCH_RETRY_COUNT) -> tuple[bool, list[str]]:
+    lines: list[str] = []
+
+    for _ in range(max(1, retries)):
+        ok, attempt_lines = send_command_and_collect(port, f"#MODE={mode}!", "OK:MODE")
+        lines.extend(attempt_lines)
+        if ok:
+            time.sleep(MODE_SWITCH_SETTLE_S)
+            port.reset_input_buffer()
+            return True, lines
+        time.sleep(MODE_SWITCH_SETTLE_S)
+
+    return False, lines
+
+
 def parse_exp_ok(lines: list[str]) -> int | None:
     for line in reversed(lines):
         marker = "OK:EXP="
@@ -196,7 +215,7 @@ def send_host_release(port: serial.Serial) -> None:
 
 def open_serial_port(port_name: str, baud: int) -> serial.Serial:
     port = serial.Serial(port_name, baudrate=baud, timeout=0.1)
-    time.sleep(0.2)
+    time.sleep(SERIAL_BOOT_SETTLE_S)
     port.reset_input_buffer()
     return port
 
@@ -285,10 +304,11 @@ def main() -> int:
                         if not ok:
                             print("[logger] uart test warning: no STOP confirmation before timeout", file=sys.stderr)
 
-                        ok, lines = send_command_and_collect(ser, f"#MODE={args.uart_mode}!", "OK:MODE")
+                        ok, lines = set_mode_with_retry(ser, args.uart_mode)
                         prefetched_lines.extend(lines)
                         if not ok:
-                            print("[logger] uart test warning: no OK:MODE before timeout", file=sys.stderr)
+                            print("[logger] uart test warning: failed to switch mode before timeout", file=sys.stderr)
+                            raise RuntimeError("uart test mode switch failed")
 
                         for pre_cmd in uart_pre_commands:
                             ok_prefix = infer_ok_prefix(pre_cmd)
@@ -308,11 +328,17 @@ def main() -> int:
                         test_started = True
                         uart_stop_at = time.time() + args.uart_test_seconds
                         print(f"[logger] uart test armed: mode={args.uart_mode} dur={args.uart_test_seconds:.2f}s")
-                except (serial.SerialException, OSError) as exc:
+                except (serial.SerialException, OSError, RuntimeError) as exc:
                     print(f"[logger] open failed: {exc}", file=sys.stderr)
                     if args.max_seconds > 0.0 and now - launch_time >= args.max_seconds:
                         print("[logger] max-seconds reached")
                         break
+                    if ser is not None:
+                        try:
+                            ser.close()
+                        except Exception:
+                            pass
+                    ser = None
                     time.sleep(RECONNECT_RETRY_INTERVAL_S)
                     continue
 
