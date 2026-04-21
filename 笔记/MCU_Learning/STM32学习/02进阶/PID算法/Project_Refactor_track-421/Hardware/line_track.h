@@ -18,6 +18,7 @@
 #define LT_DBG_CORNER      2u
 #define LT_DBG_LOSS        3u
 #define LT_DBG_STRAIGHT    4u
+#define LT_DBG_CURVE       5u
 
 #define LT_MASK_LEFT_FAR   0x03u
 #define LT_MASK_LEFT       0x04u
@@ -63,6 +64,9 @@ typedef struct
     uint8_t  straightStableTicks;
     uint8_t  straightAssistTicks;
     uint8_t  straightPeakBitDelta;
+    uint8_t  curveProfileActive;
+    uint8_t  curveEnterTicks;
+    uint8_t  curveExitTicks;
     uint8_t  cornerFlipUsed;
     uint32_t cornerStartTick;
     float    cornerStartYaw;
@@ -118,6 +122,16 @@ typedef struct
     int16_t  straightPosDeltaThreshold;
     uint8_t  straightBitDeltaArm;
     uint8_t  straightBitDeltaStable;
+    uint8_t  curveEnterTicks;
+    uint8_t  curveExitTicks;
+    int16_t  curveBasePwmMax;
+    int16_t  curveDevPwmMax;
+    float    curveYawRateEnterDeg;
+    float    curveYawRateExitDeg;
+    int16_t  curvePosEnterThreshold;
+    int16_t  curvePosExitThreshold;
+    uint8_t  curveBitDeltaEnter;
+    uint8_t  curveBitDeltaExit;
     uint8_t  cornerStrongSideHits;
     uint8_t  cornerOppositeMaxHits;
     uint8_t  cornerConfirmTicks;

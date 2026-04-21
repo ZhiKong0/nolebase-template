@@ -10,6 +10,7 @@ LineTrack_State_t g_lineTrack;
 static LineTrack_RuntimeConfig_t s_trackCfg;
 
 static const int16_t s_trackWeights[8] = { -430, -270, -150, -40, 40, 150, 270, 430 };
+static const int16_t s_curveTrackWeights[8] = { -560, -320, -130, -12, 12, 130, 320, 560 };
 
 static void load_runtime_config_defaults(void)
 {
@@ -46,6 +47,16 @@ static void load_runtime_config_defaults(void)
     s_trackCfg.straightPosDeltaThreshold = TRACK_STRAIGHT_POS_DELTA_THRESHOLD;
     s_trackCfg.straightBitDeltaArm = TRACK_STRAIGHT_BIT_DELTA_ARM;
     s_trackCfg.straightBitDeltaStable = TRACK_STRAIGHT_BIT_DELTA_STABLE;
+    s_trackCfg.curveEnterTicks = TRACK_CURVE_ENTER_TICKS;
+    s_trackCfg.curveExitTicks = TRACK_CURVE_EXIT_TICKS;
+    s_trackCfg.curveBasePwmMax = TRACK_CURVE_BASE_PWM_MAX;
+    s_trackCfg.curveDevPwmMax = TRACK_CURVE_DEV_PWM_MAX;
+    s_trackCfg.curveYawRateEnterDeg = TRACK_CURVE_YAW_RATE_ENTER_DEG;
+    s_trackCfg.curveYawRateExitDeg = TRACK_CURVE_YAW_RATE_EXIT_DEG;
+    s_trackCfg.curvePosEnterThreshold = TRACK_CURVE_POS_ENTER_THRESHOLD;
+    s_trackCfg.curvePosExitThreshold = TRACK_CURVE_POS_EXIT_THRESHOLD;
+    s_trackCfg.curveBitDeltaEnter = TRACK_CURVE_BIT_DELTA_ENTER;
+    s_trackCfg.curveBitDeltaExit = TRACK_CURVE_BIT_DELTA_EXIT;
     s_trackCfg.cornerStrongSideHits = TRACK_CORNER_STRONG_SIDE_HITS;
     s_trackCfg.cornerOppositeMaxHits = TRACK_CORNER_OPPOSITE_MAX_HITS;
     s_trackCfg.cornerConfirmTicks = TRACK_CORNER_CONFIRM_TICKS;
@@ -138,6 +149,13 @@ static void reset_straight_assist_window(void)
     g_lineTrack.straightPeakYawRate = 0.0f;
 }
 
+static void reset_curve_profile_window(void)
+{
+    g_lineTrack.curveProfileActive = 0u;
+    g_lineTrack.curveEnterTicks = 0u;
+    g_lineTrack.curveExitTicks = 0u;
+}
+
 static uint8_t side_hit_count(uint8_t bits, uint8_t mask)
 {
     return bit_count((uint8_t)(bits & mask));
@@ -181,6 +199,11 @@ static uint8_t is_straight_assist_active(void)
     return (g_lineTrack.straightAssistTicks != 0u) ? 1u : 0u;
 }
 
+static uint8_t is_curve_profile_active(void)
+{
+    return g_lineTrack.curveProfileActive;
+}
+
 static uint8_t has_directional_evidence(uint8_t bits)
 {
     return (((bits & LT_MASK_LEFT_ALL) != 0u) || ((bits & LT_MASK_RIGHT_ALL) != 0u)) ? 1u : 0u;
@@ -214,7 +237,7 @@ static uint8_t is_center_straight_pattern(uint8_t bits)
     return 1u;
 }
 
-static int16_t weighted_position(uint8_t bits)
+static int16_t weighted_position_from_table(uint8_t bits, const int16_t *weights)
 {
     int32_t sum = 0;
     uint8_t count = 0u;
@@ -224,7 +247,7 @@ static int16_t weighted_position(uint8_t bits)
     {
         if (bits & (uint8_t)(1u << i))
         {
-            sum += s_trackWeights[i];
+            sum += weights[i];
             count++;
         }
     }
@@ -233,6 +256,11 @@ static int16_t weighted_position(uint8_t bits)
         return 0;
 
     return (int16_t)(sum / (int32_t)count);
+}
+
+static int16_t weighted_position(uint8_t bits)
+{
+    return weighted_position_from_table(bits, s_trackWeights);
 }
 
 static uint8_t infer_corner_dir_from_bits(uint8_t bits)
@@ -323,6 +351,11 @@ static int16_t apply_position_trim(int16_t pos)
     return clamp_i16((int32_t)pos + s_trackCfg.positionTrim, -350, 350);
 }
 
+static int16_t curve_profile_position(uint8_t bits)
+{
+    return apply_position_trim(weighted_position_from_table(bits, s_curveTrackWeights));
+}
+
 static uint8_t lerp_u8_by_pos(int16_t value,
                               int16_t inLo,
                               int16_t inHi,
@@ -388,9 +421,117 @@ static int16_t apply_straight_assist_position(uint8_t bits, int16_t pos)
     return clamp_i16(scaled, -350, 350);
 }
 
+static uint8_t should_enter_curve_profile(uint8_t bits,
+                                          int16_t pos,
+                                          float currentYawRate,
+                                          uint8_t bitDelta)
+{
+    if (is_edge_grip_pattern(bits))
+        return 1u;
+
+    if (abs_i16(pos) >= s_trackCfg.curvePosEnterThreshold)
+        return 1u;
+
+    if (abs_f32(currentYawRate) >= s_trackCfg.curveYawRateEnterDeg
+        && bitDelta >= s_trackCfg.curveBitDeltaEnter)
+        return 1u;
+
+    if (bitDelta >= (uint8_t)(s_trackCfg.curveBitDeltaEnter + 1u)
+        && ((bits & LT_MASK_LEFT_ALL) != 0u || (bits & LT_MASK_RIGHT_ALL) != 0u))
+        return 1u;
+
+    return 0u;
+}
+
+static uint8_t should_exit_curve_profile(uint8_t bits,
+                                         int16_t pos,
+                                         float currentYawRate,
+                                         uint8_t bitDelta)
+{
+    if (!is_center_straight_pattern(bits))
+        return 0u;
+
+    if (abs_i16(pos) > s_trackCfg.curvePosExitThreshold)
+        return 0u;
+
+    if (abs_f32(currentYawRate) > s_trackCfg.curveYawRateExitDeg)
+        return 0u;
+
+    if (bitDelta > s_trackCfg.curveBitDeltaExit)
+        return 0u;
+
+    return 1u;
+}
+
+static void stop_curve_profile(uint32_t tickMs, uint8_t bits, int16_t pos, const char *reason)
+{
+    uint8_t wasActive = is_curve_profile_active();
+
+    reset_curve_profile_window();
+
+    if (wasActive)
+    {
+        g_lineTrack.traceLogicState = LT_DBG_TRACK;
+        emit_logic_event(tickMs, "TRK", 0u, reason, bits, pos);
+    }
+}
+
+static void update_curve_profile_state(uint32_t tickMs,
+                                       uint8_t bits,
+                                       uint8_t prevBits,
+                                       int16_t pos,
+                                       float currentYawRate)
+{
+    uint8_t bitDelta = bit_delta_count(bits, prevBits);
+
+    if (is_curve_profile_active())
+    {
+        if (should_exit_curve_profile(bits, pos, currentYawRate, bitDelta))
+        {
+            if (g_lineTrack.curveExitTicks < 255u)
+                g_lineTrack.curveExitTicks++;
+
+            if (g_lineTrack.curveExitTicks >= s_trackCfg.curveExitTicks)
+            {
+                stop_curve_profile(tickMs, bits, pos, "curve_exit");
+                return;
+            }
+        }
+        else
+        {
+            g_lineTrack.curveExitTicks = 0u;
+        }
+
+        g_lineTrack.traceLogicState = LT_DBG_CURVE;
+        g_lineTrack.dbgTrackState = LT_DBG_CURVE;
+        return;
+    }
+
+    if (should_enter_curve_profile(bits, pos, currentYawRate, bitDelta))
+    {
+        if (g_lineTrack.curveEnterTicks < 255u)
+            g_lineTrack.curveEnterTicks++;
+
+        if (g_lineTrack.curveEnterTicks >= s_trackCfg.curveEnterTicks)
+        {
+            g_lineTrack.curveProfileActive = 1u;
+            g_lineTrack.curveEnterTicks = 0u;
+            g_lineTrack.curveExitTicks = 0u;
+            g_lineTrack.traceLogicState = LT_DBG_CURVE;
+            g_lineTrack.dbgTrackState = LT_DBG_CURVE;
+            emit_logic_event(tickMs, "CVR", 0u, "enter", bits, pos);
+        }
+        return;
+    }
+
+    g_lineTrack.curveEnterTicks = 0u;
+}
+
 static int8_t position_to_bearing(uint8_t bits, int16_t pos)
 {
-    int16_t effectivePos = blend_center_zone_position(bits, pos);
+    int16_t effectivePos = is_curve_profile_active()
+        ? curve_profile_position(bits)
+        : blend_center_zone_position(bits, pos);
     int16_t absPos = abs_i16(effectivePos);
     int8_t sign = (effectivePos >= 0) ? 1 : -1;
     uint8_t mag = 0u;
@@ -432,10 +573,20 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
     if (absPos > s_trackCfg.posCenterDeadband && mag == 0u)
         mag = 1u;
 
-    if (centerMask == LT_MASK_CENTER && mag > 3u)
-        mag = 3u;
-    else if (centerMask != 0u && mag > 5u)
-        mag = 5u;
+    if (is_curve_profile_active())
+    {
+        if (centerMask == LT_MASK_CENTER && mag > 2u)
+            mag = 2u;
+        else if (centerMask != 0u && mag > 6u)
+            mag = 6u;
+    }
+    else
+    {
+        if (centerMask == LT_MASK_CENTER && mag > 3u)
+            mag = 3u;
+        else if (centerMask != 0u && mag > 5u)
+            mag = 5u;
+    }
 
     if (is_straight_assist_active())
     {
@@ -1022,6 +1173,7 @@ static void signal_handler(uint32_t tickMs, float currentYaw, float currentYawRa
 
     if (g_lineTrack.crossDetectTicks >= s_trackCfg.crossConfirmTicks)
     {
+        stop_curve_profile(tickMs, bits, 0, "curve_abort");
         stop_straight_assist(tickMs, bits, 0, "straight_abort");
         g_lineTrack.weightedPos = 0;
         g_lineTrack.bearingDev = 0;
@@ -1039,6 +1191,7 @@ static void signal_handler(uint32_t tickMs, float currentYaw, float currentYawRa
     {
         uint8_t canForceCorner = hasCornerSnapshot || (s_trackCfg.lossForceRequireRef == 0u);
 
+        stop_curve_profile(tickMs, bits, g_lineTrack.weightedPos, "curve_abort");
         stop_straight_assist(tickMs, bits, g_lineTrack.weightedPos, "straight_abort");
         if (g_lineTrack.overrunCount < 255u)
             g_lineTrack.overrunCount++;
@@ -1140,15 +1293,29 @@ static void signal_handler(uint32_t tickMs, float currentYaw, float currentYawRa
 
     if (wideCenterPattern)
     {
+        stop_curve_profile(tickMs, bits, 0, "curve_abort");
         stop_straight_assist(tickMs, bits, 0, "straight_abort");
         g_lineTrack.bearingDev = 0;
         g_lineTrack.lastBearingDev = 0;
         return;
     }
 
-    update_straight_assist_state(tickMs, bits, prevBits, prevPos, g_lineTrack.weightedPos, currentYawRate);
+    update_curve_profile_state(tickMs, bits, prevBits, g_lineTrack.weightedPos, currentYawRate);
 
-    if (should_hold_center_lock(bits, g_lineTrack.weightedPos))
+    if (is_curve_profile_active())
+    {
+        if (is_straight_assist_active())
+            stop_straight_assist(tickMs, bits, g_lineTrack.weightedPos, "curve_abort");
+        else
+            reset_straight_assist_window();
+    }
+    else
+    {
+        update_straight_assist_state(tickMs, bits, prevBits, prevPos, g_lineTrack.weightedPos, currentYawRate);
+    }
+
+    if (!is_curve_profile_active()
+        && should_hold_center_lock(bits, g_lineTrack.weightedPos))
     {
         g_lineTrack.weightedPos = 0;
         g_lineTrack.bearingDev = 0;
@@ -1191,6 +1358,7 @@ static void compute_and_drive(int16_t basePwm)
     int16_t left;
     int16_t right;
     int16_t devLimit = s_trackCfg.devPwmMax;
+    int16_t cornerBaseLimit = s_trackCfg.cornerBasePwmMax;
     int16_t absBearing = (g_lineTrack.bearingDev >= 0)
         ? g_lineTrack.bearingDev
         : (int16_t)(-g_lineTrack.bearingDev);
@@ -1202,14 +1370,22 @@ static void compute_and_drive(int16_t basePwm)
     if (driveBase > s_trackCfg.basePwmMax)
         driveBase = s_trackCfg.basePwmMax;
 
-    if (absBearing >= s_trackCfg.sharpTurnDev && driveBase > s_trackCfg.cornerBasePwmMax)
-        driveBase = s_trackCfg.cornerBasePwmMax;
+    if (is_curve_profile_active())
+    {
+        cornerBaseLimit = s_trackCfg.curveBasePwmMax;
+        if (devLimit < s_trackCfg.curveDevPwmMax)
+            devLimit = s_trackCfg.curveDevPwmMax;
+    }
+
+    if (absBearing >= s_trackCfg.sharpTurnDev && driveBase > cornerBaseLimit)
+        driveBase = cornerBaseLimit;
 
     if (edgeGrip)
     {
         if (driveBase > s_trackCfg.edgeBasePwmMax)
             driveBase = s_trackCfg.edgeBasePwmMax;
-        devLimit = s_trackCfg.edgeDevPwmMax;
+        if (devLimit < s_trackCfg.edgeDevPwmMax)
+            devLimit = s_trackCfg.edgeDevPwmMax;
     }
 
     if (g_lineTrack.lossSoftHoldActive)
@@ -1371,6 +1547,7 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.cornerRecoverTicks = 0u;
     g_lineTrack.centerLockTicks = 0u;
     reset_straight_assist_window();
+    reset_curve_profile_window();
     g_lineTrack.cornerFlipUsed = 0u;
     g_lineTrack.cornerStartTick = 0u;
     g_lineTrack.cornerStartYaw = 0.0f;
@@ -1401,6 +1578,7 @@ void LineTrack_Stop(void)
     g_lineTrack.cornerRecoverTicks = 0u;
     g_lineTrack.centerLockTicks = 0u;
     reset_straight_assist_window();
+    reset_curve_profile_window();
     g_lineTrack.cornerFlipUsed = 0u;
     g_lineTrack.cornerStartYaw = 0.0f;
     g_lineTrack.dbgTrackState = LT_DBG_TRACK;
@@ -1541,6 +1719,26 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.straightBitDeltaArm = (uint8_t)clamp_i16((int32_t)value, 1, 8);
     else if (strcmp(name, "STR_BST") == 0)
         s_trackCfg.straightBitDeltaStable = (uint8_t)clamp_i16((int32_t)value, 0, 8);
+    else if (strcmp(name, "CURVE_ENTER") == 0)
+        s_trackCfg.curveEnterTicks = (uint8_t)clamp_i16((int32_t)value, 1, 20);
+    else if (strcmp(name, "CURVE_EXIT") == 0)
+        s_trackCfg.curveExitTicks = (uint8_t)clamp_i16((int32_t)value, 1, 40);
+    else if (strcmp(name, "CURVE_BASE") == 0)
+        s_trackCfg.curveBasePwmMax = clamp_i16((int32_t)value, 0, TRACK_PWM_MAX);
+    else if (strcmp(name, "CURVE_DEV") == 0)
+        s_trackCfg.curveDevPwmMax = clamp_i16((int32_t)value, 0, TRACK_PWM_MAX);
+    else if (strcmp(name, "CURVE_YIN") == 0)
+        s_trackCfg.curveYawRateEnterDeg = value;
+    else if (strcmp(name, "CURVE_YOUT") == 0)
+        s_trackCfg.curveYawRateExitDeg = value;
+    else if (strcmp(name, "CURVE_PIN") == 0)
+        s_trackCfg.curvePosEnterThreshold = clamp_i16((int32_t)value, 0, 350);
+    else if (strcmp(name, "CURVE_POUT") == 0)
+        s_trackCfg.curvePosExitThreshold = clamp_i16((int32_t)value, 0, 350);
+    else if (strcmp(name, "CURVE_BIN") == 0)
+        s_trackCfg.curveBitDeltaEnter = (uint8_t)clamp_i16((int32_t)value, 1, 8);
+    else if (strcmp(name, "CURVE_BOUT") == 0)
+        s_trackCfg.curveBitDeltaExit = (uint8_t)clamp_i16((int32_t)value, 0, 8);
     else if (strcmp(name, "CORNER_HITS") == 0)
         s_trackCfg.cornerStrongSideHits = (uint8_t)clamp_i16((int32_t)value, 1, 3);
     else if (strcmp(name, "CORNER_OPP") == 0)
@@ -1598,6 +1796,8 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.cornerBasePwmMax = s_trackCfg.basePwmMax;
     if (s_trackCfg.edgeBasePwmMax > s_trackCfg.basePwmMax)
         s_trackCfg.edgeBasePwmMax = s_trackCfg.basePwmMax;
+    if (s_trackCfg.curveBasePwmMax > s_trackCfg.basePwmMax)
+        s_trackCfg.curveBasePwmMax = s_trackCfg.basePwmMax;
     if (s_trackCfg.lossHoldBasePwmMax > s_trackCfg.basePwmMax)
         s_trackCfg.lossHoldBasePwmMax = s_trackCfg.basePwmMax;
     if (s_trackCfg.lossSearchBasePwmMax > s_trackCfg.basePwmMax)
@@ -1614,6 +1814,16 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.straightYawRateEnterDeg = s_trackCfg.straightYawRateArmDeg;
     if (s_trackCfg.straightBitDeltaStable > s_trackCfg.straightBitDeltaArm)
         s_trackCfg.straightBitDeltaStable = s_trackCfg.straightBitDeltaArm;
+    if (s_trackCfg.curveYawRateEnterDeg < 0.0f)
+        s_trackCfg.curveYawRateEnterDeg = 0.0f;
+    if (s_trackCfg.curveYawRateExitDeg < 0.0f)
+        s_trackCfg.curveYawRateExitDeg = 0.0f;
+    if (s_trackCfg.curveYawRateExitDeg > s_trackCfg.curveYawRateEnterDeg)
+        s_trackCfg.curveYawRateExitDeg = s_trackCfg.curveYawRateEnterDeg;
+    if (s_trackCfg.curveBitDeltaExit > s_trackCfg.curveBitDeltaEnter)
+        s_trackCfg.curveBitDeltaExit = s_trackCfg.curveBitDeltaEnter;
+    if (s_trackCfg.curvePosExitThreshold > s_trackCfg.curvePosEnterThreshold)
+        s_trackCfg.curvePosExitThreshold = s_trackCfg.curvePosEnterThreshold;
     if (s_trackCfg.turnPwmMin > s_trackCfg.turnPwm)
         s_trackCfg.turnPwmMin = s_trackCfg.turnPwm;
     if (s_trackCfg.posNearThreshold > s_trackCfg.posMidThreshold)
@@ -1676,5 +1886,13 @@ void LineTrack_DumpRuntimeConfig(void)
             (double)s_trackCfg.straightYawRateArmDeg, (double)s_trackCfg.straightYawRateEnterDeg,
             (int)s_trackCfg.straightPosDeltaThreshold,
             (unsigned)s_trackCfg.straightBitDeltaArm, (unsigned)s_trackCfg.straightBitDeltaStable);
+    BspUart_SendString(buf);
+
+    sprintf(buf, "TCFG:CURVE,CURVE_ENTER=%u,CURVE_EXIT=%u,CURVE_BASE=%d,CURVE_DEV=%d,CURVE_YIN=%.1f,CURVE_YOUT=%.1f,CURVE_PIN=%d,CURVE_POUT=%d,CURVE_BIN=%u,CURVE_BOUT=%u\r\n",
+            (unsigned)s_trackCfg.curveEnterTicks, (unsigned)s_trackCfg.curveExitTicks,
+            (int)s_trackCfg.curveBasePwmMax, (int)s_trackCfg.curveDevPwmMax,
+            (double)s_trackCfg.curveYawRateEnterDeg, (double)s_trackCfg.curveYawRateExitDeg,
+            (int)s_trackCfg.curvePosEnterThreshold, (int)s_trackCfg.curvePosExitThreshold,
+            (unsigned)s_trackCfg.curveBitDeltaEnter, (unsigned)s_trackCfg.curveBitDeltaExit);
     BspUart_SendString(buf);
 }
