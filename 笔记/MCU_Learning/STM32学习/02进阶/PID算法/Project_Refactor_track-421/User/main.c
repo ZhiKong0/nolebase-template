@@ -150,6 +150,22 @@ static void report_experiment_start(ExperimentTrigger_t trigger)
     BspUart_SendString(buf);
 }
 
+static void report_experiment_config(void)
+{
+    char buf[64];
+
+    sprintf(buf,
+            "EVT:EXP_CFG,mode=%c,spd=%.2f\r\n",
+            current_mode_char(),
+            (double)g_pid.targetSpeed);
+    BspUart_SendString(buf);
+
+    if (g_mode == MODE_TRACK)
+    {
+        LineTrack_DumpRuntimeConfig();
+    }
+}
+
 static void report_experiment_stop(ExperimentTrigger_t trigger, uint32_t durationMs)
 {
     char buf[96];
@@ -199,6 +215,7 @@ static void transition_start(ExperimentTrigger_t trigger)
     g_runStartTick = g_tickMs;
     g_lastImuTick = g_tickMs;
     report_experiment_start(trigger);
+    report_experiment_config();
     BspOled_ShowExperimentId(g_experimentId);
     MotorDriver_Enable();
     g_displayDirty = 1;
