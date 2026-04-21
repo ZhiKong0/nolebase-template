@@ -132,6 +132,9 @@ typedef struct
     int16_t  curvePosExitThreshold;
     uint8_t  curveBitDeltaEnter;
     uint8_t  curveBitDeltaExit;
+    int16_t  curveWeightOuter;
+    int16_t  curveWeightMid;
+    int16_t  curveWeightInner;
     uint8_t  cornerStrongSideHits;
     uint8_t  cornerOppositeMaxHits;
     uint8_t  cornerConfirmTicks;

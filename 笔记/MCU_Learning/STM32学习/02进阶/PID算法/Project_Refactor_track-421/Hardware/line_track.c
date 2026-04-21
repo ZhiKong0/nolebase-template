@@ -10,7 +10,6 @@ LineTrack_State_t g_lineTrack;
 static LineTrack_RuntimeConfig_t s_trackCfg;
 
 static const int16_t s_trackWeights[8] = { -430, -270, -150, -40, 40, 150, 270, 430 };
-static const int16_t s_curveTrackWeights[8] = { -620, -340, -120, 0, 0, 120, 340, 620 };
 
 static void load_runtime_config_defaults(void)
 {
@@ -57,6 +56,9 @@ static void load_runtime_config_defaults(void)
     s_trackCfg.curvePosExitThreshold = TRACK_CURVE_POS_EXIT_THRESHOLD;
     s_trackCfg.curveBitDeltaEnter = TRACK_CURVE_BIT_DELTA_ENTER;
     s_trackCfg.curveBitDeltaExit = TRACK_CURVE_BIT_DELTA_EXIT;
+    s_trackCfg.curveWeightOuter = TRACK_CURVE_WEIGHT_OUTER;
+    s_trackCfg.curveWeightMid = TRACK_CURVE_WEIGHT_MID;
+    s_trackCfg.curveWeightInner = TRACK_CURVE_WEIGHT_INNER;
     s_trackCfg.cornerStrongSideHits = TRACK_CORNER_STRONG_SIDE_HITS;
     s_trackCfg.cornerOppositeMaxHits = TRACK_CORNER_OPPOSITE_MAX_HITS;
     s_trackCfg.cornerConfirmTicks = TRACK_CORNER_CONFIRM_TICKS;
@@ -355,8 +357,18 @@ static int16_t curve_profile_position(uint8_t bits)
 {
     uint8_t sideBits = (uint8_t)(bits & (LT_MASK_LEFT_ALL | LT_MASK_RIGHT_ALL));
     uint8_t curveBits = (sideBits != 0u) ? sideBits : bits;
+    int16_t curveWeights[8];
 
-    return apply_position_trim(weighted_position_from_table(curveBits, s_curveTrackWeights));
+    curveWeights[0] = (int16_t)(-s_trackCfg.curveWeightOuter);
+    curveWeights[1] = (int16_t)(-s_trackCfg.curveWeightMid);
+    curveWeights[2] = (int16_t)(-s_trackCfg.curveWeightInner);
+    curveWeights[3] = 0;
+    curveWeights[4] = 0;
+    curveWeights[5] = s_trackCfg.curveWeightInner;
+    curveWeights[6] = s_trackCfg.curveWeightMid;
+    curveWeights[7] = s_trackCfg.curveWeightOuter;
+
+    return apply_position_trim(weighted_position_from_table(curveBits, curveWeights));
 }
 
 static uint8_t lerp_u8_by_pos(int16_t value,
@@ -1763,6 +1775,12 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.curveBitDeltaEnter = (uint8_t)clamp_i16((int32_t)value, 1, 8);
     else if (strcmp(name, "CURVE_BOUT") == 0)
         s_trackCfg.curveBitDeltaExit = (uint8_t)clamp_i16((int32_t)value, 0, 8);
+    else if (strcmp(name, "CURVE_OUTER") == 0)
+        s_trackCfg.curveWeightOuter = clamp_i16((int32_t)value, 100, 1200);
+    else if (strcmp(name, "CURVE_MID") == 0)
+        s_trackCfg.curveWeightMid = clamp_i16((int32_t)value, 20, 800);
+    else if (strcmp(name, "CURVE_INNER") == 0)
+        s_trackCfg.curveWeightInner = clamp_i16((int32_t)value, 0, 400);
     else if (strcmp(name, "CORNER_HITS") == 0)
         s_trackCfg.cornerStrongSideHits = (uint8_t)clamp_i16((int32_t)value, 1, 3);
     else if (strcmp(name, "CORNER_OPP") == 0)
@@ -1848,6 +1866,10 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.curveBitDeltaExit = s_trackCfg.curveBitDeltaEnter;
     if (s_trackCfg.curvePosExitThreshold > s_trackCfg.curvePosEnterThreshold)
         s_trackCfg.curvePosExitThreshold = s_trackCfg.curvePosEnterThreshold;
+    if (s_trackCfg.curveWeightMid > s_trackCfg.curveWeightOuter)
+        s_trackCfg.curveWeightMid = s_trackCfg.curveWeightOuter;
+    if (s_trackCfg.curveWeightInner > s_trackCfg.curveWeightMid)
+        s_trackCfg.curveWeightInner = s_trackCfg.curveWeightMid;
     if (s_trackCfg.turnPwmMin > s_trackCfg.turnPwm)
         s_trackCfg.turnPwmMin = s_trackCfg.turnPwm;
     if (s_trackCfg.posNearThreshold > s_trackCfg.posMidThreshold)
@@ -1918,5 +1940,11 @@ void LineTrack_DumpRuntimeConfig(void)
             (double)s_trackCfg.curveYawRateEnterDeg, (double)s_trackCfg.curveYawRateExitDeg,
             (int)s_trackCfg.curvePosEnterThreshold, (int)s_trackCfg.curvePosExitThreshold,
             (unsigned)s_trackCfg.curveBitDeltaEnter, (unsigned)s_trackCfg.curveBitDeltaExit);
+    BspUart_SendString(buf);
+
+    sprintf(buf, "TCFG:CURVEW,CURVE_OUTER=%d,CURVE_MID=%d,CURVE_INNER=%d\r\n",
+            (int)s_trackCfg.curveWeightOuter,
+            (int)s_trackCfg.curveWeightMid,
+            (int)s_trackCfg.curveWeightInner);
     BspUart_SendString(buf);
 }
