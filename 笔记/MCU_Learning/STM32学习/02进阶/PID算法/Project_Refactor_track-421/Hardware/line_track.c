@@ -270,10 +270,64 @@ static int16_t apply_position_trim(int16_t pos)
     return clamp_i16((int32_t)pos + s_trackCfg.positionTrim, -350, 350);
 }
 
+static uint8_t lerp_u8_by_pos(int16_t value,
+                              int16_t inLo,
+                              int16_t inHi,
+                              uint8_t outLo,
+                              uint8_t outHi)
+{
+    int32_t numerator;
+    int32_t denom;
+
+    if (value <= inLo)
+        return outLo;
+
+    if (value >= inHi)
+        return outHi;
+
+    if (inHi <= inLo)
+        return outHi;
+
+    numerator = (int32_t)(value - inLo) * (int32_t)(outHi - outLo);
+    denom = (int32_t)(inHi - inLo);
+
+    return (uint8_t)(outLo + (uint8_t)((numerator + (denom / 2)) / denom));
+}
+
+static int16_t blend_center_zone_position(uint8_t bits, int16_t pos)
+{
+    int32_t blended = pos;
+    uint8_t centerMask = (uint8_t)(bits & LT_MASK_CENTER);
+    uint8_t nearSideMask = (uint8_t)(bits & (LT_MASK_LEFT | LT_MASK_RIGHT));
+    uint8_t farSideMask = (uint8_t)(bits & (LT_MASK_LEFT_FAR | LT_MASK_RIGHT_FAR));
+
+    if (centerMask == LT_MASK_CENTER)
+    {
+        if (nearSideMask == 0u && farSideMask == 0u)
+            blended = (blended * 35) / 100;
+        else if (farSideMask == 0u)
+            blended = (blended * 50) / 100;
+        else
+            blended = (blended * 65) / 100;
+    }
+    else if (centerMask != 0u)
+    {
+        if (farSideMask == 0u)
+            blended = (blended * 65) / 100;
+        else
+            blended = (blended * 80) / 100;
+    }
+
+    return clamp_i16(blended, -350, 350);
+}
+
 static int8_t position_to_bearing(uint8_t bits, int16_t pos)
 {
-    int16_t absPos = abs_i16(pos);
-    int8_t sign = (pos >= 0) ? 1 : -1;
+    int16_t effectivePos = blend_center_zone_position(bits, pos);
+    int16_t absPos = abs_i16(effectivePos);
+    int8_t sign = (effectivePos >= 0) ? 1 : -1;
+    uint8_t mag = 0u;
+    uint8_t centerMask = (uint8_t)(bits & LT_MASK_CENTER);
 
     if ((bits & 0x01u) != 0u && (bits & LT_MASK_RIGHT_ALL) == 0u)
         return -7;
@@ -281,41 +335,40 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
     if ((bits & 0x80u) != 0u && (bits & LT_MASK_LEFT_ALL) == 0u)
         return 7;
 
-    if ((bits & (LT_MASK_LEFT_FAR | LT_MASK_RIGHT_FAR)) == 0u
-        && (bits & LT_MASK_CENTER) != 0u)
-    {
-        if (bits == LT_MASK_CENTER)
-            return 0;
-
-        if (bits == LT_MASK_CENTER_L)
-            return -1;
-
-        if (bits == LT_MASK_CENTER_R)
-            return 1;
-
-        if (bits == (LT_MASK_LEFT | LT_MASK_CENTER_L))
-            return -1;
-
-        if (bits == (LT_MASK_CENTER_R | LT_MASK_RIGHT))
-            return 1;
-    }
-
     if (bits == LT_MASK_CENTER)
         return 0;
 
-    if ((bits & LT_MASK_CENTER) != 0u && absPos <= s_trackCfg.posCenterDeadband)
+    if (centerMask == LT_MASK_CENTER
+        && absPos <= (int16_t)(s_trackCfg.posNearThreshold / 2))
         return 0;
 
-    if (absPos <= s_trackCfg.posNearThreshold)
-        return (int8_t)(sign * 1);
+    if (absPos <= s_trackCfg.posCenterDeadband)
+        mag = 0u;
+    else if (absPos <= s_trackCfg.posNearThreshold)
+        mag = lerp_u8_by_pos(absPos, s_trackCfg.posCenterDeadband, s_trackCfg.posNearThreshold, 0u, 2u);
+    else if (absPos <= s_trackCfg.posMidThreshold)
+        mag = lerp_u8_by_pos(absPos, s_trackCfg.posNearThreshold, s_trackCfg.posMidThreshold, 2u, 4u);
+    else if (absPos <= s_trackCfg.posEdgeThreshold)
+        mag = lerp_u8_by_pos(absPos, s_trackCfg.posMidThreshold, s_trackCfg.posEdgeThreshold, 4u, 6u);
+    else
+        mag = 7u;
 
-    if (absPos <= s_trackCfg.posMidThreshold)
-        return (int8_t)(sign * 2);
+    if (absPos > s_trackCfg.posCenterDeadband && mag == 0u)
+        mag = 1u;
 
-    if (absPos <= s_trackCfg.posEdgeThreshold)
-        return (int8_t)(sign * 4);
+    if (centerMask == LT_MASK_CENTER && mag > 3u)
+        mag = 3u;
+    else if (centerMask != 0u && mag > 5u)
+        mag = 5u;
 
-    return (int8_t)(sign * 7);
+    if (centerMask == 0u
+        && is_edge_grip_pattern(bits)
+        && mag < 4u)
+    {
+        mag = 4u;
+    }
+
+    return (int8_t)(sign * (int8_t)mag);
 }
 
 static uint8_t is_cross_pattern(uint8_t bits, int16_t pos)
