@@ -67,6 +67,7 @@ typedef struct
     uint8_t  curveProfileActive;
     uint8_t  curveEnterTicks;
     uint8_t  curveExitTicks;
+    uint8_t  curveConstraintDir;
     uint8_t  cornerFlipUsed;
     uint32_t cornerStartTick;
     float    cornerStartYaw;

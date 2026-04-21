@@ -157,6 +157,7 @@ static void reset_curve_profile_window(void)
     g_lineTrack.curveProfileActive = 0u;
     g_lineTrack.curveEnterTicks = 0u;
     g_lineTrack.curveExitTicks = 0u;
+    g_lineTrack.curveConstraintDir = 0u;
 }
 
 static uint8_t side_hit_count(uint8_t bits, uint8_t mask)
@@ -359,6 +360,57 @@ static int16_t curve_profile_position(uint8_t bits)
     uint8_t sideBits = (uint8_t)(bits & (LT_MASK_LEFT_ALL | LT_MASK_RIGHT_ALL));
     uint8_t curveBits = (sideBits != 0u) ? sideBits : bits;
     int16_t curveWeights[8];
+    uint16_t leftForce = 0u;
+    uint16_t rightForce = 0u;
+    uint16_t margin = (uint16_t)(s_trackCfg.curveWeightInner + (s_trackCfg.curveWeightMid / 2));
+
+    if ((bits & 0x01u) != 0u)
+        leftForce = (uint16_t)(leftForce + s_trackCfg.curveWeightOuter);
+    if ((bits & 0x02u) != 0u)
+        leftForce = (uint16_t)(leftForce + s_trackCfg.curveWeightMid);
+    if ((bits & 0x04u) != 0u)
+        leftForce = (uint16_t)(leftForce + s_trackCfg.curveWeightInner);
+
+    if ((bits & 0x20u) != 0u)
+        rightForce = (uint16_t)(rightForce + s_trackCfg.curveWeightInner);
+    if ((bits & 0x40u) != 0u)
+        rightForce = (uint16_t)(rightForce + s_trackCfg.curveWeightMid);
+    if ((bits & 0x80u) != 0u)
+        rightForce = (uint16_t)(rightForce + s_trackCfg.curveWeightOuter);
+
+    if (leftForce != 0u && rightForce != 0u)
+    {
+        if (g_lineTrack.curveConstraintDir == LT_DIR_LEFT
+            && (uint16_t)(leftForce + margin) >= rightForce)
+        {
+            curveBits = (uint8_t)(bits & LT_MASK_LEFT_ALL);
+        }
+        else if (g_lineTrack.curveConstraintDir == LT_DIR_RIGHT
+                 && (uint16_t)(rightForce + margin) >= leftForce)
+        {
+            curveBits = (uint8_t)(bits & LT_MASK_RIGHT_ALL);
+        }
+        else if (leftForce >= rightForce)
+        {
+            curveBits = (uint8_t)(bits & LT_MASK_LEFT_ALL);
+            g_lineTrack.curveConstraintDir = LT_DIR_LEFT;
+        }
+        else
+        {
+            curveBits = (uint8_t)(bits & LT_MASK_RIGHT_ALL);
+            g_lineTrack.curveConstraintDir = LT_DIR_RIGHT;
+        }
+    }
+    else if (leftForce != 0u)
+    {
+        curveBits = (uint8_t)(bits & LT_MASK_LEFT_ALL);
+        g_lineTrack.curveConstraintDir = LT_DIR_LEFT;
+    }
+    else if (rightForce != 0u)
+    {
+        curveBits = (uint8_t)(bits & LT_MASK_RIGHT_ALL);
+        g_lineTrack.curveConstraintDir = LT_DIR_RIGHT;
+    }
 
     curveWeights[0] = (int16_t)(-s_trackCfg.curveWeightOuter);
     curveWeights[1] = (int16_t)(-s_trackCfg.curveWeightMid);
