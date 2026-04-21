@@ -71,6 +71,37 @@ def send_command_and_collect(port: serial.Serial, command: str, ok_prefix: str,
     return False, lines
 
 
+def infer_ok_prefix(command: str) -> str | None:
+    if command.startswith("#MODE="):
+        return "OK:MODE"
+    if command.startswith("#SPD="):
+        return "OK:SPD"
+    if command.startswith("#TCFG="):
+        return "OK:TCFG"
+    if command == "#TCFG?!":
+        return "TCFG:"
+    if command == "#STAT!":
+        return "STAT:"
+    if command == "#RUN!":
+        return "OK:RUN"
+    if command == "#EXP?!":
+        return "OK:EXP="
+    return None
+
+
+def load_uart_pre_commands(path: Path | None) -> list[str]:
+    if path is None:
+        return []
+
+    lines: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("# ") or line.startswith("//"):
+            continue
+        lines.append(line)
+    return lines
+
+
 def line_indicates_stopped(line: str) -> bool:
     if "OK:STOP" in line:
         return True
@@ -212,6 +243,8 @@ def main() -> int:
                     help="Run a built-in UART start/stop test for N seconds")
     ap.add_argument("--uart-mode", choices=("TRACK", "STRAIGHT"), default="TRACK",
                     help="Mode used by --uart-test-seconds (default: TRACK)")
+    ap.add_argument("--uart-pre-cmd-file", type=Path, default=None,
+                    help="Optional file with one serial command per line, applied after #MODE and before #RUN")
     args = ap.parse_args()
 
     current_id: int | None = None
@@ -224,6 +257,7 @@ def main() -> int:
     stop_sent = False
     prefetched_lines: list[str] = []
     ser: serial.Serial | None = None
+    uart_pre_commands = load_uart_pre_commands(args.uart_pre_cmd_file)
 
     print(f"[logger] port={args.port} baud={args.baud}")
     print(f"[logger] output={args.out}")
@@ -255,6 +289,17 @@ def main() -> int:
                         prefetched_lines.extend(lines)
                         if not ok:
                             print("[logger] uart test warning: no OK:MODE before timeout", file=sys.stderr)
+
+                        for pre_cmd in uart_pre_commands:
+                            ok_prefix = infer_ok_prefix(pre_cmd)
+                            if ok_prefix is None:
+                                print(f"[logger] uart pre-cmd skip: unsupported ack rule for {pre_cmd}", file=sys.stderr)
+                                continue
+                            ok, lines = send_command_and_collect(ser, pre_cmd, ok_prefix)
+                            prefetched_lines.extend(lines)
+                            if not ok:
+                                print(f"[logger] uart pre-cmd warning: no {ok_prefix} before timeout for {pre_cmd}",
+                                      file=sys.stderr)
 
                         ok, lines = send_command_and_collect(ser, "#RUN!", "OK:RUN")
                         prefetched_lines.extend(lines)
