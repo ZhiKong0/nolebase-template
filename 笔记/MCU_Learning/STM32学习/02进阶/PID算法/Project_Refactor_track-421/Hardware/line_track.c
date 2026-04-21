@@ -1314,7 +1314,10 @@ static void signal_handler(uint32_t tickMs, float currentYaw, float currentYawRa
         emit_logic_event(tickMs, "TRK", 0u, "cross_exit", bits, g_lineTrack.weightedPos);
     }
 
-    if (wideCenterPattern)
+    update_curve_profile_state(tickMs, bits, prevBits, g_lineTrack.weightedPos, currentYawRate);
+
+    if (wideCenterPattern
+        && !is_curve_profile_active())
     {
         stop_curve_profile(tickMs, bits, 0, "curve_abort");
         stop_straight_assist(tickMs, bits, 0, "straight_abort");
@@ -1322,8 +1325,6 @@ static void signal_handler(uint32_t tickMs, float currentYaw, float currentYawRa
         g_lineTrack.lastBearingDev = 0;
         return;
     }
-
-    update_curve_profile_state(tickMs, bits, prevBits, g_lineTrack.weightedPos, currentYawRate);
 
     if (is_curve_profile_active())
     {

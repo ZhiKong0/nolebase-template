@@ -127,6 +127,17 @@ static char current_mode_char(void)
     return 'S';
 }
 
+static ControlMode_t current_telemetry_mode(void)
+{
+    if (g_sysState == SYS_TRACKING)
+        return MODE_TRACK;
+    if (g_sysState == SYS_SPINNING)
+        return MODE_SPIN;
+    if (g_sysState == SYS_STRAIGHT)
+        return MODE_STRAIGHT;
+    return g_mode;
+}
+
 static void report_experiment_start(ExperimentTrigger_t trigger)
 {
     char buf[96];
@@ -657,8 +668,9 @@ static void send_telemetry(void)
 {
     uint32_t t = g_tickMs - g_runStartTick;
     uint8_t run = is_running();
+    ControlMode_t telemetryMode = current_telemetry_mode();
 
-    if (g_sysState == SYS_TRACKING)
+    if (telemetryMode == MODE_TRACK)
     {
         BspUart_SendTelemetryTrack(t, g_experimentId, run,
                                    g_encoder.leftSpeed, g_encoder.rightSpeed,
@@ -675,7 +687,7 @@ static void send_telemetry(void)
                                    g_lineTrack.dbgCornerBits,
                                    0u, 0u, 0u);
     }
-    else if (g_sysState == SYS_SPINNING)
+    else if (telemetryMode == MODE_SPIN)
     {
         BspUart_SendTelemetrySpin(t, g_experimentId, run,
                                   g_encoder.leftSpeed, g_encoder.rightSpeed,
