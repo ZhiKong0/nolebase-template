@@ -10,7 +10,7 @@ LineTrack_State_t g_lineTrack;
 static LineTrack_RuntimeConfig_t s_trackCfg;
 
 static const int16_t s_trackWeights[8] = { -430, -270, -150, -40, 40, 150, 270, 430 };
-static const int16_t s_curveTrackWeights[8] = { -560, -320, -130, -12, 12, 130, 320, 560 };
+static const int16_t s_curveTrackWeights[8] = { -620, -340, -120, 0, 0, 120, 340, 620 };
 
 static void load_runtime_config_defaults(void)
 {
@@ -353,7 +353,10 @@ static int16_t apply_position_trim(int16_t pos)
 
 static int16_t curve_profile_position(uint8_t bits)
 {
-    return apply_position_trim(weighted_position_from_table(bits, s_curveTrackWeights));
+    uint8_t sideBits = (uint8_t)(bits & (LT_MASK_LEFT_ALL | LT_MASK_RIGHT_ALL));
+    uint8_t curveBits = (sideBits != 0u) ? sideBits : bits;
+
+    return apply_position_trim(weighted_position_from_table(curveBits, s_curveTrackWeights));
 }
 
 static uint8_t lerp_u8_by_pos(int16_t value,
@@ -426,18 +429,26 @@ static uint8_t should_enter_curve_profile(uint8_t bits,
                                           float currentYawRate,
                                           uint8_t bitDelta)
 {
-    if (is_edge_grip_pattern(bits))
+    uint8_t sideHits = bit_count((uint8_t)(bits & (LT_MASK_LEFT_ALL | LT_MASK_RIGHT_ALL)));
+
+    if (sideHits >= 3u)
         return 1u;
 
-    if (abs_i16(pos) >= s_trackCfg.curvePosEnterThreshold)
+    if (sideHits >= 2u
+        && abs_i16(pos) >= s_trackCfg.curvePosEnterThreshold)
         return 1u;
 
-    if (abs_f32(currentYawRate) >= s_trackCfg.curveYawRateEnterDeg
+    if (sideHits >= 2u
+        && abs_f32(currentYawRate) >= s_trackCfg.curveYawRateEnterDeg
         && bitDelta >= s_trackCfg.curveBitDeltaEnter)
         return 1u;
 
-    if (bitDelta >= (uint8_t)(s_trackCfg.curveBitDeltaEnter + 1u)
-        && ((bits & LT_MASK_LEFT_ALL) != 0u || (bits & LT_MASK_RIGHT_ALL) != 0u))
+    if (is_edge_grip_pattern(bits)
+        && abs_i16(pos) >= (int16_t)(s_trackCfg.curvePosEnterThreshold - 20))
+        return 1u;
+
+    if (sideHits >= 2u
+        && bitDelta >= (uint8_t)(s_trackCfg.curveBitDeltaEnter + 1u))
         return 1u;
 
     return 0u;
@@ -536,6 +547,7 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
     int8_t sign = (effectivePos >= 0) ? 1 : -1;
     uint8_t mag = 0u;
     uint8_t centerMask = (uint8_t)(bits & LT_MASK_CENTER);
+    uint8_t sideMask = (uint8_t)(bits & (LT_MASK_LEFT_ALL | LT_MASK_RIGHT_ALL));
 
     effectivePos = apply_straight_assist_position(bits, effectivePos);
     absPos = abs_i16(effectivePos);
@@ -550,7 +562,8 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
     if (bits == LT_MASK_CENTER)
         return 0;
 
-    if (centerMask == LT_MASK_CENTER
+    if (!is_curve_profile_active()
+        && centerMask == LT_MASK_CENTER
         && absPos <= (int16_t)(s_trackCfg.posNearThreshold / 2))
         return 0;
 
@@ -575,10 +588,13 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
 
     if (is_curve_profile_active())
     {
-        if (centerMask == LT_MASK_CENTER && mag > 2u)
-            mag = 2u;
-        else if (centerMask != 0u && mag > 6u)
-            mag = 6u;
+        if (sideMask == 0u)
+        {
+            if (centerMask == LT_MASK_CENTER && mag > 1u)
+                mag = 1u;
+            else if (centerMask != 0u && mag > 2u)
+                mag = 2u;
+        }
     }
     else
     {
@@ -601,6 +617,13 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
         && mag < 4u)
     {
         mag = 4u;
+    }
+
+    if (is_curve_profile_active()
+        && is_edge_grip_pattern(bits)
+        && mag < 5u)
+    {
+        mag = 5u;
     }
 
     return (int8_t)(sign * (int8_t)mag);
