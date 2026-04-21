@@ -17,6 +17,7 @@
 #define LT_DBG_CROSS       1u
 #define LT_DBG_CORNER      2u
 #define LT_DBG_LOSS        3u
+#define LT_DBG_STRAIGHT    4u
 
 #define LT_MASK_LEFT_FAR   0x03u
 #define LT_MASK_LEFT       0x04u
@@ -58,11 +59,17 @@ typedef struct
     uint8_t  lossHoldReported;
     uint8_t  cornerRecoverTicks;
     uint8_t  centerLockTicks;
+    uint8_t  straightAssistArmed;
+    uint8_t  straightStableTicks;
+    uint8_t  straightAssistTicks;
+    uint8_t  straightPeakBitDelta;
     uint8_t  cornerFlipUsed;
     uint32_t cornerStartTick;
     float    cornerStartYaw;
+    float    straightPeakYawRate;
 
     int16_t  weightedPos;
+    int16_t  straightPeakPos;
     int16_t  devSpeed;
     int16_t  lastTrackOutL;
     int16_t  lastTrackOutR;
@@ -100,6 +107,17 @@ typedef struct
     uint8_t  dtermWideClamp;
     uint8_t  centerBearingSlew;
     uint8_t  normalBearingSlew;
+    uint8_t  straightArmBearing;
+    uint8_t  straightEnterTicks;
+    uint8_t  straightHoldTicks;
+    int16_t  straightPosThreshold;
+    int16_t  straightDevPwmMax;
+    uint8_t  straightCenterScalePct;
+    float    straightYawRateArmDeg;
+    float    straightYawRateEnterDeg;
+    int16_t  straightPosDeltaThreshold;
+    uint8_t  straightBitDeltaArm;
+    uint8_t  straightBitDeltaStable;
     uint8_t  cornerStrongSideHits;
     uint8_t  cornerOppositeMaxHits;
     uint8_t  cornerConfirmTicks;
@@ -131,7 +149,7 @@ extern LineTrack_State_t g_lineTrack;
 void LineTrack_Init(void);
 void LineTrack_Start(uint8_t crossings);
 void LineTrack_Stop(void);
-void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw);
+void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw, float currentYawRate);
 uint8_t LineTrack_IsRunning(void);
 void LineTrack_SetPID(float kp, float kd);
 const LineTrack_RuntimeConfig_t *LineTrack_GetRuntimeConfig(void);

@@ -35,6 +35,17 @@ static void load_runtime_config_defaults(void)
     s_trackCfg.dtermWideClamp = TRACK_DTERM_WIDE_CLAMP;
     s_trackCfg.centerBearingSlew = TRACK_CENTER_BEARING_SLEW;
     s_trackCfg.normalBearingSlew = TRACK_NORMAL_BEARING_SLEW;
+    s_trackCfg.straightArmBearing = TRACK_STRAIGHT_ARM_BEARING;
+    s_trackCfg.straightEnterTicks = TRACK_STRAIGHT_ENTER_TICKS;
+    s_trackCfg.straightHoldTicks = TRACK_STRAIGHT_HOLD_TICKS;
+    s_trackCfg.straightPosThreshold = TRACK_STRAIGHT_POS_THRESHOLD;
+    s_trackCfg.straightDevPwmMax = TRACK_STRAIGHT_DEV_PWM_MAX;
+    s_trackCfg.straightCenterScalePct = TRACK_STRAIGHT_CENTER_SCALE_PCT;
+    s_trackCfg.straightYawRateArmDeg = TRACK_STRAIGHT_YAW_RATE_ARM_DEG;
+    s_trackCfg.straightYawRateEnterDeg = TRACK_STRAIGHT_YAW_RATE_ENTER_DEG;
+    s_trackCfg.straightPosDeltaThreshold = TRACK_STRAIGHT_POS_DELTA_THRESHOLD;
+    s_trackCfg.straightBitDeltaArm = TRACK_STRAIGHT_BIT_DELTA_ARM;
+    s_trackCfg.straightBitDeltaStable = TRACK_STRAIGHT_BIT_DELTA_STABLE;
     s_trackCfg.cornerStrongSideHits = TRACK_CORNER_STRONG_SIDE_HITS;
     s_trackCfg.cornerOppositeMaxHits = TRACK_CORNER_OPPOSITE_MAX_HITS;
     s_trackCfg.cornerConfirmTicks = TRACK_CORNER_CONFIRM_TICKS;
@@ -64,6 +75,11 @@ static void load_runtime_config_defaults(void)
 static int16_t abs_i16(int16_t v)
 {
     return (v < 0) ? (int16_t)(-v) : v;
+}
+
+static float abs_f32(float v)
+{
+    return (v < 0.0f) ? -v : v;
 }
 
 static int8_t clamp_i8(int16_t v, int8_t lo, int8_t hi)
@@ -107,6 +123,21 @@ static uint8_t bit_count(uint8_t bits)
     return count;
 }
 
+static uint8_t bit_delta_count(uint8_t nowBits, uint8_t prevBits)
+{
+    return bit_count((uint8_t)(nowBits ^ prevBits));
+}
+
+static void reset_straight_assist_window(void)
+{
+    g_lineTrack.straightAssistArmed = 0u;
+    g_lineTrack.straightStableTicks = 0u;
+    g_lineTrack.straightAssistTicks = 0u;
+    g_lineTrack.straightPeakBitDelta = 0u;
+    g_lineTrack.straightPeakPos = 0;
+    g_lineTrack.straightPeakYawRate = 0.0f;
+}
+
 static uint8_t side_hit_count(uint8_t bits, uint8_t mask)
 {
     return bit_count((uint8_t)(bits & mask));
@@ -145,6 +176,11 @@ static uint8_t read_sensor_bits(void)
     return line.bits;
 }
 
+static uint8_t is_straight_assist_active(void)
+{
+    return (g_lineTrack.straightAssistTicks != 0u) ? 1u : 0u;
+}
+
 static uint8_t has_directional_evidence(uint8_t bits)
 {
     return (((bits & LT_MASK_LEFT_ALL) != 0u) || ((bits & LT_MASK_RIGHT_ALL) != 0u)) ? 1u : 0u;
@@ -162,6 +198,20 @@ static uint8_t is_edge_grip_pattern(uint8_t bits)
         return 1u;
 
     return 0u;
+}
+
+static uint8_t is_center_straight_pattern(uint8_t bits)
+{
+    if ((bits & LT_MASK_CENTER) == 0u)
+        return 0u;
+
+    if ((bits & (LT_MASK_LEFT_FAR | LT_MASK_RIGHT_FAR)) != 0u)
+        return 0u;
+
+    if (bit_count(bits) > 4u)
+        return 0u;
+
+    return 1u;
 }
 
 static int16_t weighted_position(uint8_t bits)
@@ -324,6 +374,20 @@ static int16_t blend_center_zone_position(uint8_t bits, int16_t pos)
     return clamp_i16(blended, -350, 350);
 }
 
+static int16_t apply_straight_assist_position(uint8_t bits, int16_t pos)
+{
+    int32_t scaled = pos;
+
+    if (!is_straight_assist_active())
+        return pos;
+
+    if (!is_center_straight_pattern(bits))
+        return pos;
+
+    scaled = (scaled * s_trackCfg.straightCenterScalePct) / 100;
+    return clamp_i16(scaled, -350, 350);
+}
+
 static int8_t position_to_bearing(uint8_t bits, int16_t pos)
 {
     int16_t effectivePos = blend_center_zone_position(bits, pos);
@@ -331,6 +395,10 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
     int8_t sign = (effectivePos >= 0) ? 1 : -1;
     uint8_t mag = 0u;
     uint8_t centerMask = (uint8_t)(bits & LT_MASK_CENTER);
+
+    effectivePos = apply_straight_assist_position(bits, effectivePos);
+    absPos = abs_i16(effectivePos);
+    sign = (effectivePos >= 0) ? 1 : -1;
 
     if ((bits & 0x01u) != 0u && (bits & LT_MASK_RIGHT_ALL) == 0u)
         return -7;
@@ -343,6 +411,11 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
 
     if (centerMask == LT_MASK_CENTER
         && absPos <= (int16_t)(s_trackCfg.posNearThreshold / 2))
+        return 0;
+
+    if (is_straight_assist_active()
+        && centerMask == LT_MASK_CENTER
+        && absPos <= s_trackCfg.straightPosThreshold)
         return 0;
 
     if (absPos <= s_trackCfg.posCenterDeadband)
@@ -363,6 +436,14 @@ static int8_t position_to_bearing(uint8_t bits, int16_t pos)
         mag = 3u;
     else if (centerMask != 0u && mag > 5u)
         mag = 5u;
+
+    if (is_straight_assist_active())
+    {
+        if (centerMask == LT_MASK_CENTER && mag > 1u)
+            mag = 1u;
+        else if (centerMask != 0u && mag > 2u)
+            mag = 2u;
+    }
 
     if (centerMask == 0u
         && is_edge_grip_pattern(bits)
@@ -509,6 +590,156 @@ static void stop_loss_soft_hold(uint32_t tickMs, uint8_t bits, int16_t pos, cons
 
     g_lineTrack.lossSoftHoldActive = 0u;
     emit_logic_event(tickMs, "TRK", g_lineTrack.lossSearchDir, reason, bits, pos);
+}
+
+static uint8_t should_arm_straight_assist(uint8_t bits,
+                                          int16_t pos,
+                                          float currentYawRate,
+                                          uint8_t bitDelta)
+{
+    if (is_edge_grip_pattern(bits))
+        return 1u;
+
+    if ((bits & (LT_MASK_LEFT_FAR | LT_MASK_RIGHT_FAR)) != 0u)
+        return 1u;
+
+    if (abs_i16(pos) >= s_trackCfg.posMidThreshold)
+        return 1u;
+
+    if (abs_i16(g_lineTrack.bearingDev) >= s_trackCfg.straightArmBearing)
+        return 1u;
+
+    if (abs_i16(g_lineTrack.lastBearingDev) >= s_trackCfg.straightArmBearing)
+        return 1u;
+
+    if (abs_f32(currentYawRate) >= s_trackCfg.straightYawRateArmDeg
+        && bitDelta >= s_trackCfg.straightBitDeltaArm)
+        return 1u;
+
+    return 0u;
+}
+
+static void capture_straight_dynamics(int16_t pos, float currentYawRate, uint8_t bitDelta)
+{
+    if (abs_i16(pos) > g_lineTrack.straightPeakPos)
+        g_lineTrack.straightPeakPos = abs_i16(pos);
+
+    if (abs_f32(currentYawRate) > g_lineTrack.straightPeakYawRate)
+        g_lineTrack.straightPeakYawRate = abs_f32(currentYawRate);
+
+    if (bitDelta > g_lineTrack.straightPeakBitDelta)
+        g_lineTrack.straightPeakBitDelta = bitDelta;
+}
+
+static uint8_t has_straight_dynamics_ready(void)
+{
+    if (g_lineTrack.straightPeakYawRate < s_trackCfg.straightYawRateArmDeg)
+        return 0u;
+
+    if (g_lineTrack.straightPeakBitDelta < s_trackCfg.straightBitDeltaArm)
+        return 0u;
+
+    return 1u;
+}
+
+static void stop_straight_assist(uint32_t tickMs, uint8_t bits, int16_t pos, const char *reason)
+{
+    uint8_t wasActive = is_straight_assist_active();
+
+    reset_straight_assist_window();
+
+    if (wasActive)
+    {
+        g_lineTrack.traceLogicState = LT_DBG_TRACK;
+        emit_logic_event(tickMs, "TRK", 0u, reason, bits, pos);
+    }
+}
+
+static void update_straight_assist_state(uint32_t tickMs,
+                                         uint8_t bits,
+                                         uint8_t prevBits,
+                                         int16_t prevPos,
+                                         int16_t pos,
+                                         float currentYawRate)
+{
+    uint8_t centerPattern = is_center_straight_pattern(bits);
+    uint8_t bitDelta = bit_delta_count(bits, prevBits);
+    int16_t posDelta = abs_i16((int16_t)(pos - prevPos));
+    uint8_t stableYaw = (abs_f32(currentYawRate) <= s_trackCfg.straightYawRateEnterDeg) ? 1u : 0u;
+    uint8_t stableSensors = (centerPattern
+        && abs_i16(pos) <= s_trackCfg.straightPosThreshold
+        && posDelta <= s_trackCfg.straightPosDeltaThreshold
+        && bitDelta <= s_trackCfg.straightBitDeltaStable) ? 1u : 0u;
+
+    if (should_arm_straight_assist(bits, pos, currentYawRate, bitDelta))
+    {
+        if (!g_lineTrack.straightAssistArmed && !is_straight_assist_active())
+            reset_straight_assist_window();
+        g_lineTrack.straightAssistArmed = 1u;
+    }
+
+    if (g_lineTrack.straightAssistArmed || is_straight_assist_active())
+        capture_straight_dynamics(pos, currentYawRate, bitDelta);
+
+    if (is_straight_assist_active())
+    {
+        if (stableSensors && stableYaw)
+        {
+            g_lineTrack.straightAssistTicks = s_trackCfg.straightHoldTicks;
+            g_lineTrack.traceLogicState = LT_DBG_STRAIGHT;
+            g_lineTrack.dbgTrackState = LT_DBG_STRAIGHT;
+            return;
+        }
+
+        if (g_lineTrack.straightAssistTicks > 0u)
+            g_lineTrack.straightAssistTicks--;
+
+        if (g_lineTrack.straightAssistTicks == 0u)
+            stop_straight_assist(tickMs, bits, pos, "straight_exit");
+        else
+        {
+            g_lineTrack.traceLogicState = LT_DBG_STRAIGHT;
+            g_lineTrack.dbgTrackState = LT_DBG_STRAIGHT;
+        }
+        return;
+    }
+
+    if (!g_lineTrack.straightAssistArmed)
+    {
+        g_lineTrack.straightStableTicks = 0u;
+        return;
+    }
+
+    if (!has_straight_dynamics_ready())
+    {
+        g_lineTrack.straightStableTicks = 0u;
+        if (centerPattern
+            && abs_i16(pos) <= s_trackCfg.posCenterDeadband
+            && stableYaw)
+        {
+            reset_straight_assist_window();
+        }
+        return;
+    }
+
+    if (stableSensors && stableYaw)
+    {
+        if (g_lineTrack.straightStableTicks < 255u)
+            g_lineTrack.straightStableTicks++;
+
+        if (g_lineTrack.straightStableTicks >= s_trackCfg.straightEnterTicks)
+        {
+            g_lineTrack.straightAssistTicks = s_trackCfg.straightHoldTicks;
+            g_lineTrack.straightStableTicks = 0u;
+            g_lineTrack.straightAssistArmed = 0u;
+            g_lineTrack.traceLogicState = LT_DBG_STRAIGHT;
+            g_lineTrack.dbgTrackState = LT_DBG_STRAIGHT;
+            emit_logic_event(tickMs, "STR", 0u, "enter", bits, pos);
+        }
+        return;
+    }
+
+    g_lineTrack.straightStableTicks = 0u;
 }
 
 static uint8_t fallback_corner_dir(void)
@@ -748,9 +979,11 @@ static uint8_t should_hold_center_lock(uint8_t bits, int16_t pos)
     return 1u;
 }
 
-static void signal_handler(uint32_t tickMs, float currentYaw)
+static void signal_handler(uint32_t tickMs, float currentYaw, float currentYawRate)
 {
     uint8_t bits = read_sensor_bits();
+    uint8_t prevBits = g_lineTrack.sensorBits;
+    int16_t prevPos = g_lineTrack.weightedPos;
     uint8_t crossPattern;
     uint8_t wideCenterPattern;
     uint8_t cornerConfirmTicks = s_trackCfg.cornerConfirmTicks;
@@ -789,6 +1022,7 @@ static void signal_handler(uint32_t tickMs, float currentYaw)
 
     if (g_lineTrack.crossDetectTicks >= s_trackCfg.crossConfirmTicks)
     {
+        stop_straight_assist(tickMs, bits, 0, "straight_abort");
         g_lineTrack.weightedPos = 0;
         g_lineTrack.bearingDev = 0;
         g_lineTrack.lastBearingDev = 0;
@@ -805,6 +1039,7 @@ static void signal_handler(uint32_t tickMs, float currentYaw)
     {
         uint8_t canForceCorner = hasCornerSnapshot || (s_trackCfg.lossForceRequireRef == 0u);
 
+        stop_straight_assist(tickMs, bits, g_lineTrack.weightedPos, "straight_abort");
         if (g_lineTrack.overrunCount < 255u)
             g_lineTrack.overrunCount++;
 
@@ -905,10 +1140,13 @@ static void signal_handler(uint32_t tickMs, float currentYaw)
 
     if (wideCenterPattern)
     {
+        stop_straight_assist(tickMs, bits, 0, "straight_abort");
         g_lineTrack.bearingDev = 0;
         g_lineTrack.lastBearingDev = 0;
         return;
     }
+
+    update_straight_assist_state(tickMs, bits, prevBits, prevPos, g_lineTrack.weightedPos, currentYawRate);
 
     if (should_hold_center_lock(bits, g_lineTrack.weightedPos))
     {
@@ -1001,6 +1239,13 @@ static void compute_and_drive(int16_t basePwm)
         devLimit = s_trackCfg.centerLockDevPwmMax;
     }
 
+    if (is_straight_assist_active()
+        && !edgeGrip
+        && devLimit > s_trackCfg.straightDevPwmMax)
+    {
+        devLimit = s_trackCfg.straightDevPwmMax;
+    }
+
     g_lineTrack.devSpeed = dev_speed_pid(g_lineTrack.bearingDev, 0);
 
     if (g_lineTrack.devSpeed > devLimit)
@@ -1053,6 +1298,7 @@ static void handle_corner_search(uint32_t tickMs, int16_t basePwm, float current
         g_lineTrack.lossHoldReported = 0u;
         g_lineTrack.lossSearchDir = 0u;
         g_lineTrack.overrunCount = 0u;
+        reset_straight_assist_window();
         g_lineTrack.sensorBits = bits;
         g_lineTrack.lastData = bits;
         g_lineTrack.weightedPos = 0;
@@ -1124,6 +1370,7 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.lossSearchDir = 0u;
     g_lineTrack.cornerRecoverTicks = 0u;
     g_lineTrack.centerLockTicks = 0u;
+    reset_straight_assist_window();
     g_lineTrack.cornerFlipUsed = 0u;
     g_lineTrack.cornerStartTick = 0u;
     g_lineTrack.cornerStartYaw = 0.0f;
@@ -1153,6 +1400,7 @@ void LineTrack_Stop(void)
     g_lineTrack.lossSearchDir = 0u;
     g_lineTrack.cornerRecoverTicks = 0u;
     g_lineTrack.centerLockTicks = 0u;
+    reset_straight_assist_window();
     g_lineTrack.cornerFlipUsed = 0u;
     g_lineTrack.cornerStartYaw = 0.0f;
     g_lineTrack.dbgTrackState = LT_DBG_TRACK;
@@ -1162,10 +1410,8 @@ void LineTrack_Stop(void)
     track_motor_stop();
 }
 
-void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
+void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw, float currentYawRate)
 {
-    (void)currentYaw;
-
     switch (g_lineTrack.state)
     {
     case LT_STATE_STARTING:
@@ -1179,7 +1425,7 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYaw)
         g_lineTrack.dbgCornerYawDelta = 0.0f;
         g_lineTrack.dbgCornerBits = 0u;
 
-        signal_handler(tickMs, currentYaw);
+        signal_handler(tickMs, currentYaw, currentYawRate);
 
         if (g_lineTrack.autoFlag == LT_FLAG_STOP)
         {
@@ -1273,6 +1519,28 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.centerBearingSlew = (uint8_t)clamp_i16((int32_t)value, 0, 7);
     else if (strcmp(name, "SLEW_NORMAL") == 0)
         s_trackCfg.normalBearingSlew = (uint8_t)clamp_i16((int32_t)value, 1, 7);
+    else if (strcmp(name, "STR_ARM") == 0)
+        s_trackCfg.straightArmBearing = (uint8_t)clamp_i16((int32_t)value, 1, 7);
+    else if (strcmp(name, "STR_ENTER") == 0)
+        s_trackCfg.straightEnterTicks = (uint8_t)clamp_i16((int32_t)value, 1, 20);
+    else if (strcmp(name, "STR_HOLD") == 0)
+        s_trackCfg.straightHoldTicks = (uint8_t)clamp_i16((int32_t)value, 1, 40);
+    else if (strcmp(name, "STR_POS") == 0)
+        s_trackCfg.straightPosThreshold = clamp_i16((int32_t)value, 0, 200);
+    else if (strcmp(name, "STR_DEV") == 0)
+        s_trackCfg.straightDevPwmMax = clamp_i16((int32_t)value, 0, TRACK_PWM_MAX);
+    else if (strcmp(name, "STR_SCALE") == 0)
+        s_trackCfg.straightCenterScalePct = (uint8_t)clamp_i16((int32_t)value, 10, 100);
+    else if (strcmp(name, "STR_YARM") == 0)
+        s_trackCfg.straightYawRateArmDeg = value;
+    else if (strcmp(name, "STR_YIN") == 0)
+        s_trackCfg.straightYawRateEnterDeg = value;
+    else if (strcmp(name, "STR_PDEL") == 0)
+        s_trackCfg.straightPosDeltaThreshold = clamp_i16((int32_t)value, 0, 300);
+    else if (strcmp(name, "STR_BARM") == 0)
+        s_trackCfg.straightBitDeltaArm = (uint8_t)clamp_i16((int32_t)value, 1, 8);
+    else if (strcmp(name, "STR_BST") == 0)
+        s_trackCfg.straightBitDeltaStable = (uint8_t)clamp_i16((int32_t)value, 0, 8);
     else if (strcmp(name, "CORNER_HITS") == 0)
         s_trackCfg.cornerStrongSideHits = (uint8_t)clamp_i16((int32_t)value, 1, 3);
     else if (strcmp(name, "CORNER_OPP") == 0)
@@ -1336,6 +1604,16 @@ uint8_t LineTrack_SetRuntimeParam(const char *name, float value)
         s_trackCfg.lossSearchBasePwmMax = s_trackCfg.basePwmMax;
     if (s_trackCfg.recoverBasePwmMax > s_trackCfg.basePwmMax)
         s_trackCfg.recoverBasePwmMax = s_trackCfg.basePwmMax;
+    if (s_trackCfg.straightDevPwmMax > s_trackCfg.devPwmMax)
+        s_trackCfg.straightDevPwmMax = s_trackCfg.devPwmMax;
+    if (s_trackCfg.straightYawRateArmDeg < 0.0f)
+        s_trackCfg.straightYawRateArmDeg = 0.0f;
+    if (s_trackCfg.straightYawRateEnterDeg < 0.0f)
+        s_trackCfg.straightYawRateEnterDeg = 0.0f;
+    if (s_trackCfg.straightYawRateEnterDeg > s_trackCfg.straightYawRateArmDeg)
+        s_trackCfg.straightYawRateEnterDeg = s_trackCfg.straightYawRateArmDeg;
+    if (s_trackCfg.straightBitDeltaStable > s_trackCfg.straightBitDeltaArm)
+        s_trackCfg.straightBitDeltaStable = s_trackCfg.straightBitDeltaArm;
     if (s_trackCfg.turnPwmMin > s_trackCfg.turnPwm)
         s_trackCfg.turnPwmMin = s_trackCfg.turnPwm;
     if (s_trackCfg.posNearThreshold > s_trackCfg.posMidThreshold)
@@ -1389,5 +1667,14 @@ void LineTrack_DumpRuntimeConfig(void)
             (int)s_trackCfg.posCenterDeadband, (int)s_trackCfg.posNearThreshold,
             (int)s_trackCfg.posMidThreshold, (int)s_trackCfg.posEdgeThreshold,
             (unsigned)s_trackCfg.centerBearingSlew, (unsigned)s_trackCfg.normalBearingSlew);
+    BspUart_SendString(buf);
+
+    sprintf(buf, "TCFG:STRAIGHT,STR_ARM=%u,STR_ENTER=%u,STR_HOLD=%u,STR_POS=%d,STR_DEV=%d,STR_SCALE=%u,STR_YARM=%.1f,STR_YIN=%.1f,STR_PDEL=%d,STR_BARM=%u,STR_BST=%u\r\n",
+            (unsigned)s_trackCfg.straightArmBearing, (unsigned)s_trackCfg.straightEnterTicks,
+            (unsigned)s_trackCfg.straightHoldTicks, (int)s_trackCfg.straightPosThreshold,
+            (int)s_trackCfg.straightDevPwmMax, (unsigned)s_trackCfg.straightCenterScalePct,
+            (double)s_trackCfg.straightYawRateArmDeg, (double)s_trackCfg.straightYawRateEnterDeg,
+            (int)s_trackCfg.straightPosDeltaThreshold,
+            (unsigned)s_trackCfg.straightBitDeltaArm, (unsigned)s_trackCfg.straightBitDeltaStable);
     BspUart_SendString(buf);
 }

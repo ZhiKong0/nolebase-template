@@ -597,7 +597,7 @@ static void run_control(uint32_t now)
         DualLoop_ComputeSpeed(&g_pid, avgSpeed, dt);
 
         /* Line-following loop (sensor → PD → differential on top of pwmCore) */
-        LineTrack_Update(now, g_pid.pwmCore, g_imu.yaw);
+        LineTrack_Update(now, g_pid.pwmCore, g_imu.yaw, g_fastYawRate);
 
         /* 阻塞式转弯结束后重置速度PID，防止积分残留导致速度跳变 */
         if (g_lineTrack.cornerDone)

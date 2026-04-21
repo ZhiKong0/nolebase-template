@@ -203,7 +203,7 @@ typedef enum
 
 /* ========== 循迹模式 PID 默认参数 ========== */
 /* 速度环: 编码器反馈 → pwmCore (结构同直线, 参数可独立调) */
-#define PID_TRACK_SPEED_TARGET 32.0f /* 循迹模式目标速度 (串口 #SPD= 可运行时修改) */
+#define PID_TRACK_SPEED_TARGET 34.0f /* 循迹模式目标速度 (串口 #SPD= 可运行时修改) */
 #define PID_TRACK_SPEED_KP 1.50f     /* 比例 */
 #define PID_TRACK_SPEED_KI 0.10f     /* 积分 */
 #define PID_TRACK_SPEED_KD 0.0f      /* 微分 */
@@ -238,6 +238,17 @@ typedef enum
 #define TRACK_DTERM_WIDE_CLAMP 1
 #define TRACK_CENTER_BEARING_SLEW 1
 #define TRACK_NORMAL_BEARING_SLEW 4
+#define TRACK_STRAIGHT_ARM_BEARING 4
+#define TRACK_STRAIGHT_ENTER_TICKS 4
+#define TRACK_STRAIGHT_HOLD_TICKS 8
+#define TRACK_STRAIGHT_POS_THRESHOLD 70
+#define TRACK_STRAIGHT_DEV_PWM_MAX 80
+#define TRACK_STRAIGHT_CENTER_SCALE_PCT 35
+#define TRACK_STRAIGHT_YAW_RATE_ARM_DEG 90.0f
+#define TRACK_STRAIGHT_YAW_RATE_ENTER_DEG 35.0f
+#define TRACK_STRAIGHT_POS_DELTA_THRESHOLD 95
+#define TRACK_STRAIGHT_BIT_DELTA_ARM 2
+#define TRACK_STRAIGHT_BIT_DELTA_STABLE 1
 #define TRACK_CORNER_STRONG_SIDE_HITS 3
 #define TRACK_CORNER_OPPOSITE_MAX_HITS 2
 
