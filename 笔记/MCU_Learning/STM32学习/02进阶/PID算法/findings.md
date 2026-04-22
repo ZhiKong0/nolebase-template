@@ -120,3 +120,16 @@
 - 因此当前判断是：
   - 新方案方向正确，已经比旧的连续加权主链更接近“钳住 `S4/S5`”。
   - 但它还不是最终稳定态，后续需要继续压起跑段波动和首段找线分叉。
+
+## 当前更可用的基线
+
+- 在“中心优先离散误差”基础上，继续补了两层中心区稳定手段：
+  - 中心位时序钳制：`S4 <-> S5` 连续跳变时按 `S4|S5` 处理
+  - 中心区直接离散误差：中心位存在时不再让 `preview + rate` 主导，而是直接按中心位型给小误差，且弱化微分
+- 这一版下，`TTR=2.0` 比旧的 `4.0` 更适合作为默认静态偏置，已恢复为默认值。
+- 当前两轮代表性复跑：
+  - [track_dynamic_20260422_153132.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_153132.json)
+  - [track_dynamic_20260422_153213.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_153213.json)
+- 结论：
+  - 这两轮虽然仍有波动，但已经比旧连续加权方案更接近“围绕 `S4/S5` 打转而不是大幅左右抽”。
+  - 因此当前应把这版作为新的主线基线，而不是回退到之前那套连续均值 + 动态调度主干。

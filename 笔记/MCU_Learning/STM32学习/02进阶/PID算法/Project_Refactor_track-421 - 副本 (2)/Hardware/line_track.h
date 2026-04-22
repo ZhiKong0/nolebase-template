@@ -46,6 +46,7 @@ typedef struct
     int8_t lastBearingDev;
 
     uint8_t sensorBits;
+    uint8_t prevRawSensorBits;
     uint8_t lastData;
 
     uint8_t filterTimes;
@@ -63,6 +64,8 @@ typedef struct
     uint8_t startupLineReady;
     uint8_t startupSeenCount;
     uint16_t startupGraceTicks;
+    uint8_t centerCaptureReady;
+    uint8_t centerCaptureCount;
 
     uint8_t cornerDone;
 

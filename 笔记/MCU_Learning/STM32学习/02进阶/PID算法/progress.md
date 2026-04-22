@@ -20,5 +20,9 @@
   - `line_rms = 1.920`
   - `edge_dwell_ratio = 8.511%`
   - `score = 55.63`
-- 但重复性仍受起跑姿态影响较大，说明后续主线应继续围绕“起跑段一致性”和“中心优先误差”的细节收敛，而不是回到旧的连续加权方案。
+- 已继续把新方案收敛到更可用的基线：加入中心区时序钳制和“中心区直接离散误差 + 微分弱化”。
+- 新方案在 `TTR=2.0` 下两轮复跑分别得到：
+  - [track_dynamic_20260422_153132.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_153132.json)
+  - [track_dynamic_20260422_153213.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_153213.json)
+- 当前已将默认 `TTR` 从旧方案遗留的 `4.0` 收回到 `2.0`，并同步更新 PC 调参脚本默认值。
 - 下一步：继续上板观察主观体感，如果直线仍有轻微蛇形，优先在 `TTR`、`TCA0`、`TDB0` 三个量上做小步微调。

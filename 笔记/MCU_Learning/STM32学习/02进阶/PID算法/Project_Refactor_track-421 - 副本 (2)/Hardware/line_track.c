@@ -137,6 +137,32 @@ static uint8_t read_sensor_bits(void)
     return sensor.bits;
 }
 
+static uint8_t stabilize_center_bits(uint8_t bits)
+{
+    uint8_t prevBits = g_lineTrack.prevRawSensorBits;
+    uint8_t centerBits = bits & LT_MASK_CENTER;
+    uint8_t prevCenterBits = prevBits & LT_MASK_CENTER;
+    uint8_t sideBits = bits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE);
+    uint8_t prevSideBits = prevBits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE);
+
+    if (sideBits == 0u && prevSideBits == 0u)
+    {
+        if ((centerBits == LT_BIT_S4 && prevCenterBits == LT_BIT_S5)
+            || (centerBits == LT_BIT_S5 && prevCenterBits == LT_BIT_S4))
+        {
+            return LT_MASK_CENTER;
+        }
+
+        if ((centerBits == LT_BIT_S4 || centerBits == LT_BIT_S5)
+            && prevCenterBits == LT_MASK_CENTER)
+        {
+            return LT_MASK_CENTER;
+        }
+    }
+
+    return bits;
+}
+
 static float sensor_position_average(uint8_t bits)
 {
     float sum = 0.0f;
@@ -183,14 +209,14 @@ static float sensor_center_priority_position(uint8_t bits, float averagedPositio
     {
         if (leftBits != 0u)
             return -TRACK_CENTER_SINGLE_ERROR;
-        return -0.55f;
+        return -0.25f;
     }
 
     if (centerBits == LT_BIT_S5)
     {
         if (rightBits != 0u)
             return TRACK_CENTER_SINGLE_ERROR;
-        return 0.55f;
+        return 0.25f;
     }
 
     if ((bits & LT_BIT_S3) != 0u)
@@ -300,6 +326,26 @@ static uint8_t is_center_pair_only(uint8_t bits)
         return 0u;
 
     return ((bits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE)) == 0u) ? 1u : 0u;
+}
+
+static void update_center_capture(uint8_t bits)
+{
+    uint8_t centerBits = bits & LT_MASK_CENTER;
+
+    if (g_lineTrack.centerCaptureReady)
+        return;
+
+    if (centerBits != 0u)
+    {
+        if (g_lineTrack.centerCaptureCount < 255u)
+            g_lineTrack.centerCaptureCount++;
+        if (g_lineTrack.centerCaptureCount >= TRACK_CENTER_CAPTURE_TICKS)
+            g_lineTrack.centerCaptureReady = 1u;
+    }
+    else
+    {
+        g_lineTrack.centerCaptureCount = 0u;
+    }
 }
 
 static float center_zone_target(uint8_t bits, float position)
@@ -674,12 +720,20 @@ static float track_control_position(uint8_t bits, uint8_t crossingHit)
 {
     float controlPos = g_lineTrack.previewLinePos;
     float steerDeadband = g_lineTrack.activeSteerDeadband;
+    uint8_t centerBits = bits & LT_MASK_CENTER;
 
     if (crossingHit)
         return 0.0f;
 
     if (g_lineTrack.centerHold)
         return 0.0f;
+
+    if (centerBits != 0u)
+    {
+        controlPos = center_zone_target(bits, controlPos);
+        if (centerBits == LT_MASK_CENTER && abs_f32(controlPos) <= steerDeadband)
+            return 0.0f;
+    }
 
     if (is_center_pair_only(bits)
         && abs_f32(controlPos) <= steerDeadband)
@@ -706,12 +760,14 @@ static int16_t Dev_speed_PID(float linePos, float lineRate)
 
 static void Signal_Handler(uint32_t tickMs)
 {
-    uint8_t bits = read_sensor_bits();
+    uint8_t rawBits = read_sensor_bits();
+    uint8_t bits = stabilize_center_bits(rawBits);
     uint8_t crossingHit = is_crossing_pattern(bits);
     float rawPos = g_lineTrack.rawLinePos;
     float posDelta = 0.0f;
     int8_t bearingDev;
 
+    g_lineTrack.prevRawSensorBits = rawBits;
     g_lineTrack.sensorBits = bits;
     if (bits != 0u)
     {
@@ -751,6 +807,7 @@ static void Signal_Handler(uint32_t tickMs)
         g_lineTrack.filteredCurveLoad += TRACK_CURVE_LOAD_LPF
                                        * (track_curve_load(bits) - g_lineTrack.filteredCurveLoad);
         g_lineTrack.filteredCurveLoad = clamp_f32(g_lineTrack.filteredCurveLoad, 0.0f, 10.0f);
+        update_center_capture(bits);
         update_dynamic_track_profile();
         g_lineTrack.previewLinePos = apply_center_anchor(bits, previewPos);
         update_curve_speed_target();
@@ -872,16 +929,34 @@ static void Track_Handler(int16_t basePwm)
 
     g_lineTrack.pidBypassActive = 0u;
     crossingHit = is_crossing_pattern(g_lineTrack.sensorBits);
+    if (!g_lineTrack.centerCaptureReady)
+    {
+        if (baseAbsPwm > TRACK_CENTER_CAPTURE_PWM_MAX)
+            baseAbsPwm = TRACK_CENTER_CAPTURE_PWM_MAX;
+    }
     g_lineTrack.trackBasePwm = baseAbsPwm;
     controlPos = track_control_position(g_lineTrack.sensorBits, crossingHit);
     controlRate = g_lineTrack.filteredLineRate;
-    if ((g_lineTrack.sensorBits & LT_MASK_CENTER) != 0u && abs_f32(controlPos) <= 1.2f)
-        controlRate *= TRACK_CENTER_RATE_SCALE;
+    if ((g_lineTrack.sensorBits & LT_MASK_CENTER) != 0u)
+    {
+        if (abs_f32(controlPos) <= 1.2f)
+            controlRate = 0.0f;
+        else
+            controlRate *= TRACK_CENTER_RATE_SCALE;
+    }
 
     rawDev = (float)Dev_speed_PID(controlPos, controlRate) + g_lineTrack.activeSteerTrim;
     g_lineTrack.filteredDevPwm += TRACK_DEV_LPF * (rawDev - g_lineTrack.filteredDevPwm);
     g_lineTrack.devSpeed = float_to_i16(g_lineTrack.filteredDevPwm);
     devLimit = float_to_i16((float)baseAbsPwm * TRACK_DEV_MAX_RATIO);
+
+    if (!g_lineTrack.centerCaptureReady)
+    {
+        int16_t captureLimit = float_to_i16((float)baseAbsPwm * TRACK_CENTER_CAPTURE_DEV_RATIO);
+
+        if (devLimit > captureLimit)
+            devLimit = captureLimit;
+    }
 
     if ((g_lineTrack.sensorBits & LT_MASK_CENTER) != 0u
         && abs_f32(controlPos) <= TRACK_CENTER_DIFF_HOLD_POS)
@@ -968,6 +1043,8 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.startupLineReady = 0u;
     g_lineTrack.startupSeenCount = 0u;
     g_lineTrack.startupGraceTicks = TRACK_STARTUP_GRACE_TICKS;
+    g_lineTrack.centerCaptureReady = 0u;
+    g_lineTrack.centerCaptureCount = 0u;
     update_dynamic_track_profile();
     g_lineTrack.startupSkipSecondTurnEnabled = startupCompat;
 }
@@ -991,6 +1068,8 @@ void LineTrack_Stop(void)
     g_lineTrack.startupLineReady = 0u;
     g_lineTrack.startupSeenCount = 0u;
     g_lineTrack.startupGraceTicks = 0u;
+    g_lineTrack.centerCaptureReady = 0u;
+    g_lineTrack.centerCaptureCount = 0u;
     update_dynamic_track_profile();
     g_lineTrack.acuteState = LT_ACUTE_IDLE;
     g_lineTrack.acuteStartYaw = 0.0f;

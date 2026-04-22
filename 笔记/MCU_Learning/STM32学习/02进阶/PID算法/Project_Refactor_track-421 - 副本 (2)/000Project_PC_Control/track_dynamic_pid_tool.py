@@ -31,7 +31,7 @@ class TrackDynamicProfile:
     load_high: float = 4.80
     center_anchor_straight: float = 0.24
     center_anchor_curve: float = 0.63
-    steer_trim: float = 4.0
+    steer_trim: float = 2.0
     curve_brake_gain: float = 0.15
     curve_speed_min_ratio: float = 0.31
 
