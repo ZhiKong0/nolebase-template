@@ -650,12 +650,12 @@ static void handle_command(const char *cmd)
     {
         return;
     }
-    if (handle_track_short_param_command(cmd, "#CSR", "track.center_small_ratio")) return;
-    if (handle_track_short_param_command(cmd, "#CSM", "track.center_small_min")) return;
-    if (handle_track_short_param_command(cmd, "#CMR", "track.center_mid_ratio")) return;
-    if (handle_track_short_param_command(cmd, "#CMM", "track.center_mid_min")) return;
-    if (handle_track_short_param_command(cmd, "#EDR", "track.edge_ratio")) return;
-    if (handle_track_short_param_command(cmd, "#EDM", "track.edge_min")) return;
+    if (handle_track_short_param_command(cmd, "#CSR", "track.center_dev_ratio")) return;
+    if (handle_track_short_param_command(cmd, "#CSM", "track.center_kp_scale")) return;
+    if (handle_track_short_param_command(cmd, "#CMR", "track.mid_dev_ratio")) return;
+    if (handle_track_short_param_command(cmd, "#CMM", "track.mid_kp_scale")) return;
+    if (handle_track_short_param_command(cmd, "#EDR", "track.edge_dev_ratio")) return;
+    if (handle_track_short_param_command(cmd, "#EDM", "track.edge_kp_scale")) return;
     if (handle_track_short_param_command(cmd, "#RCD", "track.recenter_decay")) return;
     if (handle_track_short_param_command(cmd, "#STB", "track.static_bias")) return;
     if (handle_track_short_param_command(cmd, "#CDB", "track.center_deadband")) return;
@@ -744,6 +744,13 @@ static void handle_command(const char *cmd)
         }
         return;
     }
+    if (strcmp(cmd, "#LKP?!") == 0)
+    {
+        char out[40];
+        snprintf(out, sizeof(out), "OK:LKP=%.3f\r\n", (double)g_lineTrack.kp);
+        BspUart_SendString(out);
+        return;
+    }
     if (strncmp(cmd, "#LKD=", 5) == 0)
     {
         if (cmd_parse_float(cmd + 5, &fval))
@@ -751,6 +758,13 @@ static void handle_command(const char *cmd)
             LineTrack_SetPID(g_lineTrack.kp, fval);
             BspUart_SendString("OK:LKD\r\n");
         }
+        return;
+    }
+    if (strcmp(cmd, "#LKD?!") == 0)
+    {
+        char out[40];
+        snprintf(out, sizeof(out), "OK:LKD=%.3f\r\n", (double)g_lineTrack.kd);
+        BspUart_SendString(out);
         return;
     }
     if (strncmp(cmd, "#SFF=", 5) == 0)

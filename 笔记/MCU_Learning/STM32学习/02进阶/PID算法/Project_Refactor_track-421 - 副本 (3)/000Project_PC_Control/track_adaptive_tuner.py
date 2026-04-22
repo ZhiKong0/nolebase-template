@@ -317,12 +317,14 @@ def build_set_command(spec: ParamSpec, value: float) -> str:
         milli = int(round(value * 1000.0))
         return f"#TS{match.group(1)}={milli}!"
     short_map = {
-        "track.center_small_ratio": "#CSR",
-        "track.center_small_min": "#CSM",
-        "track.center_mid_ratio": "#CMR",
-        "track.center_mid_min": "#CMM",
-        "track.edge_ratio": "#EDR",
-        "track.edge_min": "#EDM",
+        "track.lkp": "#LKP",
+        "track.lkd": "#LKD",
+        "track.center_dev_ratio": "#CSR",
+        "track.center_kp_scale": "#CSM",
+        "track.mid_dev_ratio": "#CMR",
+        "track.mid_kp_scale": "#CMM",
+        "track.edge_dev_ratio": "#EDR",
+        "track.edge_kp_scale": "#EDM",
         "track.recenter_decay": "#RCD",
         "track.static_bias": "#STB",
         "track.center_deadband": "#CDB",
@@ -346,12 +348,14 @@ def build_get_command(spec: ParamSpec) -> str:
     if match:
         return f"#TS{match.group(1)}?!"
     short_map = {
-        "track.center_small_ratio": "#CSR",
-        "track.center_small_min": "#CSM",
-        "track.center_mid_ratio": "#CMR",
-        "track.center_mid_min": "#CMM",
-        "track.edge_ratio": "#EDR",
-        "track.edge_min": "#EDM",
+        "track.lkp": "#LKP",
+        "track.lkd": "#LKD",
+        "track.center_dev_ratio": "#CSR",
+        "track.center_kp_scale": "#CSM",
+        "track.mid_dev_ratio": "#CMR",
+        "track.mid_kp_scale": "#CMM",
+        "track.edge_dev_ratio": "#EDR",
+        "track.edge_kp_scale": "#EDM",
         "track.recenter_decay": "#RCD",
         "track.static_bias": "#STB",
         "track.center_deadband": "#CDB",
@@ -509,20 +513,20 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     )
 
     score = 0.0
-    score += 0.40 * mean_forward_speed
-    score += 38.0 * center_band_ratio
-    score += 92.0 * center_core_ratio
+    score += 0.22 * mean_forward_speed
+    score += 44.0 * center_band_ratio
+    score += 110.0 * center_core_ratio
     score += 18.0 * exact_center_ratio
     score -= 48.0 * loss_ratio
-    score -= 30.0 * outer_ratio
+    score -= 42.0 * outer_ratio
     score -= 6.0 * scurve_ratio
-    score -= 0.13 * mean_abs_lp
-    score -= 0.10 * mean_abs_lp_delta
-    score -= 0.12 * center_mean_abs_lp
-    score -= 0.18 * center_mean_abs_lp_delta
-    score -= 0.10 * mean_abs_yr
-    score -= 2.40 * lp_flip_rate_hz
-    score -= 6.00 * center_flip_rate_hz
+    score -= 0.15 * mean_abs_lp
+    score -= 0.16 * mean_abs_lp_delta
+    score -= 0.16 * center_mean_abs_lp
+    score -= 0.32 * center_mean_abs_lp_delta
+    score -= 0.12 * mean_abs_yr
+    score -= 3.20 * lp_flip_rate_hz
+    score -= 9.00 * center_flip_rate_hz
 
     return {
         "sample_count": float(len(analyzed)),
