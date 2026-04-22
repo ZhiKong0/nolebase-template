@@ -26,3 +26,14 @@
   - [track_dynamic_20260422_153213.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_153213.json)
 - 当前已将默认 `TTR` 从旧方案遗留的 `4.0` 收回到 `2.0`，并同步更新 PC 调参脚本默认值。
 - 下一步：继续上板观察主观体感，如果直线仍有轻微蛇形，优先在 `TTR`、`TCA0`、`TDB0` 三个量上做小步微调。
+- 本轮曾试过把 `S4|S5` 双灯做成更硬的“中心直控 + 快速回直线档”，已通过编译、烧录和实跑验证，但两轮代表性结果明显变差，因此该方向已撤回，不继续保留为代码主线。
+- 已恢复到上一版更稳的“中心优先离散误差 + 中心区直接控制律”主线，并重新编译烧录。
+- 在恢复后的基线上重新跑了 1 轮 `autotune(round=1)` 候选搜索，当前最优候选不是更大 `Kp` 或更强 `center lock`，而是 `smooth_damp`：
+  - `kp_straight = 16.732`
+  - `kd_straight = 11.88`
+  - `deadband_straight = 0.27`
+  - `center_anchor_straight = 0.26`
+  - 代表性结果：
+    [track_dynamic_r01_smooth_damp_20260422_155914.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_r01_smooth_damp_20260422_155914.json)
+    `score = 40.43`
+- 已验证 `steer_trim` 大步改负值会直接恶化结果，因此本轮结束时，板端运行时参数已恢复并确认回到 `smooth_damp + TTR=2.0` 这组，而不是保留坏试验参数。

@@ -133,3 +133,37 @@
 - 结论：
   - 这两轮虽然仍有波动，但已经比旧连续加权方案更接近“围绕 `S4/S5` 打转而不是大幅左右抽”。
   - 因此当前应把这版作为新的主线基线，而不是回退到之前那套连续均值 + 动态调度主干。
+
+## 本轮继续调参后的结论
+
+- 本轮额外验证了一条更激进的代码方向：
+  - 把 `S4|S5` 双灯做成更硬的直控
+  - 同时在中心区让动态调度更快退回直线档
+- 这条方向虽然能编译、烧录、实跑，但代表性结果更差：
+  - [track_dynamic_20260422_155033.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_155033.json)
+  - [track_dynamic_20260422_155245.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_155245.json)
+  - [track_dynamic_20260422_155534.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_155534.json)
+- 结论：
+  - 这条“更硬的中心直控”会削弱转弯衔接，不值得继续保留为代码主线。
+  - 因此本轮已把代码恢复到上一版更稳的“中心优先离散误差 + 中心区直接控制律”主线。
+
+## 当前最优运行时参数
+
+- 在恢复主线后重新跑了 1 轮自动候选搜索：
+  - [track_dynamic_r01_smooth_damp_20260422_155914.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_r01_smooth_damp_20260422_155914.json)
+- 当前最优候选不是更大的 `Kp`、也不是更强的 `center lock`，而是更“阻尼型”的直线段参数：
+  - `kp_straight = 16.732`
+  - `kd_straight = 11.88`
+  - `deadband_straight = 0.27`
+  - `center_anchor_straight = 0.26`
+  - `steer_trim = 2.0`
+- 这一组的代表性指标：
+  - `score = 40.43`
+  - `line_rms = 2.765`
+  - `straight_center_ratio = 69.231%`
+  - `edge_dwell_ratio = 8.333%`
+- 另外，本轮单独验证了把 `steer_trim` 大步改负值的方向：
+  - [track_dynamic_20260422_160147.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_160147.json)
+- 结论：
+  - `steer_trim` 大步偏负会直接恶化中心占比和丢线率，不应继续沿这条线大幅搜索。
+  - 本轮结束时，板端运行时参数已恢复为 `smooth_damp + TTR=2.0`，没有把坏试验参数留在板上。
