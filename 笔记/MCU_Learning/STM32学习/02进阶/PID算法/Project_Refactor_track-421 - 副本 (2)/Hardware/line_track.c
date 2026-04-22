@@ -340,23 +340,28 @@ static int16_t track_apply_forward_deadzone(int16_t pwm)
     return pwm;
 }
 
-static void track_motor_forward(int16_t left, int16_t right)
+static int16_t track_clamp_forward_pwm(int16_t pwm)
 {
-    if (left > TRACK_PWM_MAX)
-        left = TRACK_PWM_MAX;
-    if (left < TRACK_PWM_MIN)
-        left = TRACK_PWM_MIN;
+    if (pwm > TRACK_PWM_MAX)
+        pwm = TRACK_PWM_MAX;
+    if (pwm < TRACK_PWM_MIN)
+        pwm = TRACK_PWM_MIN;
+    return pwm;
+}
 
-    if (right > TRACK_PWM_MAX)
-        right = TRACK_PWM_MAX;
-    if (right < TRACK_PWM_MIN)
-        right = TRACK_PWM_MIN;
+static void track_motor_forward(int16_t leftTarget, int16_t rightTarget)
+{
+    int16_t left;
+    int16_t right;
 
-    left = track_apply_forward_deadzone(left);
-    right = track_apply_forward_deadzone(right);
+    leftTarget = track_clamp_forward_pwm(leftTarget);
+    rightTarget = track_clamp_forward_pwm(rightTarget);
 
-    left = clamp_toward_i16(g_lineTrack.trackPwmLeft, left, TRACK_PWM_SLEW_STEP);
-    right = clamp_toward_i16(g_lineTrack.trackPwmRight, right, TRACK_PWM_SLEW_STEP);
+    leftTarget = track_apply_forward_deadzone(leftTarget);
+    rightTarget = track_apply_forward_deadzone(rightTarget);
+
+    left = clamp_toward_i16(g_lineTrack.trackPwmLeft, leftTarget, TRACK_PWM_SLEW_STEP);
+    right = clamp_toward_i16(g_lineTrack.trackPwmRight, rightTarget, TRACK_PWM_SLEW_STEP);
 
     g_lineTrack.trackPwmLeft = left;
     g_lineTrack.trackPwmRight = right;
@@ -593,6 +598,9 @@ static float track_control_position(uint8_t bits, uint8_t crossingHit)
     if (abs_f32(controlPos) <= steerDeadband)
         return 0.0f;
 
+    if ((bits & LT_MASK_CENTER) != 0u && abs_f32(controlPos) <= 1.2f)
+        controlPos *= TRACK_CENTER_COMMAND_SCALE;
+
     return controlPos;
 }
 
@@ -707,6 +715,8 @@ static void Track_Handler(int16_t basePwm)
 {
     uint8_t crossingHit;
     float controlPos;
+    float controlRate;
+    float rawDev;
     int16_t devLimit;
     int16_t baseAbsPwm;
     int16_t leftPwm;
@@ -740,9 +750,25 @@ static void Track_Handler(int16_t basePwm)
     baseAbsPwm = abs_i16(basePwm);
     g_lineTrack.trackBasePwm = baseAbsPwm;
     controlPos = track_control_position(g_lineTrack.sensorBits, crossingHit);
-    g_lineTrack.devSpeed = Dev_speed_PID(controlPos, g_lineTrack.filteredLineRate);
-    g_lineTrack.devSpeed += float_to_i16(g_lineTrack.activeSteerTrim);
+    controlRate = g_lineTrack.filteredLineRate;
+    if ((g_lineTrack.sensorBits & LT_MASK_CENTER) != 0u && abs_f32(controlPos) <= 1.2f)
+        controlRate *= TRACK_CENTER_RATE_SCALE;
+
+    rawDev = (float)Dev_speed_PID(controlPos, controlRate) + g_lineTrack.activeSteerTrim;
+    g_lineTrack.filteredDevPwm += TRACK_DEV_LPF * (rawDev - g_lineTrack.filteredDevPwm);
+    g_lineTrack.devSpeed = float_to_i16(g_lineTrack.filteredDevPwm);
     devLimit = float_to_i16((float)baseAbsPwm * TRACK_DEV_MAX_RATIO);
+
+    if ((g_lineTrack.sensorBits & LT_MASK_CENTER) != 0u
+        && abs_f32(controlPos) <= TRACK_CENTER_DIFF_HOLD_POS)
+    {
+        int16_t centerBudget = (int16_t)(baseAbsPwm - MOTOR_DEADZONE);
+
+        if (centerBudget < 0)
+            centerBudget = 0;
+        if (devLimit > centerBudget)
+            devLimit = centerBudget;
+    }
 
     if (g_lineTrack.devSpeed > devLimit)
         g_lineTrack.devSpeed = devLimit;
@@ -829,6 +855,7 @@ void LineTrack_Stop(void)
     g_lineTrack.searchTickCount = 0u;
     g_lineTrack.overrunCount = 0u;
     g_lineTrack.devSpeed = 0;
+    g_lineTrack.filteredDevPwm = 0.0f;
     g_lineTrack.cornerDone = 0u;
     g_lineTrack.filteredCurveLoad = 0.0f;
     g_lineTrack.scheduleAlpha = 0.0f;

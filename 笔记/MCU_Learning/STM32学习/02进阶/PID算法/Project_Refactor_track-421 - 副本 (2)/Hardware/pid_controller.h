@@ -23,6 +23,8 @@ typedef struct {
     float targetSpeed;
     float currentSpeed;
     float speedRampTarget;
+    float speedRampUpRate;
+    float speedRampDownRate;
 
     float targetYaw;
     float headingTrim;       /* deg: constant yaw offset to compensate hardware bias */

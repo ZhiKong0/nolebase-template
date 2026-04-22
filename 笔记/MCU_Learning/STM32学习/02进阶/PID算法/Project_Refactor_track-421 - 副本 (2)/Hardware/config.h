@@ -210,7 +210,7 @@ typedef enum
 
 /* ========== 循迹模式 PID 默认参数 ========== */
 /* 速度环: 编码器反馈 → pwmCore (结构同直线, 参数可独立调) */
-#define PID_TRACK_SPEED_TARGET 46.0f /* 循迹模式目标速度: 保持较快，同时给新中线钳制留余量 */
+#define PID_TRACK_SPEED_TARGET 50.0f /* 循迹模式目标速度: 直道保持更高巡航, 弯中再靠曲率环收油 */
 #define PID_TRACK_SPEED_KP 1.50f     /* 比例 */
 #define PID_TRACK_SPEED_KI 0.10f     /* 积分 */
 #define PID_TRACK_SPEED_KD 0.0f      /* 微分 */
@@ -245,9 +245,15 @@ typedef enum
 #define TRACK_DYNAMIC_STEER_TRIM_DEFAULT 2.0f
 #define TRACK_CENTER_SINGLE_POSITION 0.62f
 #define TRACK_CENTER_BLEND_POSITION 0.26f
+#define TRACK_CENTER_COMMAND_SCALE 0.72f
+#define TRACK_CENTER_RATE_SCALE 0.68f
+#define TRACK_DEV_LPF 0.30f
+#define TRACK_CENTER_DIFF_HOLD_POS 1.60f
+#define TRACK_SPEED_RAMP_UP_RATE 90.0f
+#define TRACK_SPEED_RAMP_DOWN_RATE 140.0f
 
 /* ========== 循迹行为参数 ========== */
-#define TRACK_DEV_MAX_RATIO 0.68f       /* 正常循迹时限制差速过冲，避免内轮频繁被打到停转 */
+#define TRACK_DEV_MAX_RATIO 0.58f       /* 正常循迹时限制差速过冲，减少左右抽打 */
 #define TRACK_PWM_MAX 520               /* 单轮PWM上限，给更高巡航和更强转向留余量 */
 #define TRACK_PWM_MIN 0                 /* 单轮PWM下限 */
 #define TRACK_DEFAULT_CROSSINGS 4       /* 默认交叉口计数, 到达后自动停车 */
@@ -261,8 +267,8 @@ typedef enum
 #define TRACK_TURN_ACCEPT_TICKS 2       /* 找线退出需连续 20ms 重新见线 */
 #define TRACK_TURN_TIMEOUT_TICKS 180    /* 找线超时放宽到 1.8s，避免还在回扫就被停 */
 #define TRACK_CORNER_RESUME_SPEED_MAX 28.0f /* 出弯恢复速度提高，不再明显拖速 */
-#define TRACK_PWM_SLEW_STEP 48          /* 前进轮 PWM 每拍最大变化量，压住循迹一顿一顿的抽动 */
-#define TRACK_CURVE_BRAKE_GAIN 0.17f    /* 纯传感器曲率环收油强度 */
+#define TRACK_PWM_SLEW_STEP 32          /* 前进轮 PWM 每拍最大变化量，压住轮端一拍一拍地抽动 */
+#define TRACK_CURVE_BRAKE_GAIN 0.15f    /* 纯传感器曲率环收油强度，避免把整车常态压得过慢 */
 #define TRACK_CURVE_SPEED_MIN_RATIO 0.31f /* 弯中保留的最小基础速度比例 */
 
 /* ========== 旋进模式占位参数 ========== */

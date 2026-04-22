@@ -19,7 +19,7 @@ DEFAULT_OUT_DIR = PROJECT_ROOT / "000Data" / "track_dynamic_pid"
 
 @dataclass
 class TrackDynamicProfile:
-    target_speed: float = 46.0
+    target_speed: float = 50.0
     dynamic_enable: int = 1
     kp_straight: float = 17.8
     kp_curve: float = 33.0
@@ -32,7 +32,7 @@ class TrackDynamicProfile:
     center_anchor_straight: float = 0.24
     center_anchor_curve: float = 0.63
     steer_trim: float = 2.0
-    curve_brake_gain: float = 0.17
+    curve_brake_gain: float = 0.15
     curve_speed_min_ratio: float = 0.31
 
     def commands(self) -> list[str]:

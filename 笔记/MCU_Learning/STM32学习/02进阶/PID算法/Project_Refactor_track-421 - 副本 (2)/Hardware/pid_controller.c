@@ -108,6 +108,8 @@ void DualLoop_Init(DualLoopState_t *state)
     state->targetSpeed = SPEED_TARGET_DEFAULT;
     state->currentSpeed = 0.0f;
     state->speedRampTarget = SPEED_ENTRY;
+    state->speedRampUpRate = SPEED_RAMP_RATE;
+    state->speedRampDownRate = SPEED_RAMP_RATE;
     state->targetYaw = 0.0f;
     state->headingTrim = HEADING_TRIM;
     state->currentYaw = 0.0f;
@@ -136,6 +138,8 @@ void DualLoop_LoadStraightDefaults(DualLoopState_t *state)
              PID_STRAIGHT_HEADING_KP, PID_STRAIGHT_HEADING_KI, PID_STRAIGHT_HEADING_KD,
              (float)MOTOR_DIFF_MAX);
     state->feedforwardGain = SPEED_FEEDFORWARD_GAIN;
+    state->speedRampUpRate = SPEED_RAMP_RATE;
+    state->speedRampDownRate = SPEED_RAMP_RATE;
 }
 
 void DualLoop_LoadTrackDefaults(DualLoopState_t *state)
@@ -146,6 +150,8 @@ void DualLoop_LoadTrackDefaults(DualLoopState_t *state)
              PID_TRACK_SPEED_KP, PID_TRACK_SPEED_KI, PID_TRACK_SPEED_KD,
              SPEED_OUTPUT_LIMIT);
     state->feedforwardGain = SPEED_FEEDFORWARD_GAIN;
+    state->speedRampUpRate = TRACK_SPEED_RAMP_UP_RATE;
+    state->speedRampDownRate = TRACK_SPEED_RAMP_DOWN_RATE;
 }
 
 void DualLoop_ResetAll(DualLoopState_t *state)
@@ -172,12 +178,13 @@ void DualLoop_ApplySpeedRamp(DualLoopState_t *state, float dt)
 
     if (!state || dt <= 0.0f) return;
 
-    step = SPEED_RAMP_RATE * dt;
     if (state->speedRampTarget < state->targetSpeed) {
+        step = state->speedRampUpRate * dt;
         state->speedRampTarget += step;
         if (state->speedRampTarget > state->targetSpeed)
             state->speedRampTarget = state->targetSpeed;
     } else if (state->speedRampTarget > state->targetSpeed) {
+        step = state->speedRampDownRate * dt;
         state->speedRampTarget -= step;
         if (state->speedRampTarget < state->targetSpeed)
             state->speedRampTarget = state->targetSpeed;

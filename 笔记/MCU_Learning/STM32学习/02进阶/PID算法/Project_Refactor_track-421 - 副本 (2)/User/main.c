@@ -720,8 +720,8 @@ static void run_control(uint32_t now)
         /* Speed loop (encoder feedback → pwmCore as base speed) */
         avgSpeed = (g_encoder.filteredLeftSpeed + g_encoder.filteredRightSpeed) * 0.5f;
         g_pid.targetSpeed = LineTrack_GetCurveSpeedTarget();
-        if (g_pid.speedRampTarget > g_pid.targetSpeed)
-            g_pid.speedRampTarget = g_pid.targetSpeed;
+        /* TRACK 模式使用更快的专用斜坡参数，
+           保留目标速度爬坡是为了避免弯后直接抽到大油门。 */
         DualLoop_ComputeSpeed(&g_pid, avgSpeed, dt);
 
         /* Line-following loop (sensor → PD → differential on top of pwmCore) */
