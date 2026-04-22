@@ -257,20 +257,53 @@ static void process_key_event(void)
 
 static uint8_t cmd_parse_float(const char *s, float *out)
 {
-    if (sscanf(s, "%f", out) == 1)
-        return 1u;
+    const char *p = s;
+    float value = 0.0f;
+    float scale = 0.1f;
+    uint8_t hasDigit = 0u;
+    uint8_t neg = 0u;
 
+    if (s == 0 || out == 0)
+        return 0u;
+
+    while (*p == ' ' || *p == '\t')
+        p++;
+
+    if (*p == '-' || *p == '+')
     {
-        const char *p = s;
-        if (*p == '-' || *p == '+')
-            p++;
-        if (*p >= '0' && *p <= '9')
+        neg = (*p == '-') ? 1u : 0u;
+        p++;
+    }
+
+    while (*p >= '0' && *p <= '9')
+    {
+        value = value * 10.0f + (float)(*p - '0');
+        hasDigit = 1u;
+        p++;
+    }
+
+    if (*p == '.')
+    {
+        p++;
+        while (*p >= '0' && *p <= '9')
         {
-            *out = 0.0f;
-            return 1u;
+            value += (float)(*p - '0') * scale;
+            scale *= 0.1f;
+            hasDigit = 1u;
+            p++;
         }
     }
-    return 0u;
+
+    while (*p == ' ' || *p == '\t')
+        p++;
+
+    if (!hasDigit)
+        return 0u;
+    if (*p != '\0' && *p != '!' && *p != '\r' && *p != '\n')
+        return 0u;
+
+    *out = neg ? -value : value;
+    return 1u;
 }
 
 static uint8_t cmd_parse_u32(const char *s, uint32_t *out)
@@ -470,6 +503,8 @@ static uint8_t handle_sensor_scale_command(const char *cmd)
 
     if (cmd[4] == '=' && cmd_parse_float(cmd + 5, &fval))
     {
+        if (fval > 10.0f || fval < -10.0f)
+            fval *= 0.001f;
         if (LineTrack_ParamSet(key, fval, &applied))
         {
             int16_t milli = (int16_t)(applied * 1000.0f + 0.5f);
@@ -622,6 +657,7 @@ static void handle_command(const char *cmd)
     if (handle_track_short_param_command(cmd, "#EDR", "track.edge_ratio")) return;
     if (handle_track_short_param_command(cmd, "#EDM", "track.edge_min")) return;
     if (handle_track_short_param_command(cmd, "#RCD", "track.recenter_decay")) return;
+    if (handle_track_short_param_command(cmd, "#STB", "track.static_bias")) return;
     if (handle_track_short_param_command(cmd, "#CDB", "track.center_deadband")) return;
     if (handle_track_short_param_command(cmd, "#PLF", "track.pos_lpf")) return;
     if (handle_track_short_param_command(cmd, "#DLF", "track.d_lpf")) return;

@@ -86,6 +86,7 @@ typedef struct
     float    edgeDirectRatio;
     int16_t  edgeDirectMin;
     int16_t  recenterDecayStep;
+    int16_t  staticSteerBias;
     float    centerDeadband;
     float    posFilterAlpha;
     float    dFilterAlpha;

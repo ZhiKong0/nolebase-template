@@ -16,7 +16,7 @@ static uint8_t track_is_crossing(uint8_t bits);
 static void track_load_default_runtime_config(void)
 {
     static const float s_defaultSensorScale[LINE_SENSOR_COUNT] = {
-        0.92f, 0.90f, 1.00f, 0.92f, 1.00f, 0.90f, 1.10f, 1.00f
+        0.92f, 0.87f, 1.00f, 0.88f, 0.98f, 0.94f, 1.10f, 1.08f
     };
     uint8_t i;
 
@@ -30,6 +30,7 @@ static void track_load_default_runtime_config(void)
     g_lineTrackCfg.edgeDirectRatio = TRACK_EDGE_DIRECT_RATIO;
     g_lineTrackCfg.edgeDirectMin = TRACK_EDGE_DIRECT_MIN;
     g_lineTrackCfg.recenterDecayStep = TRACK_RECENTER_DECAY_STEP;
+    g_lineTrackCfg.staticSteerBias = TRACK_STATIC_STEER_BIAS;
     g_lineTrackCfg.centerDeadband = TRACK_CTRL_CENTER_DEADBAND;
     g_lineTrackCfg.posFilterAlpha = TRACK_CTRL_POS_FILTER_ALPHA;
     g_lineTrackCfg.dFilterAlpha = TRACK_CTRL_D_FILTER_ALPHA;
@@ -104,6 +105,36 @@ static uint16_t track_round_to_u16(float value)
     if (iv > 65535)
         return 65535u;
     return (uint16_t)iv;
+}
+
+static uint8_t track_parse_sensor_scale_index(const char *key, uint8_t *sensorIndex)
+{
+    static const char s_prefix[] = "track.sensor_scale";
+    const char *p;
+    uint16_t index = 0u;
+
+    if (key == 0 || sensorIndex == 0)
+        return 0u;
+    if (strncmp(key, s_prefix, sizeof(s_prefix) - 1u) != 0)
+        return 0u;
+
+    p = key + (sizeof(s_prefix) - 1u);
+    if (*p < '0' || *p > '9')
+        return 0u;
+
+    while (*p >= '0' && *p <= '9')
+    {
+        index = (uint16_t)(index * 10u + (uint16_t)(*p - '0'));
+        p++;
+    }
+
+    if (*p != '\0')
+        return 0u;
+    if (index < 1u || index > LINE_SENSOR_COUNT)
+        return 0u;
+
+    *sensorIndex = (uint8_t)index;
+    return 1u;
 }
 
 static void track_reset_follow_control(void)
@@ -1024,11 +1055,16 @@ static void track_drive_follow(int16_t basePwm)
         g_lineTrack.devSpeed = track_dev_speed_pid(g_lineTrack.linePos, activeKp, activeKd);
     }
 
+    if (g_lineTrack.trackState == LT_TRACK_FOLLOW && g_lineTrackCfg.staticSteerBias != 0)
+        g_lineTrack.devSpeed = (int16_t)(g_lineTrack.devSpeed + g_lineTrackCfg.staticSteerBias);
+
     devMax = (int16_t)(driveBase * activeDevRatio);
     if (g_lineTrack.devSpeed > devMax)
         g_lineTrack.devSpeed = devMax;
     if (g_lineTrack.devSpeed < -devMax)
         g_lineTrack.devSpeed = -devMax;
+
+    g_lineTrack.lastDevSpeedCmd = g_lineTrack.devSpeed;
 
     left = (int16_t)(driveBase + g_lineTrack.devSpeed);
     right = (int16_t)(driveBase - g_lineTrack.devSpeed);
@@ -1321,8 +1357,7 @@ uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue)
     if (key == 0)
         return 0u;
 
-    if (sscanf(key, "track.sensor_scale%hhu", &sensorIndex) == 1u
-        && sensorIndex >= 1u && sensorIndex <= LINE_SENSOR_COUNT)
+    if (track_parse_sensor_scale_index(key, &sensorIndex))
     {
         applied = track_clamp_paramf(value, 0.40f, 1.80f);
         g_lineTrackCfg.sensorScale[sensorIndex - 1u] = applied;
@@ -1373,6 +1408,11 @@ uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue)
     {
         applied = (float)track_round_to_i16(track_clamp_paramf(value, 1.0f, 120.0f));
         g_lineTrackCfg.recenterDecayStep = (int16_t)applied;
+    }
+    else if (strcmp(key, "track.static_bias") == 0)
+    {
+        applied = (float)track_round_to_i16(track_clamp_paramf(value, -120.0f, 120.0f));
+        g_lineTrackCfg.staticSteerBias = (int16_t)applied;
     }
     else if (strcmp(key, "track.center_deadband") == 0)
     {
@@ -1438,8 +1478,7 @@ uint8_t LineTrack_ParamGet(const char *key, float *value)
     if (key == 0 || value == 0)
         return 0u;
 
-    if (sscanf(key, "track.sensor_scale%hhu", &sensorIndex) == 1u
-        && sensorIndex >= 1u && sensorIndex <= LINE_SENSOR_COUNT)
+    if (track_parse_sensor_scale_index(key, &sensorIndex))
         *value = g_lineTrackCfg.sensorScale[sensorIndex - 1u];
     else if (strcmp(key, "track.lkp") == 0)
         *value = g_lineTrack.kp;
@@ -1459,6 +1498,8 @@ uint8_t LineTrack_ParamGet(const char *key, float *value)
         *value = (float)g_lineTrackCfg.edgeDirectMin;
     else if (strcmp(key, "track.recenter_decay") == 0)
         *value = (float)g_lineTrackCfg.recenterDecayStep;
+    else if (strcmp(key, "track.static_bias") == 0)
+        *value = (float)g_lineTrackCfg.staticSteerBias;
     else if (strcmp(key, "track.center_deadband") == 0)
         *value = g_lineTrackCfg.centerDeadband;
     else if (strcmp(key, "track.pos_lpf") == 0)
@@ -1493,7 +1534,7 @@ void LineTrack_ParamList(char *out, uint16_t outSize)
              "track.sensor_scale5,track.sensor_scale6,track.sensor_scale7,track.sensor_scale8,"
              "track.lkp,track.lkd,track.center_small_ratio,track.center_small_min,"
              "track.center_mid_ratio,track.center_mid_min,track.edge_ratio,track.edge_min,"
-             "track.recenter_decay,"
+             "track.recenter_decay,track.static_bias,"
              "track.center_deadband,track.pos_lpf,track.d_lpf,track.offcenter_boost,"
              "track.center_hold_ticks,track.recover_ticks,track.search_turn_fast,"
              "track.search_turn_slow,track.search_timeout");

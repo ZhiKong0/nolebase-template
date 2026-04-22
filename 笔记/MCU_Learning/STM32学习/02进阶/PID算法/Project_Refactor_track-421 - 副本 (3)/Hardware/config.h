@@ -196,11 +196,12 @@ typedef enum
 #define TRACK_CENTER_INNER_BOOST    1.25f
 #define TRACK_CENTER_DIRECT_SMALL_RATIO 0.19f
 #define TRACK_CENTER_DIRECT_SMALL_MIN   22
-#define TRACK_CENTER_DIRECT_MID_RATIO   0.465f
-#define TRACK_CENTER_DIRECT_MID_MIN     62
+#define TRACK_CENTER_DIRECT_MID_RATIO   0.445f
+#define TRACK_CENTER_DIRECT_MID_MIN     74
 #define TRACK_EDGE_DIRECT_RATIO         0.60f
-#define TRACK_EDGE_DIRECT_MIN           83
-#define TRACK_RECENTER_DECAY_STEP       22
+#define TRACK_EDGE_DIRECT_MIN           77
+#define TRACK_RECENTER_DECAY_STEP       18
+#define TRACK_STATIC_STEER_BIAS         8
 
 /* TRACK 内环改为“连续位置误差 + 滤波导数”。
    bearing_dev 仍保留给状态判定和遥测，但差速输出不再直接吃离散跳变。 */

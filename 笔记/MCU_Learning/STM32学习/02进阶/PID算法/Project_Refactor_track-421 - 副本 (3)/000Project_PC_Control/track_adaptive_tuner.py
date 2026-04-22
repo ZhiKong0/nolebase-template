@@ -90,6 +90,8 @@ class TrialResult:
     exact_center_ratio: float
     center_core_ratio: float
     center_single_ratio: float
+    center_mean_abs_lp: float
+    center_mean_abs_lp_delta: float
     outer_ratio: float
     search_ratio: float
     scurve_ratio: float
@@ -151,7 +153,7 @@ def flush_serial(port: serial.Serial, wait_ms: int = 120) -> None:
 
 def send_cmd(port: serial.Serial, cmd: str, timeout_s: float = 1.5, retries: int = 2) -> list[str]:
     payload = cmd if cmd.endswith("!") else f"{cmd}!"
-    valid_prefixes = ("OK", "ERR", "STAT:", "HB:")
+    valid_prefixes = ("OK:", "ERR:", "STAT:", "HB:")
     last_lines: list[str] = []
 
     for attempt in range(retries + 1):
@@ -171,7 +173,7 @@ def send_cmd(port: serial.Serial, cmd: str, timeout_s: float = 1.5, retries: int
             if line.startswith("HB:"):
                 continue
             lines.append(line)
-            if line.startswith("OK") or line.startswith("ERR") or line.startswith("STAT:"):
+            if line.startswith("OK:") or line.startswith("ERR:") or line.startswith("STAT:"):
                 return lines
         last_lines = lines
         if attempt < retries:
@@ -312,7 +314,8 @@ def serialize_params(params: dict[str, float], specs: list[ParamSpec]) -> str:
 def build_set_command(spec: ParamSpec, value: float) -> str:
     match = re.fullmatch(r"track\.sensor_scale([1-8])", spec.key)
     if match:
-        return f"#TS{match.group(1)}={value:.3f}!"
+        milli = int(round(value * 1000.0))
+        return f"#TS{match.group(1)}={milli}!"
     short_map = {
         "track.center_small_ratio": "#CSR",
         "track.center_small_min": "#CSM",
@@ -321,6 +324,7 @@ def build_set_command(spec: ParamSpec, value: float) -> str:
         "track.edge_ratio": "#EDR",
         "track.edge_min": "#EDM",
         "track.recenter_decay": "#RCD",
+        "track.static_bias": "#STB",
         "track.center_deadband": "#CDB",
         "track.pos_lpf": "#PLF",
         "track.d_lpf": "#DLF",
@@ -337,6 +341,62 @@ def build_set_command(spec: ParamSpec, value: float) -> str:
     return f"#TCFG SET {spec.key} {value:.6f}!"
 
 
+def build_get_command(spec: ParamSpec) -> str:
+    match = re.fullmatch(r"track\.sensor_scale([1-8])", spec.key)
+    if match:
+        return f"#TS{match.group(1)}?!"
+    short_map = {
+        "track.center_small_ratio": "#CSR",
+        "track.center_small_min": "#CSM",
+        "track.center_mid_ratio": "#CMR",
+        "track.center_mid_min": "#CMM",
+        "track.edge_ratio": "#EDR",
+        "track.edge_min": "#EDM",
+        "track.recenter_decay": "#RCD",
+        "track.static_bias": "#STB",
+        "track.center_deadband": "#CDB",
+        "track.pos_lpf": "#PLF",
+        "track.d_lpf": "#DLF",
+        "track.offcenter_boost": "#OCB",
+        "track.center_hold_ticks": "#CHT",
+        "track.recover_ticks": "#RCT",
+        "track.search_turn_fast": "#STF",
+        "track.search_turn_slow": "#STS",
+        "track.search_timeout": "#STO",
+    }
+    prefix = short_map.get(spec.key)
+    if prefix:
+        return f"{prefix}?!"
+    return f"#TCFG GET {spec.key}!"
+
+
+def parse_reply_value(spec: ParamSpec, lines: list[str]) -> float | None:
+    for line in reversed(lines):
+        if "=" not in line:
+            continue
+        payload = line.split("=", 1)[1].replace("!", ".")
+        match = re.search(r"[-+]?\d+(?:\.\d+)?", payload)
+        if not match:
+            continue
+        value = float(match.group(0))
+        if re.fullmatch(r"track\.sensor_scale([1-8])", spec.key) and abs(value) > 10.0:
+            value *= 0.001
+        return value
+    return None
+
+
+def verify_param_write(port: serial.Serial, spec: ParamSpec, expected: float) -> bool:
+    tolerance = max(0.001, 1.5 * (10.0 ** (-spec.digits)))
+    query = build_get_command(spec)
+    for _ in range(2):
+        lines = send_cmd(port, query, timeout_s=2.0)
+        actual = parse_reply_value(spec, lines)
+        if actual is not None and abs(actual - expected) <= tolerance:
+            return True
+        time.sleep(0.05)
+    return False
+
+
 def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str, float]:
     unique = dedupe_records(records)
     if len(unique) < 8:
@@ -351,6 +411,8 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
             "exact_center_ratio": 0.0,
             "center_core_ratio": 0.0,
             "center_single_ratio": 0.0,
+            "center_mean_abs_lp": 350.0,
+            "center_mean_abs_lp_delta": 350.0,
             "outer_ratio": 1.0,
             "search_ratio": 1.0,
             "scurve_ratio": 1.0,
@@ -387,6 +449,8 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
             "exact_center_ratio": 0.0,
             "center_core_ratio": 0.0,
             "center_single_ratio": 0.0,
+            "center_mean_abs_lp": 350.0,
+            "center_mean_abs_lp_delta": 350.0,
             "outer_ratio": 1.0,
             "search_ratio": 1.0,
             "scurve_ratio": 1.0,
@@ -431,13 +495,17 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     mean_abs_lp_delta = mean_abs_delta(valid_lp_signed) if valid_lp_signed else 350.0
     mean_abs_yr = statistics.fmean(abs(rec.yr) for rec in follow_records)
     lp_flip_rate_hz = sign_changes_with_deadband(valid_lp_signed, 80.0) / duration_s if valid_lp_signed else 0.0
-    centerish_lp_signed = [
-        rec.lp for rec in valid
-        if rec.sb in LT_CENTER_CORE_STATES or (rec.sb & LT_MASK_CENTER) != 0 or abs(rec.lp) <= 120.0
+    center_focus = [
+        rec for rec in valid
+        if ((rec.sb & LT_MASK_CENTER) != 0) or abs(rec.lp) <= 120.0
     ]
+    center_focus_lp = [abs(rec.lp) for rec in center_focus]
+    center_focus_lp_signed = [rec.lp for rec in center_focus]
+    center_mean_abs_lp = statistics.fmean(center_focus_lp) if center_focus_lp else 350.0
+    center_mean_abs_lp_delta = mean_abs_delta(center_focus_lp_signed) if center_focus_lp_signed else 350.0
     center_flip_rate_hz = (
-        sign_changes_with_deadband(centerish_lp_signed, 18.0) / duration_s
-        if centerish_lp_signed else 0.0
+        sign_changes_with_deadband(center_focus_lp_signed, 18.0) / duration_s
+        if center_focus_lp_signed else 0.0
     )
 
     score = 0.0
@@ -450,9 +518,11 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     score -= 6.0 * scurve_ratio
     score -= 0.13 * mean_abs_lp
     score -= 0.10 * mean_abs_lp_delta
+    score -= 0.12 * center_mean_abs_lp
+    score -= 0.18 * center_mean_abs_lp_delta
     score -= 0.10 * mean_abs_yr
     score -= 2.40 * lp_flip_rate_hz
-    score -= 4.00 * center_flip_rate_hz
+    score -= 6.00 * center_flip_rate_hz
 
     return {
         "sample_count": float(len(analyzed)),
@@ -465,6 +535,8 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
         "exact_center_ratio": exact_center_ratio,
         "center_core_ratio": center_core_ratio,
         "center_single_ratio": center_single_ratio,
+        "center_mean_abs_lp": center_mean_abs_lp,
+        "center_mean_abs_lp_delta": center_mean_abs_lp_delta,
         "outer_ratio": outer_ratio,
         "search_ratio": search_ratio,
         "scurve_ratio": scurve_ratio,
@@ -511,10 +583,15 @@ def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], 
         for spec in ctx.param_specs:
             value = params[spec.name]
             cmd = build_set_command(spec, value)
-            ensure_ok(
-                cmd,
-                send_cmd(port, cmd, timeout_s=2.0),
-            )
+            try:
+                ensure_ok(
+                    cmd,
+                    send_cmd(port, cmd, timeout_s=2.0),
+                )
+            except RuntimeError:
+                if not verify_param_write(port, spec, value):
+                    raise
+            time.sleep(0.04)
 
         send_cmd(port, "#STAT!", timeout_s=1.0)
         ensure_ok("#RUN!", send_cmd(port, "#RUN!", timeout_s=2.0))
@@ -616,6 +693,8 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
         exact_center_ratio=metrics["exact_center_ratio"],
         center_core_ratio=metrics["center_core_ratio"],
         center_single_ratio=metrics["center_single_ratio"],
+        center_mean_abs_lp=metrics["center_mean_abs_lp"],
+        center_mean_abs_lp_delta=metrics["center_mean_abs_lp_delta"],
         outer_ratio=metrics["outer_ratio"],
         search_ratio=metrics["search_ratio"],
         scurve_ratio=metrics["scurve_ratio"],
@@ -637,7 +716,8 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
         "[adaptive] "
         f"score={result.score:.2f} core={result.center_core_ratio:.2%} "
         f"center={result.center_band_ratio:.2%} outer={result.outer_ratio:.2%} "
-        f"wob={result.center_flip_rate_hz:.2f}Hz |lp|={result.mean_abs_lp:.1f}",
+        f"wob={result.center_flip_rate_hz:.2f}Hz c|lp|={result.center_mean_abs_lp:.1f} "
+        f"|lp|={result.mean_abs_lp:.1f}",
         flush=True,
     )
     return result
@@ -655,6 +735,9 @@ def summarize_candidate(ctx: SearchContext, params: dict[str, float]) -> dict[st
         "center_band_ratio": statistics.fmean(item.center_band_ratio for item in trials),
         "exact_center_ratio": statistics.fmean(item.exact_center_ratio for item in trials),
         "center_core_ratio": statistics.fmean(item.center_core_ratio for item in trials),
+        "center_single_ratio": statistics.fmean(item.center_single_ratio for item in trials),
+        "center_mean_abs_lp": statistics.fmean(item.center_mean_abs_lp for item in trials),
+        "center_mean_abs_lp_delta": statistics.fmean(item.center_mean_abs_lp_delta for item in trials),
         "outer_ratio": statistics.fmean(item.outer_ratio for item in trials),
         "search_ratio": statistics.fmean(item.search_ratio for item in trials),
         "scurve_ratio": statistics.fmean(item.scurve_ratio for item in trials),
