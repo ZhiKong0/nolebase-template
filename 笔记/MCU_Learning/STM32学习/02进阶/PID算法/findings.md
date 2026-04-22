@@ -39,3 +39,13 @@
   [track_dynamic_20260422_134822.txt](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_134822.txt)
 - 摘要：
   [track_dynamic_20260422_134822.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_134822.json)
+
+## 最新重复性结论
+
+- 单次自动调参里 `trim6` 曾出现最高分 `58.93`，但重复 3 次后的平均分只有 `33.88`，不具备稳定复现性。
+- 当前默认组 `trim2_default` 在两轮重复性筛选里平均表现最好：
+  - 第一轮重复性摘要：
+    [repeatability_20260422_autotune_round2.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/repeatability_20260422_autotune_round2.json)
+  - 第二轮局部精调摘要：
+    [repeatability_20260422_refine_round3.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/repeatability_20260422_refine_round3.json)
+- 因此本轮最终保留当前默认组，不切到更激进的 `trim4/trim6` 或混合弯道加强组。
