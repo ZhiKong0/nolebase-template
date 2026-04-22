@@ -94,3 +94,29 @@
   - `TTR=6.0` 明显过头。
   - `TTR=3.0` 偏置仍不够。
   - `TTR=4.0` 虽仍有波动，但在当前代码和赛道起始条件下是三者里平均最优的一档，因此已固化为新的默认值。
+
+## 新方案：中心优先离散误差
+
+- 用户要求“不要再左右晃，要尽量钳在 `S4/S5` 中线”，因此本轮不再沿旧的连续加权主链继续补丁，而是切换了主误差模型：
+  - `S4|S5` 双灯纯中心：误差直接为 `0`
+  - `S4`、`S5` 单灯：小误差
+  - `S3/S6`：中等误差
+  - `S2/S7`：更大误差
+  - `S1/S8`：最大误差
+- 同时在中心附近加入了符号翻转迟滞，避免 `S4/S5` 附近一过零就立刻反向抽打。
+- 这意味着当前 `TRACK` 正常循迹阶段，已经不再以“连续加权位置均值”作为主控制量，而是以“中心优先离散误差 -> 滤波 -> PD 差速”作为主链。
+
+## 新方案当前结果
+
+- 代表性较好的一轮：
+  [track_dynamic_20260422_150830.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_150830.json)
+  - `mean_speed_counts = 126.5`
+  - `line_rms = 1.920`
+  - `edge_dwell_ratio = 8.511%`
+  - `score = 55.63`
+- 但同组复跑：
+  [track_dynamic_20260422_150926.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_150926.json)
+  仍然受起跑段状态影响，重复性还不够好。
+- 因此当前判断是：
+  - 新方案方向正确，已经比旧的连续加权主链更接近“钳住 `S4/S5`”。
+  - 但它还不是最终稳定态，后续需要继续压起跑段波动和首段找线分叉。

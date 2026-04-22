@@ -161,6 +161,92 @@ static float sensor_position_average(uint8_t bits)
     return sum / (float)count;
 }
 
+static float sensor_center_priority_position(uint8_t bits, float averagedPosition)
+{
+    uint8_t centerBits = bits & LT_MASK_CENTER;
+    uint8_t leftBits = bits & LT_MASK_LEFT_ZONE;
+    uint8_t rightBits = bits & LT_MASK_RIGHT_ZONE;
+
+    if (bits == 0u)
+        return 0.0f;
+
+    if (centerBits == LT_MASK_CENTER)
+    {
+        if (leftBits != 0u && rightBits == 0u)
+            return -TRACK_CENTER_BLEND_POSITION;
+        if (rightBits != 0u && leftBits == 0u)
+            return TRACK_CENTER_BLEND_POSITION;
+        return 0.0f;
+    }
+
+    if (centerBits == LT_BIT_S4)
+    {
+        if (leftBits != 0u)
+            return -TRACK_CENTER_SINGLE_ERROR;
+        return -0.55f;
+    }
+
+    if (centerBits == LT_BIT_S5)
+    {
+        if (rightBits != 0u)
+            return TRACK_CENTER_SINGLE_ERROR;
+        return 0.55f;
+    }
+
+    if ((bits & LT_BIT_S3) != 0u)
+    {
+        if ((bits & (LT_BIT_S1 | LT_BIT_S2)) != 0u)
+            return -TRACK_CENTER_MID_ERROR;
+        return -TRACK_CENTER_ADJ_ERROR;
+    }
+
+    if ((bits & LT_BIT_S6) != 0u)
+    {
+        if ((bits & (LT_BIT_S7 | LT_BIT_S8)) != 0u)
+            return TRACK_CENTER_MID_ERROR;
+        return TRACK_CENTER_ADJ_ERROR;
+    }
+
+    if ((bits & LT_BIT_S2) != 0u)
+    {
+        if ((bits & LT_BIT_S1) != 0u)
+            return -TRACK_CENTER_EDGE_ERROR;
+        return -TRACK_CENTER_MID_ERROR;
+    }
+
+    if ((bits & LT_BIT_S7) != 0u)
+    {
+        if ((bits & LT_BIT_S8) != 0u)
+            return TRACK_CENTER_EDGE_ERROR;
+        return TRACK_CENTER_MID_ERROR;
+    }
+
+    if ((bits & LT_BIT_S1) != 0u)
+        return -TRACK_CENTER_EDGE_ERROR;
+
+    if ((bits & LT_BIT_S8) != 0u)
+        return TRACK_CENTER_EDGE_ERROR;
+
+    return averagedPosition;
+}
+
+static float apply_center_sign_hysteresis(float current, float last)
+{
+    if (current == 0.0f || last == 0.0f)
+        return current;
+
+    if ((current > 0.0f && last < 0.0f) || (current < 0.0f && last > 0.0f))
+    {
+        if (abs_f32(current) <= TRACK_SIGN_HYSTERESIS_WINDOW
+            && abs_f32(last) <= TRACK_SIGN_HYSTERESIS_WINDOW)
+        {
+            return 0.0f;
+        }
+    }
+
+    return current;
+}
+
 static uint8_t is_crossing_pattern(uint8_t bits)
 {
     if (bit_count(bits) < TRACK_CROSS_MIN_ACTIVE)
@@ -640,6 +726,8 @@ static void Signal_Handler(uint32_t tickMs)
         float previewPos;
 
         rawPos = crossingHit ? 0.0f : sensor_position_average(bits);
+        rawPos = sensor_center_priority_position(bits, rawPos);
+        rawPos = apply_center_sign_hysteresis(rawPos, g_lineTrack.filteredLinePos);
         rawPos = clamp_f32(rawPos, -7.0f, 7.0f);
         g_lineTrack.rawLinePos = rawPos;
         g_lineTrack.filteredLinePos += TRACK_LINE_POS_LPF
