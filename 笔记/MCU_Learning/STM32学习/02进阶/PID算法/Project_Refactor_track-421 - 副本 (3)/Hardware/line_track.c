@@ -13,6 +13,14 @@ static const int8_t s_sensorScores[LINE_SENSOR_COUNT] = {
 
 static void track_load_default_runtime_config(void)
 {
+    static const float s_defaultSensorScale[LINE_SENSOR_COUNT] = {
+        1.00f, 0.90f, 1.00f, 0.92f, 1.00f, 0.90f, 1.10f, 1.00f
+    };
+    uint8_t i;
+
+    for (i = 0u; i < LINE_SENSOR_COUNT; i++)
+        g_lineTrackCfg.sensorScale[i] = s_defaultSensorScale[i];
+
     g_lineTrackCfg.centerDirectSmallRatio = TRACK_CENTER_DIRECT_SMALL_RATIO;
     g_lineTrackCfg.centerDirectSmallMin = TRACK_CENTER_DIRECT_SMALL_MIN;
     g_lineTrackCfg.centerDirectMidRatio = TRACK_CENTER_DIRECT_MID_RATIO;
@@ -154,7 +162,7 @@ static uint8_t track_is_crossing(uint8_t bits)
 
 static int16_t track_calculate_line_pos(uint8_t bits)
 {
-    int32_t sum = 0;
+    float sum = 0.0f;
     uint8_t count = 0u;
     uint8_t i;
 
@@ -168,7 +176,7 @@ static int16_t track_calculate_line_pos(uint8_t bits)
     {
         if (bits & (1u << i))
         {
-            sum += (int32_t)s_sensorScores[i] * TRACK_LINE_POS_UNIT;
+            sum += ((float)s_sensorScores[i] * g_lineTrackCfg.sensorScale[i]) * (float)TRACK_LINE_POS_UNIT;
             count++;
         }
     }
@@ -176,7 +184,7 @@ static int16_t track_calculate_line_pos(uint8_t bits)
     if (count == 0u)
         return 0;
 
-    return (int16_t)(sum / (int32_t)count);
+    return track_round_to_i16(sum / (float)count);
 }
 
 static int16_t track_apply_center_clamp(uint8_t bits, int16_t rawLinePos)
@@ -1084,11 +1092,18 @@ void LineTrack_ResetRuntimeConfig(void)
 uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue)
 {
     float applied = value;
+    uint8_t sensorIndex;
 
     if (key == 0)
         return 0u;
 
-    if (strcmp(key, "track.lkp") == 0)
+    if (sscanf(key, "track.sensor_scale%hhu", &sensorIndex) == 1u
+        && sensorIndex >= 1u && sensorIndex <= LINE_SENSOR_COUNT)
+    {
+        applied = track_clamp_paramf(value, 0.40f, 1.80f);
+        g_lineTrackCfg.sensorScale[sensorIndex - 1u] = applied;
+    }
+    else if (strcmp(key, "track.lkp") == 0)
     {
         applied = track_clamp_paramf(value, 0.0f, 80.0f);
         g_lineTrack.kp = applied;
@@ -1189,10 +1204,15 @@ uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue)
 
 uint8_t LineTrack_ParamGet(const char *key, float *value)
 {
+    uint8_t sensorIndex;
+
     if (key == 0 || value == 0)
         return 0u;
 
-    if (strcmp(key, "track.lkp") == 0)
+    if (sscanf(key, "track.sensor_scale%hhu", &sensorIndex) == 1u
+        && sensorIndex >= 1u && sensorIndex <= LINE_SENSOR_COUNT)
+        *value = g_lineTrackCfg.sensorScale[sensorIndex - 1u];
+    else if (strcmp(key, "track.lkp") == 0)
         *value = g_lineTrack.kp;
     else if (strcmp(key, "track.lkd") == 0)
         *value = g_lineTrack.kd;
@@ -1238,6 +1258,8 @@ void LineTrack_ParamList(char *out, uint16_t outSize)
         return;
 
     snprintf(out, outSize,
+             "track.sensor_scale1,track.sensor_scale2,track.sensor_scale3,track.sensor_scale4,"
+             "track.sensor_scale5,track.sensor_scale6,track.sensor_scale7,track.sensor_scale8,"
              "track.lkp,track.lkd,track.center_small_ratio,track.center_small_min,"
              "track.center_mid_ratio,track.center_mid_min,track.edge_ratio,track.edge_min,"
              "track.center_deadband,track.pos_lpf,track.d_lpf,track.offcenter_boost,"

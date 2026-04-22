@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import statistics
 import time
 from dataclasses import dataclass, field
@@ -31,6 +32,7 @@ OUTPUT_ROOT = PROJECT_ROOT / "000Data" / "track_adaptive_tune"
 
 LT_MASK_CENTER = 0x18
 LT_MASK_OUTER = 0xC3
+LT_CENTER_CORE_STATES = (0x08, 0x10, 0x18)
 
 
 @dataclass
@@ -50,6 +52,7 @@ class TrackRecord:
     run: int
     el: int
     er: int
+    yr: float
     ol: int
     or_: int
     sb: int
@@ -81,14 +84,19 @@ class TrialResult:
     duration_s: float
     mean_forward_speed: float
     mean_abs_lp: float
+    mean_abs_lp_delta: float
+    mean_abs_yr: float
     center_band_ratio: float
     exact_center_ratio: float
+    center_core_ratio: float
     center_single_ratio: float
     outer_ratio: float
     search_ratio: float
+    scurve_ratio: float
     trim_ratio: float
     loss_ratio: float
     lp_flip_rate_hz: float
+    center_flip_rate_hz: float
     score: float
     stopped_early: int
     stop_reason: str
@@ -204,6 +212,7 @@ def parse_hb_line(line: str) -> TrackRecord | None:
             run=int(kv.get("run", "0")),
             el=int(kv.get("el", "0")),
             er=int(kv.get("er", "0")),
+            yr=float(kv.get("yr", "0")),
             ol=int(kv.get("OL", "0")),
             or_=int(kv.get("OR", "0")),
             sb=int(kv.get("sb", "0")),
@@ -239,9 +248,40 @@ def sign_changes(values: list[float]) -> int:
     return flips
 
 
+def sign_changes_with_deadband(values: list[float], deadband: float) -> int:
+    prev = 0
+    flips = 0
+    for value in values:
+        if abs(value) <= deadband:
+            continue
+        sign = 1 if value > 0 else -1
+        if prev != 0 and sign != prev:
+            flips += 1
+        prev = sign
+    return flips
+
+
+def mean_abs_delta(values: list[float]) -> float:
+    if len(values) < 2:
+        return 0.0
+    return statistics.fmean(abs(cur - prev) for prev, cur in zip(values, values[1:]))
+
+
 def is_search_state(state: str) -> bool:
     state = state.upper()
     return state.startswith("FND")
+
+
+def is_trim_state(state: str) -> bool:
+    return state.upper().startswith("TRM")
+
+
+def is_cross_state(state: str) -> bool:
+    return state.upper() == "CROSS"
+
+
+def is_scorable_state(state: str) -> bool:
+    return (not is_search_state(state)) and (not is_cross_state(state)) and (not is_trim_state(state))
 
 
 def clamp_value(value: float, bounds: tuple[float, float], digits: int) -> float:
@@ -269,6 +309,13 @@ def serialize_params(params: dict[str, float], specs: list[ParamSpec]) -> str:
     return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
 
+def build_set_command(spec: ParamSpec, value: float) -> str:
+    match = re.fullmatch(r"track\.sensor_scale([1-8])", spec.key)
+    if match:
+        return f"#TS{match.group(1)}={value:.3f}!"
+    return f"#TCFG SET {spec.key} {value:.6f}!"
+
+
 def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str, float]:
     unique = dedupe_records(records)
     if len(unique) < 8:
@@ -277,14 +324,19 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
             "duration_s": 0.0,
             "mean_forward_speed": 0.0,
             "mean_abs_lp": 999.0,
+            "mean_abs_lp_delta": 999.0,
+            "mean_abs_yr": 999.0,
             "center_band_ratio": 0.0,
             "exact_center_ratio": 0.0,
+            "center_core_ratio": 0.0,
             "center_single_ratio": 0.0,
             "outer_ratio": 1.0,
             "search_ratio": 1.0,
+            "scurve_ratio": 1.0,
             "trim_ratio": 1.0,
             "loss_ratio": 1.0,
             "lp_flip_rate_hz": 0.0,
+            "center_flip_rate_hz": 0.0,
             "score": -9999.0,
         }
 
@@ -296,12 +348,36 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     if len(analyzed) < 8:
         analyzed = unique
 
+    first_follow_idx = next((idx for idx, rec in enumerate(analyzed) if is_scorable_state(rec.st)), None)
+    if first_follow_idx is not None:
+        analyzed = analyzed[first_follow_idx:]
+
     duration_s = max(0.01, (analyzed[-1].t_ms - analyzed[0].t_ms) / 1000.0)
-    forward_speeds = [max(0.0, (rec.el + rec.er) * 0.5) for rec in analyzed]
-    valid = [
-        rec for rec in analyzed
-        if rec.sb != 0 and not is_search_state(rec.st) and rec.st.upper() != "CROSS"
-    ]
+    follow_records = [rec for rec in analyzed if is_scorable_state(rec.st)]
+    if len(follow_records) < 8:
+        return {
+            "sample_count": float(len(follow_records)),
+            "duration_s": duration_s,
+            "mean_forward_speed": 0.0,
+            "mean_abs_lp": 999.0,
+            "mean_abs_lp_delta": 999.0,
+            "mean_abs_yr": 999.0,
+            "center_band_ratio": 0.0,
+            "exact_center_ratio": 0.0,
+            "center_core_ratio": 0.0,
+            "center_single_ratio": 0.0,
+            "outer_ratio": 1.0,
+            "search_ratio": 1.0,
+            "scurve_ratio": 1.0,
+            "trim_ratio": 1.0,
+            "loss_ratio": 1.0,
+            "lp_flip_rate_hz": 0.0,
+            "center_flip_rate_hz": 0.0,
+            "score": -9999.0,
+        }
+
+    forward_speeds = [max(0.0, (rec.el + rec.er) * 0.5) for rec in follow_records]
+    valid = [rec for rec in follow_records if rec.sb != 0]
     valid_lp = [abs(rec.lp) for rec in valid]
     valid_lp_signed = [rec.lp for rec in valid]
 
@@ -313,6 +389,10 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
         sum(1 for rec in valid if rec.sb == LT_MASK_CENTER) / len(valid)
         if valid else 0.0
     )
+    center_core_ratio = (
+        sum(1 for rec in valid if rec.sb in LT_CENTER_CORE_STATES) / len(valid)
+        if valid else 0.0
+    )
     center_single_ratio = (
         sum(1 for rec in valid if rec.sb in (0x08, 0x10)) / len(valid)
         if valid else 0.0
@@ -322,37 +402,55 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
         if valid else 1.0
     )
     search_ratio = sum(1 for rec in analyzed if is_search_state(rec.st)) / len(analyzed)
-    trim_ratio = sum(1 for rec in analyzed if rec.st.upper().startswith("TRM")) / len(analyzed)
-    loss_ratio = sum(1 for rec in analyzed if rec.sb == 0) / len(analyzed)
+    scurve_ratio = sum(1 for rec in follow_records if rec.st.upper() == "SCRV") / len(follow_records)
+    trim_ratio = sum(1 for rec in analyzed if is_trim_state(rec.st)) / len(analyzed)
+    loss_ratio = sum(1 for rec in follow_records if rec.sb == 0) / len(follow_records)
     mean_forward_speed = statistics.fmean(forward_speeds)
     mean_abs_lp = statistics.fmean(valid_lp) if valid_lp else 350.0
-    lp_flip_rate_hz = sign_changes(valid_lp_signed) / duration_s if valid_lp_signed else 0.0
+    mean_abs_lp_delta = mean_abs_delta(valid_lp_signed) if valid_lp_signed else 350.0
+    mean_abs_yr = statistics.fmean(abs(rec.yr) for rec in follow_records)
+    lp_flip_rate_hz = sign_changes_with_deadband(valid_lp_signed, 80.0) / duration_s if valid_lp_signed else 0.0
+    centerish_lp_signed = [
+        rec.lp for rec in valid
+        if rec.sb in LT_CENTER_CORE_STATES or (rec.sb & LT_MASK_CENTER) != 0 or abs(rec.lp) <= 120.0
+    ]
+    center_flip_rate_hz = (
+        sign_changes_with_deadband(centerish_lp_signed, 18.0) / duration_s
+        if centerish_lp_signed else 0.0
+    )
 
     score = 0.0
-    score += 0.85 * mean_forward_speed
-    score += 70.0 * center_band_ratio
-    score += 36.0 * exact_center_ratio
-    score += 12.0 * center_single_ratio
-    score -= 34.0 * loss_ratio
-    score -= 24.0 * search_ratio
-    score -= 12.0 * trim_ratio
-    score -= 14.0 * outer_ratio
-    score -= 0.08 * mean_abs_lp
-    score -= 0.75 * lp_flip_rate_hz
+    score += 0.55 * mean_forward_speed
+    score += 40.0 * center_band_ratio
+    score += 78.0 * center_core_ratio
+    score += 18.0 * exact_center_ratio
+    score -= 42.0 * loss_ratio
+    score -= 28.0 * outer_ratio
+    score -= 10.0 * scurve_ratio
+    score -= 0.11 * mean_abs_lp
+    score -= 0.04 * mean_abs_lp_delta
+    score -= 0.05 * mean_abs_yr
+    score -= 1.60 * lp_flip_rate_hz
+    score -= 2.40 * center_flip_rate_hz
 
     return {
         "sample_count": float(len(analyzed)),
         "duration_s": duration_s,
         "mean_forward_speed": mean_forward_speed,
         "mean_abs_lp": mean_abs_lp,
+        "mean_abs_lp_delta": mean_abs_lp_delta,
+        "mean_abs_yr": mean_abs_yr,
         "center_band_ratio": center_band_ratio,
         "exact_center_ratio": exact_center_ratio,
+        "center_core_ratio": center_core_ratio,
         "center_single_ratio": center_single_ratio,
         "outer_ratio": outer_ratio,
         "search_ratio": search_ratio,
+        "scurve_ratio": scurve_ratio,
         "trim_ratio": trim_ratio,
         "loss_ratio": loss_ratio,
         "lp_flip_rate_hz": lp_flip_rate_hz,
+        "center_flip_rate_hz": center_flip_rate_hz,
         "score": score,
     }
 
@@ -391,9 +489,10 @@ def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], 
 
         for spec in ctx.param_specs:
             value = params[spec.name]
+            cmd = build_set_command(spec, value)
             ensure_ok(
-                f"#TCFG SET {spec.key}",
-                send_cmd(port, f"#TCFG SET {spec.key} {value:.6f}!", timeout_s=1.6),
+                cmd,
+                send_cmd(port, cmd, timeout_s=2.0),
             )
 
         send_cmd(port, "#STAT!", timeout_s=1.0)
@@ -445,7 +544,7 @@ def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], 
                     stopped_early = True
                     stop_reason = reason
                     stop_elapsed_s = elapsed_s
-                    print(f"[adaptive] early-stop: {reason} at {elapsed_s:.2f}s")
+                    print(f"[adaptive] early-stop: {reason} at {elapsed_s:.2f}s", flush=True)
                     break
 
         send_cmd(port, "#STOP!", timeout_s=1.5)
@@ -460,13 +559,23 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
     if ctx.manual_reset:
         input(f"\n[adaptive] trial {ctx.trial_index}: {label}. 放回起点后回车...")
 
-    print(f"\n[adaptive] run {ctx.trial_index}: stage={stage} source={source} {label}")
+    print(f"\n[adaptive] run {ctx.trial_index}: stage={stage} source={source} {label}", flush=True)
     raw_lines, records, stopped_early, stop_reason, stop_elapsed_s = run_trial(ctx, params)
     metrics = analyze_trial(records, ctx.settle_skip_s)
     score = metrics["score"] - (60.0 if stopped_early else 0.0)
+    params_json = serialize_params(params, ctx.param_specs)
 
     raw_path = ctx.out_dir / f"trial_{ctx.trial_index:03d}.txt"
     with raw_path.open("w", encoding="utf-8") as handle:
+        handle.write(f"# trial_index={ctx.trial_index}\n")
+        handle.write(f"# stage={stage}\n")
+        handle.write(f"# source={source}\n")
+        handle.write(f"# params={params_json}\n")
+        handle.write(
+            f"# stopped_early={1 if stopped_early else 0} "
+            f"stop_reason={stop_reason or '-'} "
+            f"stop_elapsed_s={stop_elapsed_s:.2f}\n"
+        )
         for line in raw_lines:
             handle.write(line + "\n")
 
@@ -474,20 +583,25 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
         trial_index=ctx.trial_index,
         stage=stage,
         source=source,
-        params_json=serialize_params(params, ctx.param_specs),
+        params_json=params_json,
         raw_path=str(raw_path),
         sample_count=int(metrics["sample_count"]),
         duration_s=metrics["duration_s"],
         mean_forward_speed=metrics["mean_forward_speed"],
         mean_abs_lp=metrics["mean_abs_lp"],
+        mean_abs_lp_delta=metrics["mean_abs_lp_delta"],
+        mean_abs_yr=metrics["mean_abs_yr"],
         center_band_ratio=metrics["center_band_ratio"],
         exact_center_ratio=metrics["exact_center_ratio"],
+        center_core_ratio=metrics["center_core_ratio"],
         center_single_ratio=metrics["center_single_ratio"],
         outer_ratio=metrics["outer_ratio"],
         search_ratio=metrics["search_ratio"],
+        scurve_ratio=metrics["scurve_ratio"],
         trim_ratio=metrics["trim_ratio"],
         loss_ratio=metrics["loss_ratio"],
         lp_flip_rate_hz=metrics["lp_flip_rate_hz"],
+        center_flip_rate_hz=metrics["center_flip_rate_hz"],
         score=score,
         stopped_early=1 if stopped_early else 0,
         stop_reason=stop_reason,
@@ -497,11 +611,13 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
     key = make_candidate_key(params, ctx.param_specs)
     ctx.trials_by_key.setdefault(key, []).append(result)
     ctx.all_trials.append(result)
+    write_progress_snapshot(ctx)
     print(
         "[adaptive] "
-        f"score={result.score:.2f} center={result.center_band_ratio:.2%} "
-        f"exact={result.exact_center_ratio:.2%} outer={result.outer_ratio:.2%} "
-        f"search={result.search_ratio:.2%} |lp|={result.mean_abs_lp:.1f}"
+        f"score={result.score:.2f} core={result.center_core_ratio:.2%} "
+        f"center={result.center_band_ratio:.2%} outer={result.outer_ratio:.2%} "
+        f"wob={result.center_flip_rate_hz:.2f}Hz |lp|={result.mean_abs_lp:.1f}",
+        flush=True,
     )
     return result
 
@@ -517,11 +633,16 @@ def summarize_candidate(ctx: SearchContext, params: dict[str, float]) -> dict[st
         "score": statistics.fmean(item.score for item in trials),
         "center_band_ratio": statistics.fmean(item.center_band_ratio for item in trials),
         "exact_center_ratio": statistics.fmean(item.exact_center_ratio for item in trials),
+        "center_core_ratio": statistics.fmean(item.center_core_ratio for item in trials),
         "outer_ratio": statistics.fmean(item.outer_ratio for item in trials),
         "search_ratio": statistics.fmean(item.search_ratio for item in trials),
+        "scurve_ratio": statistics.fmean(item.scurve_ratio for item in trials),
         "loss_ratio": statistics.fmean(item.loss_ratio for item in trials),
         "mean_abs_lp": statistics.fmean(item.mean_abs_lp for item in trials),
+        "mean_abs_lp_delta": statistics.fmean(item.mean_abs_lp_delta for item in trials),
+        "mean_abs_yr": statistics.fmean(item.mean_abs_yr for item in trials),
         "lp_flip_rate_hz": statistics.fmean(item.lp_flip_rate_hz for item in trials),
+        "center_flip_rate_hz": statistics.fmean(item.center_flip_rate_hz for item in trials),
         "trial_indices": [item.trial_index for item in trials],
     }
 
@@ -553,7 +674,7 @@ def run_coordinate_search(ctx: SearchContext,
     stage_count = max(len(spec.steps) for spec in ctx.param_specs)
 
     for stage_idx in range(stage_count):
-        print(f"\n[adaptive] stage {stage_idx + 1}/{stage_count}")
+        print(f"\n[adaptive] stage {stage_idx + 1}/{stage_count}", flush=True)
         improved_any = True
         while improved_any:
             improved_any = False
@@ -588,12 +709,13 @@ def run_coordinate_search(ctx: SearchContext,
                         "step": step,
                         "best": stage_best,
                     })
-                    print(f"[adaptive] improve {spec.name}: score -> {best_summary['score']:.2f}")
+                    print(f"[adaptive] improve {spec.name}: score -> {best_summary['score']:.2f}", flush=True)
 
         print(
             f"[adaptive] stage {stage_idx + 1} best: "
             f"{candidate_label(best_params, ctx.param_specs)} "
-            f"score={best_summary['score']:.2f}"
+            f"score={best_summary['score']:.2f}",
+            flush=True,
         )
 
     ensure_candidate_runs(ctx, best_params, confirm_best_runs, stage_count + 1, "confirm")
@@ -612,35 +734,61 @@ def write_trials_csv(path: Path, rows: list[TrialResult]) -> None:
             writer.writerow(row.__dict__)
 
 
+def build_ranked_summaries(ctx: SearchContext) -> list[dict[str, Any]]:
+    return sorted(
+        (summarize_candidate(ctx, json.loads(rows[0].params_json)) for rows in ctx.trials_by_key.values()),
+        key=lambda item: item["score"],
+        reverse=True,
+    )
+
+
+def write_progress_snapshot(ctx: SearchContext) -> None:
+    if not ctx.all_trials:
+        return
+    ranked = build_ranked_summaries(ctx)
+    write_trials_csv(ctx.out_dir / "trials.csv", ctx.all_trials)
+    with (ctx.out_dir / "progress.json").open("w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "generated_at": datetime.now().isoformat(timespec="seconds"),
+                "trial_count": len(ctx.all_trials),
+                "best_summary": ranked[0] if ranked else None,
+                "top5": ranked[:5],
+            },
+            handle,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+
 def build_default_specs(cfg: dict[str, Any]) -> list[ParamSpec]:
-    track_cfg = cfg_get(cfg, "commands", "track", default={}) or {}
-    line_pid = track_cfg.get("line_pid", [12.5, 9.8]) or [12.5, 9.8]
     adaptive_cfg = cfg_get(cfg, "autotune", "track_adaptive", default={}) or {}
     param_cfg = adaptive_cfg.get("params", {}) or {}
-
-    defaults = {
-        "speed_target": ParamSpec("speed_target", "track.speed_target", float(track_cfg.get("target_speed", 25.0)), (22.0, 32.0), [2.0, 1.0, 0.5], 2),
-        "lkp": ParamSpec("lkp", "track.lkp", float(line_pid[0]), (8.0, 24.0), [2.0, 1.0, 0.5], 3),
-        "lkd": ParamSpec("lkd", "track.lkd", float(line_pid[1]), (4.0, 16.0), [1.6, 0.8, 0.4], 3),
-        "center_small_ratio": ParamSpec("center_small_ratio", "track.center_small_ratio", 0.16, (0.08, 0.40), [0.05, 0.03, 0.015], 3),
-        "center_mid_ratio": ParamSpec("center_mid_ratio", "track.center_mid_ratio", 0.40, (0.20, 0.70), [0.08, 0.04, 0.02], 3),
-        "edge_ratio": ParamSpec("edge_ratio", "track.edge_ratio", 0.60, (0.30, 0.90), [0.10, 0.05, 0.025], 3),
-        "center_deadband": ParamSpec("center_deadband", "track.center_deadband", 45.0, (20.0, 90.0), [10.0, 5.0, 2.0], 1),
-    }
+    if not param_cfg:
+        param_cfg = {
+            f"sensor_scale{i}": {
+                "key": f"track.sensor_scale{i}",
+                "start": 1.0,
+                "bounds": [0.6, 1.4],
+                "steps": [0.15, 0.08, 0.04],
+                "digits": 3,
+            }
+            for i in range(1, 9)
+        }
 
     result: list[ParamSpec] = []
-    for name in ("speed_target", "lkp", "lkd", "center_small_ratio", "center_mid_ratio", "edge_ratio", "center_deadband"):
-        spec = defaults[name]
-        override = param_cfg.get(name, {}) or {}
-        spec = ParamSpec(
-            name=spec.name,
-            key=str(override.get("key", spec.key)),
-            start=float(override.get("start", spec.start)),
-            bounds=tuple(float(v) for v in override.get("bounds", spec.bounds)),
-            steps=[float(v) for v in override.get("steps", spec.steps)],
-            digits=int(override.get("digits", spec.digits)),
+    for name, item in param_cfg.items():
+        item = item or {}
+        result.append(
+            ParamSpec(
+                name=str(name),
+                key=str(item.get("key", name)),
+                start=float(item.get("start", 1.0)),
+                bounds=tuple(float(v) for v in item.get("bounds", [0.6, 1.4])),
+                steps=[float(v) for v in item.get("steps", [0.15, 0.08, 0.04])],
+                digits=int(item.get("digits", 3)),
+            )
         )
-        result.append(spec)
     return result
 
 
@@ -689,9 +837,9 @@ def main() -> int:
         param_specs=param_specs,
     )
 
-    print(f"[adaptive] port={ctx.port} baud={ctx.baud} duration={ctx.duration_s:.1f}s")
-    print(f"[adaptive] start={candidate_label(start_params, param_specs)}")
-    print(f"[adaptive] output={out_dir}")
+    print(f"[adaptive] port={ctx.port} baud={ctx.baud} duration={ctx.duration_s:.1f}s", flush=True)
+    print(f"[adaptive] start={candidate_label(start_params, param_specs)}", flush=True)
+    print(f"[adaptive] output={out_dir}", flush=True)
 
     result = run_coordinate_search(
         ctx,
@@ -700,11 +848,7 @@ def main() -> int:
         max(args.repeats, args.confirm_best_repeats),
     )
 
-    ranked = sorted(
-        (summarize_candidate(ctx, json.loads(rows[0].params_json)) for rows in ctx.trials_by_key.values()),
-        key=lambda item: item["score"],
-        reverse=True,
-    )
+    ranked = build_ranked_summaries(ctx)
     write_trials_csv(out_dir / "trials.csv", ctx.all_trials)
     with (out_dir / "summary.json").open("w", encoding="utf-8") as handle:
         json.dump(
