@@ -78,12 +78,14 @@
 
 typedef struct
 {
+    float    sensorScale[LINE_SENSOR_COUNT];
     float    centerDirectSmallRatio;
     int16_t  centerDirectSmallMin;
     float    centerDirectMidRatio;
     int16_t  centerDirectMidMin;
     float    edgeDirectRatio;
     int16_t  edgeDirectMin;
+    int16_t  recenterDecayStep;
     float    centerDeadband;
     float    posFilterAlpha;
     float    dFilterAlpha;
@@ -129,8 +131,10 @@ typedef struct
     uint8_t  searchPhase;
     uint8_t  centerHoldDir;
     uint8_t  centerHoldTicks;
+    uint8_t  recenterDir;
     uint8_t  cornerDone;
     uint16_t searchTicks;
+    int16_t  recenterDevCmd;
 
     float    kp;
     float    kd;

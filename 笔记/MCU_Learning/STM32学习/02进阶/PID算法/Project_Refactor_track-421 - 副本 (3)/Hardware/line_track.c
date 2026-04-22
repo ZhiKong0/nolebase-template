@@ -11,10 +11,12 @@ static const int8_t s_sensorScores[LINE_SENSOR_COUNT] = {
     -7, -5, -3, -1, 1, 3, 5, 7
 };
 
+static uint8_t track_is_crossing(uint8_t bits);
+
 static void track_load_default_runtime_config(void)
 {
     static const float s_defaultSensorScale[LINE_SENSOR_COUNT] = {
-        1.00f, 0.90f, 1.00f, 0.92f, 1.00f, 0.90f, 1.10f, 1.00f
+        0.92f, 0.90f, 1.00f, 0.92f, 1.00f, 0.90f, 1.10f, 1.00f
     };
     uint8_t i;
 
@@ -27,6 +29,7 @@ static void track_load_default_runtime_config(void)
     g_lineTrackCfg.centerDirectMidMin = TRACK_CENTER_DIRECT_MID_MIN;
     g_lineTrackCfg.edgeDirectRatio = TRACK_EDGE_DIRECT_RATIO;
     g_lineTrackCfg.edgeDirectMin = TRACK_EDGE_DIRECT_MIN;
+    g_lineTrackCfg.recenterDecayStep = TRACK_RECENTER_DECAY_STEP;
     g_lineTrackCfg.centerDeadband = TRACK_CTRL_CENTER_DEADBAND;
     g_lineTrackCfg.posFilterAlpha = TRACK_CTRL_POS_FILTER_ALPHA;
     g_lineTrackCfg.dFilterAlpha = TRACK_CTRL_D_FILTER_ALPHA;
@@ -145,6 +148,199 @@ static void track_reset_center_clamp(void)
     g_lineTrack.centerHoldTicks = 0u;
 }
 
+static void track_reset_recenter_latch(void)
+{
+    g_lineTrack.recenterDir = LT_DIR_NONE;
+    g_lineTrack.recenterDevCmd = 0;
+}
+
+static int16_t track_apply_recenter_decay(int16_t currentCmd, int16_t targetCmd)
+{
+    int16_t currentAbs;
+    int16_t targetAbs;
+    int16_t step;
+
+    if (targetCmd == 0)
+        return 0;
+
+    currentAbs = track_abs_i16(currentCmd);
+    targetAbs = track_abs_i16(targetCmd);
+    step = g_lineTrackCfg.recenterDecayStep;
+    if (step <= 0)
+        step = 1;
+
+    if (currentCmd == 0
+        || ((currentCmd > 0) != (targetCmd > 0))
+        || targetAbs >= currentAbs)
+    {
+        return targetCmd;
+    }
+
+    if ((currentAbs - targetAbs) <= step)
+        return targetCmd;
+
+    currentAbs = (int16_t)(currentAbs - step);
+    return (targetCmd > 0) ? currentAbs : (int16_t)(-currentAbs);
+}
+
+static uint8_t track_get_progressive_recenter_target(uint8_t bits,
+                                                     uint8_t dir,
+                                                     int16_t smallDev,
+                                                     int16_t midDev,
+                                                     int16_t edgeDev,
+                                                     int16_t *targetDev,
+                                                     uint8_t *stage,
+                                                     float *devRatio)
+{
+    int16_t outerDev;
+
+    if (targetDev == 0 || stage == 0 || devRatio == 0)
+        return 0u;
+
+    outerDev = track_max_i16((int16_t)((edgeDev + midDev) / 2), (int16_t)(midDev + 8));
+
+    if (dir == LT_DIR_LEFT)
+    {
+        if ((bits & (LT_BIT_S5 | LT_MASK_RIGHT_ZONE)) != 0u)
+            return 0u;
+        if ((bits & LT_BIT_S1) != 0u)
+        {
+            *targetDev = (int16_t)(-edgeDev);
+            *stage = 2u;
+            *devRatio = TRACK_EDGE_DEV_RATIO;
+            return 1u;
+        }
+        if ((bits & LT_BIT_S2) != 0u)
+        {
+            *targetDev = (int16_t)(-outerDev);
+            *stage = 2u;
+            *devRatio = TRACK_EDGE_DEV_RATIO;
+            return 1u;
+        }
+        if ((bits & LT_BIT_S3) != 0u)
+        {
+            *targetDev = (int16_t)(-midDev);
+            *stage = 1u;
+            *devRatio = TRACK_MID_DEV_RATIO;
+            return 1u;
+        }
+        if (((bits & LT_MASK_CENTER) == LT_BIT_S4))
+        {
+            *targetDev = (int16_t)(-smallDev);
+            *stage = 0u;
+            *devRatio = TRACK_CENTER_DEV_RATIO;
+            return 1u;
+        }
+        return 0u;
+    }
+
+    if (dir == LT_DIR_RIGHT)
+    {
+        if ((bits & (LT_BIT_S4 | LT_MASK_LEFT_ZONE)) != 0u)
+            return 0u;
+        if ((bits & LT_BIT_S8) != 0u)
+        {
+            *targetDev = edgeDev;
+            *stage = 2u;
+            *devRatio = TRACK_EDGE_DEV_RATIO;
+            return 1u;
+        }
+        if ((bits & LT_BIT_S7) != 0u)
+        {
+            *targetDev = outerDev;
+            *stage = 2u;
+            *devRatio = TRACK_EDGE_DEV_RATIO;
+            return 1u;
+        }
+        if ((bits & LT_BIT_S6) != 0u)
+        {
+            *targetDev = midDev;
+            *stage = 1u;
+            *devRatio = TRACK_MID_DEV_RATIO;
+            return 1u;
+        }
+        if (((bits & LT_MASK_CENTER) == LT_BIT_S5))
+        {
+            *targetDev = smallDev;
+            *stage = 0u;
+            *devRatio = TRACK_CENTER_DEV_RATIO;
+            return 1u;
+        }
+        return 0u;
+    }
+
+    return 0u;
+}
+
+static uint8_t track_try_progressive_recenter_drive(uint8_t bits,
+                                                    int16_t smallDev,
+                                                    int16_t midDev,
+                                                    int16_t edgeDev,
+                                                    int16_t *devCmd,
+                                                    uint8_t *stage,
+                                                    float *devRatio)
+{
+    uint8_t dir;
+    int16_t targetDev;
+    uint8_t targetStage;
+    float targetRatio;
+
+    if (devCmd == 0 || stage == 0 || devRatio == 0)
+        return 0u;
+
+    if (bits == 0u || track_is_crossing(bits))
+    {
+        track_reset_recenter_latch();
+        return 0u;
+    }
+
+    if ((bits & LT_MASK_CENTER) == LT_MASK_CENTER
+        && (bits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE)) == 0u)
+    {
+        track_reset_recenter_latch();
+        return 0u;
+    }
+
+    dir = g_lineTrack.recenterDir;
+    if (dir == LT_DIR_NONE)
+    {
+        if ((bits & (LT_BIT_S1 | LT_BIT_S2 | LT_BIT_S3)) != 0u
+            && (bits & (LT_BIT_S5 | LT_BIT_S6 | LT_BIT_S7 | LT_BIT_S8)) == 0u)
+        {
+            dir = LT_DIR_LEFT;
+        }
+        else if ((bits & (LT_BIT_S6 | LT_BIT_S7 | LT_BIT_S8)) != 0u
+                 && (bits & (LT_BIT_S1 | LT_BIT_S2 | LT_BIT_S3 | LT_BIT_S4)) == 0u)
+        {
+            dir = LT_DIR_RIGHT;
+        }
+        else
+        {
+            return 0u;
+        }
+    }
+
+    if (!track_get_progressive_recenter_target(bits,
+                                               dir,
+                                               smallDev,
+                                               midDev,
+                                               edgeDev,
+                                               &targetDev,
+                                               &targetStage,
+                                               &targetRatio))
+    {
+        track_reset_recenter_latch();
+        return 0u;
+    }
+
+    g_lineTrack.recenterDir = dir;
+    g_lineTrack.recenterDevCmd = track_apply_recenter_decay(g_lineTrack.recenterDevCmd, targetDev);
+    *devCmd = g_lineTrack.recenterDevCmd;
+    *stage = targetStage;
+    *devRatio = targetRatio;
+    return 1u;
+}
+
 static uint8_t track_is_crossing(uint8_t bits)
 {
     uint8_t count;
@@ -198,6 +394,7 @@ static int16_t track_apply_center_clamp(uint8_t bits, int16_t rawLinePos)
     if (bits == 0u || track_is_crossing(bits))
     {
         track_reset_center_clamp();
+        track_reset_recenter_latch();
         return rawLinePos;
     }
 
@@ -273,7 +470,10 @@ static uint8_t track_try_center_direct_drive(uint8_t bits,
         return 0u;
 
     if (bits == 0u || track_is_crossing(bits))
+    {
+        track_reset_recenter_latch();
         return 0u;
+    }
 
     centerBits = (uint8_t)(bits & LT_MASK_CENTER);
     hasCenter = (centerBits != 0u) ? 1u : 0u;
@@ -295,6 +495,19 @@ static uint8_t track_try_center_direct_drive(uint8_t bits,
         *devCmd = 0;
         *stage = 0u;
         *devRatio = TRACK_CENTER_DEV_RATIO;
+        track_reset_center_clamp();
+        track_reset_recenter_latch();
+        return 1u;
+    }
+
+    if (track_try_progressive_recenter_drive(bits,
+                                             smallDev,
+                                             midDev,
+                                             edgeDev,
+                                             devCmd,
+                                             stage,
+                                             devRatio))
+    {
         track_reset_center_clamp();
         return 1u;
     }
@@ -319,10 +532,12 @@ static uint8_t track_try_center_direct_drive(uint8_t bits,
                 : ((dir == LT_DIR_LEFT) ? (int16_t)(-smallDev) : smallDev);
         *stage = 0u;
         *devRatio = TRACK_CENTER_DEV_RATIO;
+        track_reset_recenter_latch();
         return 1u;
     }
 
     track_reset_center_clamp();
+    track_reset_recenter_latch();
 
     if (hasLeftOuter && !hasRightOuter && !hasCenter)
     {
@@ -518,6 +733,7 @@ static void track_enter_search(uint8_t dir)
     if (dir != LT_DIR_LEFT && dir != LT_DIR_RIGHT)
         dir = track_pick_search_dir();
 
+    track_reset_recenter_latch();
     track_apply_search_dir(dir);
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_PIVOT;
     g_lineTrack.searchTicks = 0u;
@@ -949,6 +1165,8 @@ void LineTrack_Init(void)
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
     g_lineTrack.centerHoldDir = LT_DIR_NONE;
     g_lineTrack.centerHoldTicks = 0u;
+    g_lineTrack.recenterDir = LT_DIR_NONE;
+    g_lineTrack.recenterDevCmd = 0;
     g_lineTrack.crossState = LT_CROSS_READY;
     g_lineTrack.directMode = LT_DIRECT_NONE;
     g_lineTrack.recoverDir = LT_DIR_NONE;
@@ -981,6 +1199,8 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
     g_lineTrack.centerHoldDir = LT_DIR_NONE;
     g_lineTrack.centerHoldTicks = 0u;
+    g_lineTrack.recenterDir = LT_DIR_NONE;
+    g_lineTrack.recenterDevCmd = 0;
     g_lineTrack.cornerDone = 0u;
     g_lineTrack.directMode = LT_DIRECT_NONE;
     g_lineTrack.recoverDir = LT_DIR_NONE;
@@ -1015,6 +1235,8 @@ void LineTrack_Stop(void)
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
     g_lineTrack.centerHoldDir = LT_DIR_NONE;
     g_lineTrack.centerHoldTicks = 0u;
+    g_lineTrack.recenterDir = LT_DIR_NONE;
+    g_lineTrack.recenterDevCmd = 0;
     g_lineTrack.cornerDone = 0u;
     g_lineTrack.directMode = LT_DIRECT_NONE;
     g_lineTrack.recoverDir = LT_DIR_NONE;
@@ -1086,6 +1308,8 @@ void LineTrack_SetPID(float kp, float kd)
 void LineTrack_ResetRuntimeConfig(void)
 {
     track_load_default_runtime_config();
+    track_reset_center_clamp();
+    track_reset_recenter_latch();
     track_reset_follow_control();
 }
 
@@ -1144,6 +1368,11 @@ uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue)
     {
         applied = (float)track_round_to_i16(track_clamp_paramf(value, 0.0f, 360.0f));
         g_lineTrackCfg.edgeDirectMin = (int16_t)applied;
+    }
+    else if (strcmp(key, "track.recenter_decay") == 0)
+    {
+        applied = (float)track_round_to_i16(track_clamp_paramf(value, 1.0f, 120.0f));
+        g_lineTrackCfg.recenterDecayStep = (int16_t)applied;
     }
     else if (strcmp(key, "track.center_deadband") == 0)
     {
@@ -1228,6 +1457,8 @@ uint8_t LineTrack_ParamGet(const char *key, float *value)
         *value = g_lineTrackCfg.edgeDirectRatio;
     else if (strcmp(key, "track.edge_min") == 0)
         *value = (float)g_lineTrackCfg.edgeDirectMin;
+    else if (strcmp(key, "track.recenter_decay") == 0)
+        *value = (float)g_lineTrackCfg.recenterDecayStep;
     else if (strcmp(key, "track.center_deadband") == 0)
         *value = g_lineTrackCfg.centerDeadband;
     else if (strcmp(key, "track.pos_lpf") == 0)
@@ -1262,6 +1493,7 @@ void LineTrack_ParamList(char *out, uint16_t outSize)
              "track.sensor_scale5,track.sensor_scale6,track.sensor_scale7,track.sensor_scale8,"
              "track.lkp,track.lkd,track.center_small_ratio,track.center_small_min,"
              "track.center_mid_ratio,track.center_mid_min,track.edge_ratio,track.edge_min,"
+             "track.recenter_decay,"
              "track.center_deadband,track.pos_lpf,track.d_lpf,track.offcenter_boost,"
              "track.center_hold_ticks,track.recover_ticks,track.search_turn_fast,"
              "track.search_turn_slow,track.search_timeout");

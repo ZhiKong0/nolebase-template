@@ -100,7 +100,7 @@ autotune:
       lkp_bounds: [12.0, 28.0]
       lkd_bounds: [4.0, 16.0]
   track_adaptive:
-    duration_s: 6.0
+    duration_s: 5.0
     settle_skip_s: 0.8
     repeats: 1
     confirm_best_repeats: 2
@@ -112,51 +112,57 @@ autotune:
       max_stall_streak: 16
       stall_speed_threshold: 12.0
     params:
-      sensor_scale4:
-        key: track.sensor_scale4
+      sensor_scale1:
+        key: track.sensor_scale1
         start: 0.92
-        bounds: [0.88, 1.18]
+        bounds: [0.80, 1.10]
         steps: [0.08, 0.04, 0.02]
-        digits: 3
-      sensor_scale5:
-        key: track.sensor_scale5
-        start: 1.00
-        bounds: [0.88, 1.18]
-        steps: [0.08, 0.04, 0.02]
-        digits: 3
-      sensor_scale3:
-        key: track.sensor_scale3
-        start: 1.00
-        bounds: [0.82, 1.22]
-        steps: [0.10, 0.05, 0.025]
-        digits: 3
-      sensor_scale6:
-        key: track.sensor_scale6
-        start: 0.90
-        bounds: [0.82, 1.22]
-        steps: [0.10, 0.05, 0.025]
         digits: 3
       sensor_scale2:
         key: track.sensor_scale2
         start: 0.90
-        bounds: [0.80, 1.28]
-        steps: [0.10, 0.05, 0.025]
+        bounds: [0.76, 1.06]
+        steps: [0.06, 0.03, 0.015]
         digits: 3
+      center_mid_ratio:
+        key: track.center_mid_ratio
+        start: 0.465
+        bounds: [0.32, 0.50]
+        steps: [0.04, 0.02, 0.01]
+        digits: 3
+      center_mid_min:
+        key: track.center_mid_min
+        start: 62.0
+        bounds: [50.0, 82.0]
+        steps: [8.0, 4.0, 2.0]
+        digits: 1
+      edge_ratio:
+        key: track.edge_ratio
+        start: 0.60
+        bounds: [0.48, 0.74]
+        steps: [0.06, 0.03, 0.015]
+        digits: 3
+      edge_min:
+        key: track.edge_min
+        start: 83.0
+        bounds: [70.0, 118.0]
+        steps: [12.0, 6.0, 3.0]
+        digits: 1
+      recenter_decay:
+        key: track.recenter_decay
+        start: 22.0
+        bounds: [8.0, 40.0]
+        steps: [8.0, 4.0, 2.0]
+        digits: 1
       sensor_scale7:
         key: track.sensor_scale7
         start: 1.10
-        bounds: [0.80, 1.28]
-        steps: [0.10, 0.05, 0.025]
-        digits: 3
-      sensor_scale1:
-        key: track.sensor_scale1
-        start: 1.00
-        bounds: [0.78, 1.28]
-        steps: [0.10, 0.05, 0.025]
+        bounds: [0.96, 1.22]
+        steps: [0.06, 0.03, 0.015]
         digits: 3
       sensor_scale8:
         key: track.sensor_scale8
         start: 1.00
-        bounds: [0.78, 1.28]
-        steps: [0.10, 0.05, 0.025]
+        bounds: [0.90, 1.12]
+        steps: [0.08, 0.04, 0.02]
         digits: 3

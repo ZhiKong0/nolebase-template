@@ -340,7 +340,7 @@ static uint8_t cmd_copy_token(const char *src, char *out, uint8_t outSize, const
 static void handle_tcfg_command(const char *cmd)
 {
     char key[40];
-    char listBuf[320];
+    char listBuf[512];
     const char *payload;
     const char *next;
     float fval;
@@ -356,7 +356,7 @@ static void handle_tcfg_command(const char *cmd)
     {
         LineTrack_ParamList(listBuf, (uint16_t)sizeof(listBuf));
         {
-            char out[380];
+            char out[640];
             snprintf(out, sizeof(out), "OK:TCFG LIST track.speed_target,%s\r\n", listBuf);
             BspUart_SendString(out);
         }
@@ -437,6 +437,102 @@ static void handle_tcfg_command(const char *cmd)
     BspUart_SendString("ERR:TCFG\r\n");
 }
 
+static uint8_t handle_sensor_scale_command(const char *cmd)
+{
+    uint8_t sensorIndex;
+    float fval;
+    float applied;
+    char key[24];
+    char out[40];
+
+    if (cmd == 0 || cmd[0] != '#' || cmd[1] != 'T' || cmd[2] != 'S')
+        return 0u;
+    if (cmd[3] < '1' || cmd[3] > '8')
+        return 0u;
+
+    sensorIndex = (uint8_t)(cmd[3] - '0');
+    snprintf(key, sizeof(key), "track.sensor_scale%u", (unsigned)sensorIndex);
+
+    if (strcmp(cmd + 4, "?!") == 0)
+    {
+        if (LineTrack_ParamGet(key, &fval))
+        {
+            int16_t milli = (int16_t)(fval * 1000.0f + 0.5f);
+            snprintf(out, sizeof(out), "OK:TS%u=%d\r\n", (unsigned)sensorIndex, (int)milli);
+            BspUart_SendString(out);
+        }
+        else
+        {
+            BspUart_SendString("ERR:TS\r\n");
+        }
+        return 1u;
+    }
+
+    if (cmd[4] == '=' && cmd_parse_float(cmd + 5, &fval))
+    {
+        if (LineTrack_ParamSet(key, fval, &applied))
+        {
+            int16_t milli = (int16_t)(applied * 1000.0f + 0.5f);
+            snprintf(out, sizeof(out), "OK:TS%u=%d\r\n", (unsigned)sensorIndex, (int)milli);
+            BspUart_SendString(out);
+        }
+        else
+        {
+            BspUart_SendString("ERR:TS\r\n");
+        }
+        return 1u;
+    }
+
+    return 0u;
+}
+
+static uint8_t handle_track_short_param_command(const char *cmd, const char *tag, const char *key)
+{
+    float fval;
+    float applied;
+    char out[40];
+    size_t tagLen;
+
+    if (cmd == 0 || tag == 0 || key == 0)
+        return 0u;
+
+    tagLen = strlen(tag);
+    if (strncmp(cmd, tag, tagLen) != 0)
+        return 0u;
+
+    if (strcmp(cmd + tagLen, "?!") == 0)
+    {
+        if (LineTrack_ParamGet(key, &fval))
+        {
+            snprintf(out, sizeof(out), "OK:%s=%.3f\r\n", tag + 1, (double)fval);
+            BspUart_SendString(out);
+        }
+        else
+        {
+            snprintf(out, sizeof(out), "ERR:%s\r\n", tag + 1);
+            BspUart_SendString(out);
+        }
+        return 1u;
+    }
+
+    if (cmd[tagLen] == '=' && cmd_parse_float(cmd + tagLen + 1u, &fval))
+    {
+        if (LineTrack_ParamSet(key, fval, &applied))
+        {
+            snprintf(out, sizeof(out), "OK:%s=%.3f\r\n", tag + 1, (double)applied);
+            BspUart_SendString(out);
+        }
+        else
+        {
+            snprintf(out, sizeof(out), "ERR:%s\r\n", tag + 1);
+            BspUart_SendString(out);
+        }
+        return 1u;
+    }
+
+    return 0u;
+}
+
 static void handle_command(const char *cmd)
 {
     float fval;
@@ -515,6 +611,26 @@ static void handle_command(const char *cmd)
         }
         return;
     }
+    if (handle_sensor_scale_command(cmd))
+    {
+        return;
+    }
+    if (handle_track_short_param_command(cmd, "#CSR", "track.center_small_ratio")) return;
+    if (handle_track_short_param_command(cmd, "#CSM", "track.center_small_min")) return;
+    if (handle_track_short_param_command(cmd, "#CMR", "track.center_mid_ratio")) return;
+    if (handle_track_short_param_command(cmd, "#CMM", "track.center_mid_min")) return;
+    if (handle_track_short_param_command(cmd, "#EDR", "track.edge_ratio")) return;
+    if (handle_track_short_param_command(cmd, "#EDM", "track.edge_min")) return;
+    if (handle_track_short_param_command(cmd, "#RCD", "track.recenter_decay")) return;
+    if (handle_track_short_param_command(cmd, "#CDB", "track.center_deadband")) return;
+    if (handle_track_short_param_command(cmd, "#PLF", "track.pos_lpf")) return;
+    if (handle_track_short_param_command(cmd, "#DLF", "track.d_lpf")) return;
+    if (handle_track_short_param_command(cmd, "#OCB", "track.offcenter_boost")) return;
+    if (handle_track_short_param_command(cmd, "#CHT", "track.center_hold_ticks")) return;
+    if (handle_track_short_param_command(cmd, "#RCT", "track.recover_ticks")) return;
+    if (handle_track_short_param_command(cmd, "#STF", "track.search_turn_fast")) return;
+    if (handle_track_short_param_command(cmd, "#STS", "track.search_turn_slow")) return;
+    if (handle_track_short_param_command(cmd, "#STO", "track.search_timeout")) return;
     if (strncmp(cmd, "#TCFG ", 6) == 0)
     {
         handle_tcfg_command(cmd);
@@ -795,6 +911,7 @@ int main(void)
 {
     char cmdBuf[64];
     uint32_t now;
+    uint32_t telemetryPeriod;
 
     BspOled_Init();
     BspKey_Init();
@@ -833,7 +950,8 @@ int main(void)
             run_control(now);
         }
 
-        if ((now - g_lastTelemetryTick) >= TELEMETRY_PERIOD_MS)
+        telemetryPeriod = is_running() ? TELEMETRY_PERIOD_MS : TELEMETRY_IDLE_PERIOD_MS;
+        if ((now - g_lastTelemetryTick) >= telemetryPeriod)
         {
             g_lastTelemetryTick = now;
             send_telemetry();
