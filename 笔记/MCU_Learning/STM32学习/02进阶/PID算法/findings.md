@@ -75,3 +75,22 @@
 - 结论：
   - 这三个中间点都没有把“弯道增强”修回稳定，反而都出现更高的 `line_loss_ratio`、`edge_dwell_ratio` 或更低的有效速度。
   - 因此这不是“再回一点点就稳”的问题，而是这条增强方向整体不对，当前应保留默认组并换别的维度继续调。
+
+## 本轮换方向后的结论
+
+- 仅靠继续拧 `kp_curve / deadband_curve / center_anchor_curve` 不会稳定下来，因此本轮改成两条新方向：
+  - 算法侧：加入启动见线宽限，避免 `sb=0` 时刚起步就立刻 `TURN`。
+  - 调度侧：给 `scheduleAlpha` 增加平滑，并降低 `curve_load` 对角速度和边缘灯的敏感度。
+- 新日志里首次进入 `TURN` 已推迟到约 `1432ms`，说明启动宽限生效。
+- 在新代码基础上，当前最有效的运行时参数不是继续动弯道增强量，而是静态差速偏置 `TTR`：
+  - `TTR=3.0`：
+    [track_dynamic_20260422_145656.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_145656.json)
+  - `TTR=4.0`：
+    [track_dynamic_20260422_145453.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_145453.json)
+    [track_dynamic_20260422_145555.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_145555.json)
+  - `TTR=6.0`：
+    [track_dynamic_20260422_145630.json](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(2)/000Data/track_dynamic_pid/track_dynamic_20260422_145630.json)
+- 结论：
+  - `TTR=6.0` 明显过头。
+  - `TTR=3.0` 偏置仍不够。
+  - `TTR=4.0` 虽仍有波动，但在当前代码和赛道起始条件下是三者里平均最优的一档，因此已固化为新的默认值。

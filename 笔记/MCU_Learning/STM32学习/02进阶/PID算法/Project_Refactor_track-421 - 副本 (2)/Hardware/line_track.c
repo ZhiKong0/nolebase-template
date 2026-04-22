@@ -449,7 +449,7 @@ static void exit_search_state(void)
 
 static void update_dynamic_track_profile(void)
 {
-    float alpha = 0.0f;
+    float alphaTarget = 0.0f;
 
     if (g_lineTrackTune.dynamicPidEnabled)
     {
@@ -457,24 +457,30 @@ static void update_dynamic_track_profile(void)
 
         if (span <= 0.001f)
         {
-            alpha = (g_lineTrack.filteredCurveLoad >= g_lineTrackTune.loadHigh) ? 1.0f : 0.0f;
+            alphaTarget = (g_lineTrack.filteredCurveLoad >= g_lineTrackTune.loadHigh) ? 1.0f : 0.0f;
         }
         else
         {
-            alpha = (g_lineTrack.filteredCurveLoad - g_lineTrackTune.loadLow) / span;
-            alpha = clamp_f32(alpha, 0.0f, 1.0f);
+            alphaTarget = (g_lineTrack.filteredCurveLoad - g_lineTrackTune.loadLow) / span;
+            alphaTarget = clamp_f32(alphaTarget, 0.0f, 1.0f);
         }
     }
 
-    g_lineTrack.scheduleAlpha = alpha;
-    g_lineTrack.kp = lerp_f32(g_lineTrackTune.kpStraight, g_lineTrackTune.kpCurve, alpha);
-    g_lineTrack.kd = lerp_f32(g_lineTrackTune.kdStraight, g_lineTrackTune.kdCurve, alpha);
+    g_lineTrack.scheduleAlpha += TRACK_PROFILE_ALPHA_LPF
+                               * (alphaTarget - g_lineTrack.scheduleAlpha);
+    g_lineTrack.scheduleAlpha = clamp_f32(g_lineTrack.scheduleAlpha, 0.0f, 1.0f);
+    g_lineTrack.kp = lerp_f32(g_lineTrackTune.kpStraight,
+                              g_lineTrackTune.kpCurve,
+                              g_lineTrack.scheduleAlpha);
+    g_lineTrack.kd = lerp_f32(g_lineTrackTune.kdStraight,
+                              g_lineTrackTune.kdCurve,
+                              g_lineTrack.scheduleAlpha);
     g_lineTrack.activeSteerDeadband = lerp_f32(g_lineTrackTune.deadbandStraight,
                                                g_lineTrackTune.deadbandCurve,
-                                               alpha);
+                                               g_lineTrack.scheduleAlpha);
     g_lineTrack.activeCenterAnchor = lerp_f32(g_lineTrackTune.centerAnchorStraight,
                                               g_lineTrackTune.centerAnchorCurve,
-                                              alpha);
+                                              g_lineTrack.scheduleAlpha);
     g_lineTrack.activeSteerTrim = g_lineTrackTune.steerTrim;
 }
 
@@ -623,6 +629,14 @@ static void Signal_Handler(uint32_t tickMs)
     g_lineTrack.sensorBits = bits;
     if (bits != 0u)
     {
+        if (!g_lineTrack.startupLineReady)
+        {
+            if (g_lineTrack.startupSeenCount < 255u)
+                g_lineTrack.startupSeenCount++;
+            if (g_lineTrack.startupSeenCount >= TRACK_STARTUP_SEEN_TICKS)
+                g_lineTrack.startupLineReady = 1u;
+        }
+
         float previewPos;
 
         rawPos = crossingHit ? 0.0f : sensor_position_average(bits);
@@ -655,6 +669,12 @@ static void Signal_Handler(uint32_t tickMs)
     }
     else
     {
+        if (!g_lineTrack.startupLineReady)
+        {
+            g_lineTrack.startupSeenCount = 0u;
+            if (g_lineTrack.startupGraceTicks > 0u)
+                g_lineTrack.startupGraceTicks--;
+        }
         g_lineTrack.centerHold = 0u;
         g_lineTrack.centerStableCount = 0u;
     }
@@ -691,6 +711,12 @@ static void Signal_Handler(uint32_t tickMs)
     }
 
     g_lineTrack.searchAcceptCount = 0u;
+    if (!g_lineTrack.startupLineReady && g_lineTrack.startupGraceTicks > 0u)
+    {
+        g_lineTrack.overrunCount = 0u;
+        return;
+    }
+
     if (g_lineTrack.searchActive)
     {
         /* 进入找线后由 searchTickCount 专门负责超时，
@@ -745,9 +771,19 @@ static void Track_Handler(int16_t basePwm)
         return;
     }
 
+    baseAbsPwm = abs_i16(basePwm);
+    if (!g_lineTrack.startupLineReady
+        && g_lineTrack.sensorBits == 0u
+        && g_lineTrack.startupGraceTicks > 0u)
+    {
+        g_lineTrack.pidBypassActive = 1u;
+        g_lineTrack.trackBasePwm = baseAbsPwm;
+        track_motor_forward(baseAbsPwm, baseAbsPwm);
+        return;
+    }
+
     g_lineTrack.pidBypassActive = 0u;
     crossingHit = is_crossing_pattern(g_lineTrack.sensorBits);
-    baseAbsPwm = abs_i16(basePwm);
     g_lineTrack.trackBasePwm = baseAbsPwm;
     controlPos = track_control_position(g_lineTrack.sensorBits, crossingHit);
     controlRate = g_lineTrack.filteredLineRate;
@@ -841,6 +877,9 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.cruiseSpeedTarget = clamp_min_f32(cruiseSpeedTarget, SPEED_ENTRY);
     g_lineTrack.curveSpeedScale = 1.0f;
     g_lineTrack.curveSpeedTarget = g_lineTrack.cruiseSpeedTarget;
+    g_lineTrack.startupLineReady = 0u;
+    g_lineTrack.startupSeenCount = 0u;
+    g_lineTrack.startupGraceTicks = TRACK_STARTUP_GRACE_TICKS;
     update_dynamic_track_profile();
     g_lineTrack.startupSkipSecondTurnEnabled = startupCompat;
 }
@@ -861,6 +900,9 @@ void LineTrack_Stop(void)
     g_lineTrack.scheduleAlpha = 0.0f;
     g_lineTrack.curveSpeedScale = 1.0f;
     g_lineTrack.curveSpeedTarget = clamp_min_f32(g_lineTrack.cruiseSpeedTarget, SPEED_ENTRY);
+    g_lineTrack.startupLineReady = 0u;
+    g_lineTrack.startupSeenCount = 0u;
+    g_lineTrack.startupGraceTicks = 0u;
     update_dynamic_track_profile();
     g_lineTrack.acuteState = LT_ACUTE_IDLE;
     g_lineTrack.acuteStartYaw = 0.0f;

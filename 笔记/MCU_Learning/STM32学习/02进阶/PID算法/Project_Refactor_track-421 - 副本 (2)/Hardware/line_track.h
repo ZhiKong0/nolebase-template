@@ -60,6 +60,9 @@ typedef struct
     uint8_t searchAcceptCount;
     uint16_t searchTickCount;
     uint32_t searchStartTick;
+    uint8_t startupLineReady;
+    uint8_t startupSeenCount;
+    uint16_t startupGraceTicks;
 
     uint8_t cornerDone;
 
@@ -82,6 +85,7 @@ typedef struct
     float activeSteerDeadband;
     float activeCenterAnchor;
     float activeSteerTrim;
+    float filteredDevPwm;
     uint8_t centerHold;
     uint8_t centerStableCount;
 
