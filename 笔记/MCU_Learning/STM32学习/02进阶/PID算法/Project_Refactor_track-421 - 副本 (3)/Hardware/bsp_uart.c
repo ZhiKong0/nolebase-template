@@ -123,8 +123,13 @@ void BspUart_Init(void)
     USART_InitTypeDef u;
     NVIC_InitTypeDef n;
 
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+    RCC_APB2PeriphClockCmd(COMM_USART_GPIO_RCC, ENABLE);
+#if COMM_USART_ON_APB2
+    RCC_APB2PeriphClockCmd(COMM_USART_RCC, ENABLE);
+#else
     RCC_APB1PeriphClockCmd(COMM_USART_RCC, ENABLE);
+#endif
+    GPIO_PinRemapConfig(COMM_USART_REMAP, ENABLE);
 
     g.GPIO_Speed = GPIO_Speed_50MHz;
     g.GPIO_Pin = COMM_TX_PIN;

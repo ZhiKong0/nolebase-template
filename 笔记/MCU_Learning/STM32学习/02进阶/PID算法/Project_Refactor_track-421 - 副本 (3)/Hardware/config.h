@@ -65,7 +65,7 @@ typedef enum
 #define BNO_SDA_PORT GPIOB
 #define BNO_SDA_PIN  GPIO_Pin_13
 #define BNO_RST_PORT GPIOB
-#define BNO_RST_PIN  GPIO_Pin_14
+#define BNO_RST_PIN  GPIO_Pin_11
 #define BNO_INT_PORT GPIOA
 #define BNO_INT_PIN  GPIO_Pin_15
 
@@ -83,38 +83,42 @@ typedef enum
 #define BNO_YAW_RATE_LIMIT_DPS  180.0f
 #define BNO_YAW_RATE_LPF_ALPHA  0.14f
 
-/* ========== 8 路循迹传感器 (低电平有效) ========== */
+/* ========== 8 路循迹输入 (74HC4051 扫描 A3~A10, bit0~bit7 = Y0~Y7) ========== */
 #define LINE_SENSOR_COUNT 8
-#define LINE_ACTIVE_LOW   1
 
-#define LINE_S1_PORT GPIOA
-#define LINE_S1_PIN  GPIO_Pin_10
-#define LINE_S2_PORT GPIOA
-#define LINE_S2_PIN  GPIO_Pin_11
-#define LINE_S3_PORT GPIOA
-#define LINE_S3_PIN  GPIO_Pin_12
-#define LINE_S4_PORT GPIOB
-#define LINE_S4_PIN  GPIO_Pin_3
-#define LINE_S5_PORT GPIOB
-#define LINE_S5_PIN  GPIO_Pin_4
-#define LINE_S6_PORT GPIOB
-#define LINE_S6_PIN  GPIO_Pin_9
-#define LINE_S7_PORT GPIOB
-#define LINE_S7_PIN  GPIO_Pin_11
-#define LINE_S8_PORT GPIOC
-#define LINE_S8_PIN  GPIO_Pin_13
+#define LINE_ACTIVE_LOW 0
 
-/* ========== 串口通信 (USART2) ========== */
-#define COMM_USART      USART2
-#define COMM_USART_IRQn USART2_IRQn
-#define COMM_USART_RCC  RCC_APB1Periph_USART2
-#define COMM_TX_PORT    GPIOA
-#define COMM_TX_PIN     GPIO_Pin_2
-#define COMM_RX_PORT    GPIOA
-#define COMM_RX_PIN     GPIO_Pin_3
+#define LINE_MUX_S0_PORT GPIOA
+#define LINE_MUX_S0_PIN  GPIO_Pin_2
+#define LINE_MUX_S1_PORT GPIOA
+#define LINE_MUX_S1_PIN  GPIO_Pin_11
+#define LINE_MUX_S2_PORT GPIOA
+#define LINE_MUX_S2_PIN  GPIO_Pin_10
+#define LINE_MUX_Z_PORT  GPIOA
+#define LINE_MUX_Z_PIN   GPIO_Pin_3
+#define LINE_MUX_SETTLE_CYCLES 180u
+
+/* ========== DAPlink / 命令串口 (USART1 重映射到 PB6/PB7) ========== */
+#define COMM_USART           USART1
+#define COMM_USART_IRQn      USART1_IRQn
+#define COMM_USART_RCC       RCC_APB2Periph_USART1
+#define COMM_USART_ON_APB2   1
+#define COMM_USART_GPIO_RCC  (RCC_APB2Periph_GPIOB | RCC_APB2Periph_AFIO)
+#define COMM_USART_REMAP     GPIO_Remap_USART1
+#define COMM_TX_PORT         GPIOB
+#define COMM_TX_PIN          GPIO_Pin_6
+#define COMM_RX_PORT         GPIOB
+#define COMM_RX_PIN          GPIO_Pin_7
 #define COMM_BAUDRATE   115200
 #define COMM_TX_BUF_SIZE 2048
 #define COMM_RX_BUF_SIZE 64
+
+/* ========== 无线串口预留 (软件串口/透传模块, 当前仅保留引脚边界) ========== */
+#define WIRELESS_UART_TX_PORT GPIOB
+#define WIRELESS_UART_TX_PIN  GPIO_Pin_14
+#define WIRELESS_UART_RX_PORT GPIOB
+#define WIRELESS_UART_RX_PIN  GPIO_Pin_15
+#define WIRELESS_UART_BAUDRATE 115200
 
 /* ========== 系统定时器 (TIM4, 1ms 节拍) ========== */
 #define SYS_TIM       TIM4
@@ -123,11 +127,11 @@ typedef enum
 #define SYS_TIM_PRESCALER 72
 #define SYS_TIM_PERIOD    1000
 
-/* ========== OLED 显示屏 (软件 I2C) ========== */
+/* ========== OLED 显示屏 (软件 I2C, PB8/PB9) ========== */
 #define OLED_SCL_PORT GPIOB
-#define OLED_SCL_PIN  GPIO_Pin_7
+#define OLED_SCL_PIN  GPIO_Pin_8
 #define OLED_SDA_PORT GPIOB
-#define OLED_SDA_PIN  GPIO_Pin_8
+#define OLED_SDA_PIN  GPIO_Pin_9
 
 /* ========== 按键 (PB5, 低电平有效, 内部上拉) ========== */
 #define KEY1_PORT         GPIOB
@@ -157,7 +161,7 @@ typedef enum
 #define HEADING_INTEGRAL_ATTEN      0.3f
 
 /* ========== TRACK 模式默认参数 ========== */
-#define PID_TRACK_SPEED_TARGET      25.0f
+#define PID_TRACK_SPEED_TARGET      40.0f
 #define PID_TRACK_SPEED_KP          1.50f
 #define PID_TRACK_SPEED_KI          0.10f
 #define PID_TRACK_SPEED_KD          0.0f
@@ -217,13 +221,14 @@ typedef enum
 #define TRACK_CTRL_ERROR_SCALE        90.0f
 #define TRACK_CTRL_POS_FILTER_ALPHA   0.60f
 #define TRACK_CTRL_D_FILTER_ALPHA     0.40f
+#define TRACK_CTRL_YAW_DAMP_GAIN      0.70f
 #define TRACK_CTRL_DEV_STEP_LIMIT     26
 #define TRACK_CTRL_OFFCENTER_BOOST    1.08f
 
 #define TRACK_DEV_MAX_RATIO         0.58f
 #define TRACK_PWM_MAX               480
 #define TRACK_PWM_MIN               0
-#define TRACK_EDGE_BASE_PWM_MAX     200
+#define TRACK_EDGE_BASE_PWM_MAX     260
 #define TRACK_EDGE_BEARING_MIN      4
 
 #define TRACK_LOST_CONFIRM_TICKS    3
@@ -236,7 +241,7 @@ typedef enum
 #define TRACK_SEARCH_TURN_PWM_FAST  240
 #define TRACK_SEARCH_TURN_PWM_SLOW  150
 #define TRACK_RECOVER_TICKS         8
-#define TRACK_RESUME_SPEED_MAX      24.0f
+#define TRACK_RESUME_SPEED_MAX      38.0f
 
 #define TRACK_DEFAULT_CROSSINGS     4
 #define TRACK_CROSS_MIN_ACTIVE      5
