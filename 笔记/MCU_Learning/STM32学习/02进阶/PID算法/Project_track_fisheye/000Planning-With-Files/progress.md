@@ -112,3 +112,31 @@
   - 编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
   - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
     - `0 Error(s), 0 Warning(s)`
+
+## Session: 2026-04-24 exp266 S 弯限速修正
+
+### Phase 10: 日志定位
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0266_20260424_064949_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0266_20260424_064949_KEY_T.txt)
+  - 确认 `SCRV` 本身不是唯一限速源，更大的拖速来自：
+    - 起步斜坡偏慢
+    - `cornerDone` 后恢复速度目标被压得过低
+
+### Phase 11: S 弯速度恢复调整
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 调整：
+    - `SPEED_ENTRY = 12.0`
+    - `SPEED_RAMP_RATE = 36.0`
+    - `TRACK_RESUME_SPEED_MIN = 28.0`
+    - `TRACK_RESUME_SPEED_BOOST = 8.0`
+    - `TRACK_RESUME_SPEED_MAX = 44.0`
+  - 在 [`Project_track_fisheye/User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 将 `cornerDone` 后的恢复目标从“当前速度直接恢复”改成“当前速度 + 恢复抬升，并带最小恢复地板”
+
+### Phase 12: 编译验证
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`

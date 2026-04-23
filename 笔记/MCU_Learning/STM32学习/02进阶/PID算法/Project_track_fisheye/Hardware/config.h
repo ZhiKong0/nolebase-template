@@ -234,7 +234,9 @@ typedef enum
 #define TRACK_SEARCH_TURN_PWM_FAST  240
 #define TRACK_SEARCH_TURN_PWM_SLOW  150
 #define TRACK_RECOVER_TICKS         8
-#define TRACK_RESUME_SPEED_MAX      40.0f
+#define TRACK_RESUME_SPEED_MIN      28.0f
+#define TRACK_RESUME_SPEED_BOOST    8.0f
+#define TRACK_RESUME_SPEED_MAX      44.0f
 
 #define TRACK_DEFAULT_CROSSINGS     0
 #define TRACK_CROSS_MIN_ACTIVE      5
@@ -253,8 +255,8 @@ typedef enum
 
 /* ========== 速度斜坡 ========== */
 #define SPEED_TARGET_DEFAULT        10.0f
-#define SPEED_ENTRY                 9.2f
-#define SPEED_RAMP_RATE             20.0f
+#define SPEED_ENTRY                 12.0f
+#define SPEED_RAMP_RATE             36.0f
 #define SPEED_CORE_SLEW_STEP        18
 #define SPEED_OUTPUT_LIMIT          600.0f
 #define SPEED_FEEDFORWARD_GAIN      8.7f

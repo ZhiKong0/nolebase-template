@@ -99,3 +99,29 @@
 - `TRACK_DEFAULT_CROSSINGS: 4 -> 0`
 - 删除 `line_track` 内部的 `autoFlag` 停机链和交叉计数到点自动停逻辑
 - 保留 `LineTrack_Start(uint8_t crossings)` 接口名，但 `crossings` 仅为兼容占位，不再参与停车
+
+## 2026-04-24 exp266 S 弯限速分析
+
+### 关键证据
+- [`exp_0266_20260424_064949_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0266_20260424_064949_KEY_T.txt) 里，前段 `SCRV` 区间虽然状态是 `SCRV`，但 `pc` 从约 `98` 逐步爬到 `223`，说明起步阶段本身就偏慢。
+- 更重的拖速发生在 `TRMR/EDGE` 之后：日志里多次出现 `pc` 被压回 `80~150` 区间，然后又重新慢慢爬升，看起来像“每过一个弯点就重新起步”。
+- 当前实现中有两条直接相关的链：
+  - [`pid_controller.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/pid_controller.c) 里的 `SPEED_RAMP_RATE / SPEED_ENTRY`
+  - [`main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 里 `cornerDone` 后把 `speedRampTarget` 重置为接近当前低速的恢复逻辑
+
+### 判断
+- `exp266` 的“`S` 弯速度限制太狠”不只是弯中基础 PWM 限速，更主要是：
+  - 起步斜坡偏慢
+  - 每次找线/转角恢复后都重新从低速恢复
+- 这会让 `S` 弯看起来不像连续冲弯，而像“弯后再起步”。
+
+### 本轮修正
+- `SPEED_ENTRY: 9.2 -> 12.0`
+- `SPEED_RAMP_RATE: 20.0 -> 36.0`
+- 新增恢复速度参数：
+  - `TRACK_RESUME_SPEED_MIN = 28.0`
+  - `TRACK_RESUME_SPEED_BOOST = 8.0`
+  - `TRACK_RESUME_SPEED_MAX = 44.0`
+- `cornerDone` 后恢复目标改为：
+  - `currentSpeed + TRACK_RESUME_SPEED_BOOST`
+  - 再用 `TRACK_RESUME_SPEED_MIN / MAX / targetSpeed` 夹紧

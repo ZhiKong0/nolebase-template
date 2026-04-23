@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 9
+Phase 12
 
 ## Phases
 
@@ -54,6 +54,22 @@ Phase 9
 ### Phase 9: 编译与记录
 - [x] 编译 `project.uvprojx`
 - [x] 记录本轮“提速 + 关停机链”结论到规划文件
+- **Status:** complete
+
+### Phase 10: exp266 限速定位
+- [x] 读取 `exp266` 日志
+- [x] 确认 `S` 弯拖速主要来自速度斜坡与恢复速度重置
+- **Status:** complete
+
+### Phase 11: S 弯恢复提速
+- [x] 提高起步斜坡
+- [x] 提高找线/转角退出后的恢复目标
+- [x] 保持单链 PD 主控制不变
+- **Status:** complete
+
+### Phase 12: 编译与记录
+- [x] 编译 `project.uvprojx`
+- [x] 将 `exp266` 结论写入规划文件
 - **Status:** complete
 
 ## Decisions Made

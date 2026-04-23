@@ -1081,9 +1081,9 @@ static void run_control(uint32_t now)
 
             g_lineTrack.cornerDone = 0u;
             PID_Reset(&g_pid.speedPID);
-            resumeSpeedTarget = g_pid.currentSpeed;
-            if (resumeSpeedTarget < SPEED_ENTRY)
-                resumeSpeedTarget = SPEED_ENTRY;
+            resumeSpeedTarget = g_pid.currentSpeed + TRACK_RESUME_SPEED_BOOST;
+            if (resumeSpeedTarget < TRACK_RESUME_SPEED_MIN)
+                resumeSpeedTarget = TRACK_RESUME_SPEED_MIN;
             if (resumeSpeedTarget > TRACK_RESUME_SPEED_MAX)
                 resumeSpeedTarget = TRACK_RESUME_SPEED_MAX;
             if (resumeSpeedTarget > g_pid.targetSpeed)
