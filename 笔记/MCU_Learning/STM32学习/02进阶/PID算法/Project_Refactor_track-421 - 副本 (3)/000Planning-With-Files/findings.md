@@ -11,7 +11,7 @@
 - `DAPlink / 命令串口` 走 `USART1` 重映射：
   - `TX -> PB6`
   - `RX -> PB7`
-- `PB14/PB15` 应作为无线串口预留位，不应再被 IMU 复位脚抢占。
+- 你当前说的“无线串口”能力来自 `DAPlink` 本身，因此物理上仍然落在 `PB6/PB7` 这组主串口上。
 
 ## 这轮纠正的关键歧义
 
@@ -27,8 +27,8 @@
 - `Hardware/config.h`
   - 恢复 `LINE_MUX_S0/S1/S2/Z` 宏
   - 移除“外部 UART 循迹帧”默认配置
-  - `BNO085_RST` 从 `PB14` 改到 `PB11`
-  - 新增无线串口预留宏：`PB14/PB15`
+  - `BNO085_RST` 收回到 `PB14`
+  - 删除 `PB14/PB15` 无线串口预留宏
 - `Hardware/sensor_fusion.c`
   - 恢复 `74HC4051` 逐路扫描逻辑
   - `LineSensor_Read()` 回到“扫描 -> bits -> count -> weighted position”
@@ -41,18 +41,17 @@
 - `User/stm32f10x_it.c`
   - 去掉 `LineSensor_Tick1ms()` 定时调用
 - `000/接线总表——END.md`
-  - `PB6/PB7` 明确写成 `DAPlink / 命令串口`
+  - `PB6/PB7` 明确写成 `DAPlink` 的有线/无线主串口
   - 把“数据帧”解释为 MCU 内部 `8` 位状态帧
   - `74HC4051` 恢复为当前现行方案
-  - 补清 `PB14/PB15` 无线串口接线和 `PA15` 的 JTAG 说明
+  - 删除 `PB14/PB15` 无线串口预留的错误描述，并保留 `PA15` 的 JTAG 说明
 
 ## 额外发现
 
 - `PA15` 若作为 `BNO085_INT`，才需要释放 `JTAG`；`PB14/PB15` 本身不是 `JTAG` 脚。
 - 当前工程里已经在 `BNO085_Init()` 中调用 `GPIO_Remap_SWJ_JTAGDisable`，因此 `PA15` 作为 GPIO 是成立的。
-- `PB11` 当前在项目内没有其它功能占用，适合承接 `BNO085_RST`。
 
 ## 风险与后续
 
-- 这轮如果上板前不把 `BNO085_RST` 实际改线到 `PB11`，则新固件和旧接线会不一致。
+- 当前代码与更贴近现状的 `BNO085_RST -> PB14` 接法一致，不需要为了这轮修正文档再额外改 IMU 复位线。
 - 由于这次纠正的是硬件边界而不是算法参数，所以优先级应高于继续联调 `PID`。

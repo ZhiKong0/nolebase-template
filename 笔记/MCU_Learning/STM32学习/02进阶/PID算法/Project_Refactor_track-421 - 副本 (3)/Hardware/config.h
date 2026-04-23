@@ -65,7 +65,7 @@ typedef enum
 #define BNO_SDA_PORT GPIOB
 #define BNO_SDA_PIN  GPIO_Pin_13
 #define BNO_RST_PORT GPIOB
-#define BNO_RST_PIN  GPIO_Pin_11
+#define BNO_RST_PIN  GPIO_Pin_14
 #define BNO_INT_PORT GPIOA
 #define BNO_INT_PIN  GPIO_Pin_15
 
@@ -112,13 +112,6 @@ typedef enum
 #define COMM_BAUDRATE   115200
 #define COMM_TX_BUF_SIZE 2048
 #define COMM_RX_BUF_SIZE 64
-
-/* ========== 无线串口预留 (软件串口/透传模块, 当前仅保留引脚边界) ========== */
-#define WIRELESS_UART_TX_PORT GPIOB
-#define WIRELESS_UART_TX_PIN  GPIO_Pin_14
-#define WIRELESS_UART_RX_PORT GPIOB
-#define WIRELESS_UART_RX_PIN  GPIO_Pin_15
-#define WIRELESS_UART_BAUDRATE 115200
 
 /* ========== 系统定时器 (TIM4, 1ms 节拍) ========== */
 #define SYS_TIM       TIM4

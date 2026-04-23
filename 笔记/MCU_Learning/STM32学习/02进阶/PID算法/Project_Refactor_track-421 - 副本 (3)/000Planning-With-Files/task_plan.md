@@ -6,7 +6,8 @@
 - 循迹前端仍是 `74HC4051 + 12 路模块 A3~A10`
 - MCU 内部将扫描结果整理成 `8` 位状态帧供 `LineSensor_Read()` / `line_track` 消费
 - `DAPlink` 主串口固定为 `USART1` 重映射 `PB6/PB7`
-- `PB14/PB15` 预留给无线串口，不再被 `BNO085_RST` 占用
+- 当前“无线串口”能力来自 `DAPlink` 自身，因此仍走 `PB6/PB7`
+- `BNO085_RST` 保持在 `PB14`
 - 项目内 `000Planning-With-Files` 作为后续默认上下文恢复位置
 
 ## Current Phase
@@ -28,8 +29,9 @@ Phase 4
 
 ### Phase 3: 修正串口与引脚边界
 - [x] 保持 `USART1(PB6/PB7 remap)` 作为 `DAPlink/命令串口`
-- [x] 将 `BNO085_RST` 从 `PB14` 移到 `PB11`
-- [x] 明确 `PB14/PB15` 为无线串口预留位
+- [x] 确认 `PB6/PB7` 同时承接 `DAPlink` 的无线串口桥能力
+- [x] 将 `BNO085_RST` 收回 `PB14`
+- [x] 清掉 `PB14/PB15` 无线串口预留的错误假设
 - **Status:** complete
 
 ### Phase 4: 文档与验证
@@ -49,8 +51,8 @@ Phase 4
 | 采用 `lean-context-stack = Continue + planning-with-files + files-to-prompt` | 当前任务跨多步，但已缩到少量热文件 |
 | 项目内 `000Planning-With-Files/` 作为默认上下文恢复位置 | 符合用户要求，也能减少后续线程上下文占用 |
 | 这次“数据帧”按 MCU 内部 `8` 位状态帧理解，不再误判成外部 UART 传感器持续输入 | 用户已明确实际硬件仍是 `74HC4051` 前端 |
-| `PB6/PB7` 只留给 `DAPlink/命令串口`，不再在文档里写成循迹 UART 外设输入 | 避免把命令串口和循迹前端混成一条物理线 |
-| `PB14/PB15` 作为无线串口预留位，`BNO085_RST` 改到 `PB11` | 让接线表和代码边界一致 |
+| `PB6/PB7` 作为 `DAPlink` 主串口，同时承接其无线串口桥能力 | 用户已明确无线能力来自 `DAPlink` 本体，而不是独立 `PB14/PB15` 模块 |
+| `BNO085_RST` 恢复到 `PB14` | 减少额外改线，回到更贴近用户现有接线的状态 |
 
 ## Errors Encountered
 | Error | Attempt | Resolution |
