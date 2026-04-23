@@ -50,6 +50,7 @@ class TrackRecord:
     t_ms: int
     mode: str
     run: int
+    yaw: float
     el: int
     er: int
     yr: float
@@ -74,6 +75,13 @@ class EarlyStopConfig:
 
 
 @dataclass
+class TurnaroundConfig:
+    enabled: bool
+    timeout_s: float
+    settle_s: float
+
+
+@dataclass
 class TrialResult:
     trial_index: int
     stage: int
@@ -86,12 +94,16 @@ class TrialResult:
     mean_abs_lp: float
     mean_abs_lp_delta: float
     mean_abs_yr: float
+    mean_abs_yr_delta: float
     center_band_ratio: float
     exact_center_ratio: float
     center_core_ratio: float
     center_single_ratio: float
     center_mean_abs_lp: float
     center_mean_abs_lp_delta: float
+    center_mean_abs_yr: float
+    center_mean_abs_yr_delta: float
+    straight_ratio: float
     outer_ratio: float
     search_ratio: float
     scurve_ratio: float
@@ -113,6 +125,7 @@ class SearchContext:
     settle_skip_s: float
     manual_reset: bool
     early_stop: EarlyStopConfig
+    turnaround: TurnaroundConfig
     out_dir: Path
     param_specs: list[ParamSpec]
     trial_index: int = 0
@@ -212,6 +225,7 @@ def parse_hb_line(line: str) -> TrackRecord | None:
             t_ms=int(kv.get("t", "0")),
             mode=kv.get("m", "S"),
             run=int(kv.get("run", "0")),
+            yaw=float(kv.get("yaw", "0")),
             el=int(kv.get("el", "0")),
             er=int(kv.get("er", "0")),
             yr=float(kv.get("yr", "0")),
@@ -267,6 +281,18 @@ def mean_abs_delta(values: list[float]) -> float:
     if len(values) < 2:
         return 0.0
     return statistics.fmean(abs(cur - prev) for prev, cur in zip(values, values[1:]))
+
+
+def wrap_angle_deg(angle: float) -> float:
+    while angle > 180.0:
+        angle -= 360.0
+    while angle < -180.0:
+        angle += 360.0
+    return angle
+
+
+def angle_delta_deg(current: float, reference: float) -> float:
+    return wrap_angle_deg(current - reference)
 
 
 def is_search_state(state: str) -> bool:
@@ -411,12 +437,16 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
             "mean_abs_lp": 999.0,
             "mean_abs_lp_delta": 999.0,
             "mean_abs_yr": 999.0,
+            "mean_abs_yr_delta": 999.0,
             "center_band_ratio": 0.0,
             "exact_center_ratio": 0.0,
             "center_core_ratio": 0.0,
             "center_single_ratio": 0.0,
             "center_mean_abs_lp": 350.0,
             "center_mean_abs_lp_delta": 350.0,
+            "center_mean_abs_yr": 999.0,
+            "center_mean_abs_yr_delta": 999.0,
+            "straight_ratio": 0.0,
             "outer_ratio": 1.0,
             "search_ratio": 1.0,
             "scurve_ratio": 1.0,
@@ -449,12 +479,16 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
             "mean_abs_lp": 999.0,
             "mean_abs_lp_delta": 999.0,
             "mean_abs_yr": 999.0,
+            "mean_abs_yr_delta": 999.0,
             "center_band_ratio": 0.0,
             "exact_center_ratio": 0.0,
             "center_core_ratio": 0.0,
             "center_single_ratio": 0.0,
             "center_mean_abs_lp": 350.0,
             "center_mean_abs_lp_delta": 350.0,
+            "center_mean_abs_yr": 999.0,
+            "center_mean_abs_yr_delta": 999.0,
+            "straight_ratio": 0.0,
             "outer_ratio": 1.0,
             "search_ratio": 1.0,
             "scurve_ratio": 1.0,
@@ -493,11 +527,14 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     search_ratio = sum(1 for rec in analyzed if is_search_state(rec.st)) / len(analyzed)
     scurve_ratio = sum(1 for rec in follow_records if rec.st.upper() == "SCRV") / len(follow_records)
     trim_ratio = sum(1 for rec in analyzed if is_trim_state(rec.st)) / len(analyzed)
+    straight_ratio = sum(1 for rec in follow_records if rec.st.upper() == "STRA") / len(follow_records)
     loss_ratio = sum(1 for rec in follow_records if rec.sb == 0) / len(follow_records)
     mean_forward_speed = statistics.fmean(forward_speeds)
     mean_abs_lp = statistics.fmean(valid_lp) if valid_lp else 350.0
     mean_abs_lp_delta = mean_abs_delta(valid_lp_signed) if valid_lp_signed else 350.0
-    mean_abs_yr = statistics.fmean(abs(rec.yr) for rec in follow_records)
+    yr_values = [rec.yr for rec in follow_records]
+    mean_abs_yr = statistics.fmean(abs(value) for value in yr_values)
+    mean_abs_yr_delta = mean_abs_delta(yr_values)
     lp_flip_rate_hz = sign_changes_with_deadband(valid_lp_signed, 80.0) / duration_s if valid_lp_signed else 0.0
     center_focus = [
         rec for rec in valid
@@ -507,16 +544,20 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     center_focus_lp_signed = [rec.lp for rec in center_focus]
     center_mean_abs_lp = statistics.fmean(center_focus_lp) if center_focus_lp else 350.0
     center_mean_abs_lp_delta = mean_abs_delta(center_focus_lp_signed) if center_focus_lp_signed else 350.0
+    center_focus_yr = [rec.yr for rec in center_focus]
+    center_mean_abs_yr = statistics.fmean(abs(value) for value in center_focus_yr) if center_focus_yr else 999.0
+    center_mean_abs_yr_delta = mean_abs_delta(center_focus_yr) if center_focus_yr else 999.0
     center_flip_rate_hz = (
         sign_changes_with_deadband(center_focus_lp_signed, 18.0) / duration_s
         if center_focus_lp_signed else 0.0
     )
 
     score = 0.0
-    score += 0.22 * mean_forward_speed
+    score += 0.16 * mean_forward_speed
     score += 44.0 * center_band_ratio
     score += 110.0 * center_core_ratio
     score += 18.0 * exact_center_ratio
+    score += 12.0 * straight_ratio
     score -= 48.0 * loss_ratio
     score -= 42.0 * outer_ratio
     score -= 6.0 * scurve_ratio
@@ -524,7 +565,10 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     score -= 0.16 * mean_abs_lp_delta
     score -= 0.16 * center_mean_abs_lp
     score -= 0.32 * center_mean_abs_lp_delta
-    score -= 0.12 * mean_abs_yr
+    score -= 0.18 * mean_abs_yr
+    score -= 0.20 * mean_abs_yr_delta
+    score -= 0.22 * center_mean_abs_yr
+    score -= 0.34 * center_mean_abs_yr_delta
     score -= 3.20 * lp_flip_rate_hz
     score -= 9.00 * center_flip_rate_hz
 
@@ -535,12 +579,16 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
         "mean_abs_lp": mean_abs_lp,
         "mean_abs_lp_delta": mean_abs_lp_delta,
         "mean_abs_yr": mean_abs_yr,
+        "mean_abs_yr_delta": mean_abs_yr_delta,
         "center_band_ratio": center_band_ratio,
         "exact_center_ratio": exact_center_ratio,
         "center_core_ratio": center_core_ratio,
         "center_single_ratio": center_single_ratio,
         "center_mean_abs_lp": center_mean_abs_lp,
         "center_mean_abs_lp_delta": center_mean_abs_lp_delta,
+        "center_mean_abs_yr": center_mean_abs_yr,
+        "center_mean_abs_yr_delta": center_mean_abs_yr_delta,
+        "straight_ratio": straight_ratio,
         "outer_ratio": outer_ratio,
         "search_ratio": search_ratio,
         "scurve_ratio": scurve_ratio,
@@ -566,6 +614,32 @@ def detect_early_stop(cfg: EarlyStopConfig,
     if cfg.max_stall_streak > 0 and stall_streak >= cfg.max_stall_streak:
         return f"stall_streak>={cfg.max_stall_streak}"
     return ""
+
+
+def perform_turnaround(port: serial.Serial, cfg: TurnaroundConfig) -> None:
+    if not cfg.enabled:
+        return
+
+    ensure_stop_ready(send_cmd(port, "#STOP!", timeout_s=1.5))
+    ensure_ok("#TURNBACK!", send_cmd(port, "#TURNBACK!", timeout_s=2.0))
+    deadline = time.time() + cfg.timeout_s
+
+    while time.time() < deadline:
+        raw = port.readline()
+        if not raw:
+            continue
+        line = decode_serial_text(raw)
+        if not line:
+            continue
+        if line == "EVT:TURNBACK,START":
+            continue
+        if line.startswith("EVT:TURNBACK,DONE"):
+            time.sleep(cfg.settle_s)
+            return
+        if line.startswith("EVT:TURNBACK,"):
+            raise RuntimeError(f"turnback failed: {line}")
+
+    raise RuntimeError("turnback timeout waiting for EVT:TURNBACK,DONE")
 
 
 def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], list[TrackRecord], bool, str, float]:
@@ -649,8 +723,9 @@ def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], 
                     print(f"[adaptive] early-stop: {reason} at {elapsed_s:.2f}s", flush=True)
                     break
 
-        send_cmd(port, "#STOP!", timeout_s=1.5)
+        ensure_stop_ready(send_cmd(port, "#STOP!", timeout_s=1.5))
         time.sleep(0.15)
+        perform_turnaround(port, ctx.turnaround)
 
     return raw_lines, records, stopped_early, stop_reason, stop_elapsed_s
 
@@ -693,12 +768,16 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
         mean_abs_lp=metrics["mean_abs_lp"],
         mean_abs_lp_delta=metrics["mean_abs_lp_delta"],
         mean_abs_yr=metrics["mean_abs_yr"],
+        mean_abs_yr_delta=metrics["mean_abs_yr_delta"],
         center_band_ratio=metrics["center_band_ratio"],
         exact_center_ratio=metrics["exact_center_ratio"],
         center_core_ratio=metrics["center_core_ratio"],
         center_single_ratio=metrics["center_single_ratio"],
         center_mean_abs_lp=metrics["center_mean_abs_lp"],
         center_mean_abs_lp_delta=metrics["center_mean_abs_lp_delta"],
+        center_mean_abs_yr=metrics["center_mean_abs_yr"],
+        center_mean_abs_yr_delta=metrics["center_mean_abs_yr_delta"],
+        straight_ratio=metrics["straight_ratio"],
         outer_ratio=metrics["outer_ratio"],
         search_ratio=metrics["search_ratio"],
         scurve_ratio=metrics["scurve_ratio"],
@@ -720,8 +799,9 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
         "[adaptive] "
         f"score={result.score:.2f} core={result.center_core_ratio:.2%} "
         f"center={result.center_band_ratio:.2%} outer={result.outer_ratio:.2%} "
-        f"wob={result.center_flip_rate_hz:.2f}Hz c|lp|={result.center_mean_abs_lp:.1f} "
-        f"|lp|={result.mean_abs_lp:.1f}",
+        f"wob={result.center_flip_rate_hz:.2f}Hz "
+        f"c|lp|={result.center_mean_abs_lp:.1f} c|yr|={result.center_mean_abs_yr:.1f} "
+        f"c|dyr|={result.center_mean_abs_yr_delta:.1f} |lp|={result.mean_abs_lp:.1f}",
         flush=True,
     )
     return result
@@ -742,13 +822,17 @@ def summarize_candidate(ctx: SearchContext, params: dict[str, float]) -> dict[st
         "center_single_ratio": statistics.fmean(item.center_single_ratio for item in trials),
         "center_mean_abs_lp": statistics.fmean(item.center_mean_abs_lp for item in trials),
         "center_mean_abs_lp_delta": statistics.fmean(item.center_mean_abs_lp_delta for item in trials),
+        "center_mean_abs_yr": statistics.fmean(item.center_mean_abs_yr for item in trials),
+        "center_mean_abs_yr_delta": statistics.fmean(item.center_mean_abs_yr_delta for item in trials),
         "outer_ratio": statistics.fmean(item.outer_ratio for item in trials),
         "search_ratio": statistics.fmean(item.search_ratio for item in trials),
         "scurve_ratio": statistics.fmean(item.scurve_ratio for item in trials),
+        "straight_ratio": statistics.fmean(item.straight_ratio for item in trials),
         "loss_ratio": statistics.fmean(item.loss_ratio for item in trials),
         "mean_abs_lp": statistics.fmean(item.mean_abs_lp for item in trials),
         "mean_abs_lp_delta": statistics.fmean(item.mean_abs_lp_delta for item in trials),
         "mean_abs_yr": statistics.fmean(item.mean_abs_yr for item in trials),
+        "mean_abs_yr_delta": statistics.fmean(item.mean_abs_yr_delta for item in trials),
         "lp_flip_rate_hz": statistics.fmean(item.lp_flip_rate_hz for item in trials),
         "center_flip_rate_hz": statistics.fmean(item.center_flip_rate_hz for item in trials),
         "trial_indices": [item.trial_index for item in trials],
@@ -910,6 +994,7 @@ def main() -> int:
     repeats = int(adaptive_cfg.get("repeats", 1))
     confirm_best_repeats = int(adaptive_cfg.get("confirm_best_repeats", 2))
     early_cfg = adaptive_cfg.get("early_stop", {}) or {}
+    turnaround_cfg = adaptive_cfg.get("turnaround", {}) or {}
 
     ap = argparse.ArgumentParser(description="Adaptive TRACK tuning via serial telemetry")
     ap.add_argument("--port", default=default_port)
@@ -920,6 +1005,7 @@ def main() -> int:
     ap.add_argument("--confirm-best-repeats", type=int, default=confirm_best_repeats)
     ap.add_argument("--manual-reset", action="store_true")
     ap.add_argument("--no-early-stop", action="store_true")
+    ap.add_argument("--no-turnaround", action="store_true")
     args = ap.parse_args()
 
     param_specs = build_default_specs(cfg)
@@ -941,11 +1027,21 @@ def main() -> int:
             max_stall_streak=int(early_cfg.get("max_stall_streak", 16)),
             stall_speed_threshold=float(early_cfg.get("stall_speed_threshold", 12.0)),
         ),
+        turnaround=TurnaroundConfig(
+            enabled=(not args.no_turnaround) and bool(turnaround_cfg.get("enabled", True)),
+            timeout_s=float(turnaround_cfg.get("timeout_s", 5.5)),
+            settle_s=float(turnaround_cfg.get("settle_s", 0.25)),
+        ),
         out_dir=out_dir,
         param_specs=param_specs,
     )
 
     print(f"[adaptive] port={ctx.port} baud={ctx.baud} duration={ctx.duration_s:.1f}s", flush=True)
+    print(
+        f"[adaptive] turnaround={'on' if ctx.turnaround.enabled else 'off'} "
+        f"mode=firmware-turnback timeout={ctx.turnaround.timeout_s:.1f}s",
+        flush=True,
+    )
     print(f"[adaptive] start={candidate_label(start_params, param_specs)}", flush=True)
     print(f"[adaptive] output={out_dir}", flush=True)
 

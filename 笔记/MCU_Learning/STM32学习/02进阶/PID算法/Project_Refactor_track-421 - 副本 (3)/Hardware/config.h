@@ -240,7 +240,15 @@ typedef enum
 #define TRACK_CROSS_RELEASE_TICKS   100
 
 /* ========== SPIN 占位模式 ========== */
-#define SPIN_PLACEHOLDER_PWM        0
+#define SPIN_PLACEHOLDER_PWM        180
+#define TURNBACK_SPIN_PWM_FAST      180
+#define TURNBACK_SPIN_PWM_SLOW      120
+#define TURNBACK_TARGET_DEG         180.0f
+#define TURNBACK_ARM_ERR_DEG        40.0f
+#define TURNBACK_STOP_ERR_DEG       18.0f
+#define TURNBACK_OVERSHOOT_DEG      70.0f
+#define TURNBACK_CAPTURE_TICKS      2u
+#define TURNBACK_TIMEOUT_MS         4500u
 
 /* ========== 速度斜坡 ========== */
 #define SPEED_TARGET_DEFAULT        10.0f

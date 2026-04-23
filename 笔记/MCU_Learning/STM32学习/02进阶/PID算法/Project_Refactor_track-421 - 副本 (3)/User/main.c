@@ -9,6 +9,7 @@
 #include "Delay.h"
 #include "line_track.h"
 #include "stm32f10x_it.h"
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -37,6 +38,21 @@ typedef enum
     EXP_TRIGGER_KEY,
     EXP_TRIGGER_UART
 } ExperimentTrigger_t;
+
+typedef struct
+{
+    uint8_t active;
+    uint8_t armed;
+    uint8_t captureTicks;
+    int8_t spinDir;
+    uint32_t startTick;
+    float startYaw;
+    float prevYaw;
+    float rotatedDeg;
+    float targetYaw;
+} TurnbackState_t;
+
+static TurnbackState_t g_turnback;
 
 static void Timer_Init(void)
 {
@@ -83,6 +99,11 @@ void Main_TimerTickISR(void)
 static uint8_t is_running(void)
 {
     return (g_sysState != SYS_STOP) ? 1u : 0u;
+}
+
+static uint8_t turnback_is_active(void)
+{
+    return g_turnback.active;
 }
 
 static uint8_t experiment_host_sync_active(void)
@@ -161,7 +182,7 @@ static void report_experiment_stop(ExperimentTrigger_t trigger, uint32_t duratio
 
 static void transition_start(ExperimentTrigger_t trigger)
 {
-    if (is_running())
+    if (is_running() || turnback_is_active())
         return;
 
     if (experiment_host_sync_active())
@@ -221,9 +242,144 @@ static void transition_stop(ExperimentTrigger_t trigger)
     g_displayDirty = 1u;
 }
 
+static void turnback_reset_state(void)
+{
+    memset(&g_turnback, 0, sizeof(g_turnback));
+}
+
+static uint8_t turnback_line_captured(const LineSensor_Data_t *line)
+{
+    return (line && line->lineDetected) ? 1u : 0u;
+}
+
+static void turnback_report(const char *tag, const LineSensor_Data_t *line)
+{
+    char buf[96];
+    uint8_t bits = line ? line->bits : 0u;
+
+    snprintf(buf, sizeof(buf),
+             "EVT:TURNBACK,%s,deg=%.1f,sb=0x%02X\r\n",
+             tag,
+             (double)g_turnback.rotatedDeg,
+             bits);
+    BspUart_SendString(buf);
+}
+
+static void turnback_finish(const char *tag, const LineSensor_Data_t *line)
+{
+    MotorDriver_Stop();
+    MotorDriver_Disable();
+    turnback_report(tag, line);
+    turnback_reset_state();
+    g_displayDirty = 1u;
+}
+
+static void turnback_abort_silent(void)
+{
+    if (!turnback_is_active())
+        return;
+
+    MotorDriver_Stop();
+    MotorDriver_Disable();
+    turnback_reset_state();
+    g_displayDirty = 1u;
+}
+
+static void turnback_start(void)
+{
+    float yawErr;
+
+    if (is_running())
+    {
+        BspUart_SendString("ERR:TURNBACK=RUNNING\r\n");
+        return;
+    }
+    if (turnback_is_active())
+    {
+        BspUart_SendString("ERR:TURNBACK=BUSY\r\n");
+        return;
+    }
+
+    turnback_reset_state();
+    g_turnback.active = 1u;
+    g_turnback.startTick = g_tickMs;
+    g_turnback.startYaw = g_imu.yaw;
+    g_turnback.prevYaw = g_imu.yaw;
+    g_turnback.targetYaw = g_imu.yaw + TURNBACK_TARGET_DEG;
+    while (g_turnback.targetYaw > 180.0f)
+        g_turnback.targetYaw -= 360.0f;
+    while (g_turnback.targetYaw < -180.0f)
+        g_turnback.targetYaw += 360.0f;
+
+    yawErr = BNO085_GetYawError(g_turnback.targetYaw, g_imu.yaw);
+    g_turnback.spinDir = (yawErr >= 0.0f) ? 1 : -1;
+    g_fastYawRate = 0.0f;
+    MotorDriver_Enable();
+    BspUart_SendString("OK:TURNBACK\r\n");
+    BspUart_SendString("EVT:TURNBACK,START\r\n");
+    g_displayDirty = 1u;
+}
+
+static void run_turnback(uint32_t now)
+{
+    LineSensor_Data_t line;
+    float yawStep;
+    float remainingDeg;
+    int16_t spinPwm;
+
+    if (!turnback_is_active())
+        return;
+
+    LineSensor_Read(&line);
+    yawStep = fabsf(BNO085_GetYawError(g_imu.yaw, g_turnback.prevYaw));
+    if (yawStep > 60.0f)
+        yawStep = 0.0f;
+    g_turnback.rotatedDeg += yawStep;
+    g_turnback.prevYaw = g_imu.yaw;
+
+    if ((now - g_turnback.startTick) >= TURNBACK_TIMEOUT_MS)
+    {
+        turnback_finish("FAIL", &line);
+        return;
+    }
+
+    if (g_turnback.rotatedDeg >= (TURNBACK_TARGET_DEG - TURNBACK_ARM_ERR_DEG))
+        g_turnback.armed = 1u;
+
+    if (g_turnback.rotatedDeg >= (TURNBACK_TARGET_DEG + TURNBACK_OVERSHOOT_DEG))
+    {
+        turnback_finish("OVERSHOOT", &line);
+        return;
+    }
+
+    if (g_turnback.armed && turnback_line_captured(&line))
+    {
+        if (g_turnback.captureTicks < 255u)
+            g_turnback.captureTicks++;
+    }
+    else
+    {
+        g_turnback.captureTicks = 0u;
+    }
+
+    if (g_turnback.armed &&
+        g_turnback.rotatedDeg >= (TURNBACK_TARGET_DEG - TURNBACK_STOP_ERR_DEG) &&
+        g_turnback.captureTicks >= TURNBACK_CAPTURE_TICKS)
+    {
+        turnback_finish("DONE", &line);
+        return;
+    }
+
+    remainingDeg = TURNBACK_TARGET_DEG - g_turnback.rotatedDeg;
+    spinPwm = (remainingDeg > TURNBACK_ARM_ERR_DEG) ? TURNBACK_SPIN_PWM_FAST : TURNBACK_SPIN_PWM_SLOW;
+    MotorDriver_Enable();
+    MotorDriver_SetTurnPWM((int16_t)(spinPwm * g_turnback.spinDir),
+                           (int16_t)(-spinPwm * g_turnback.spinDir));
+}
+
 static void transition_toggle_mode(void)
 {
-    if (is_running())
+    if (is_running() || turnback_is_active())
         return;
 
     if (g_mode == MODE_STRAIGHT)
@@ -243,7 +399,9 @@ static void process_key_event(void)
 
     if (evt == KEY_EVENT_SHORT_PRESS)
     {
-        if (is_running())
+        if (turnback_is_active())
+            turnback_abort_silent();
+        else if (is_running())
             transition_stop(EXP_TRIGGER_KEY);
         else
             transition_start(EXP_TRIGGER_KEY);
@@ -581,8 +739,14 @@ static void handle_command(const char *cmd)
     }
     if (strcmp(cmd, "#STOP!") == 0)
     {
+        turnback_abort_silent();
         transition_stop(EXP_TRIGGER_UART);
         BspUart_SendString("OK:STOP\r\n");
+        return;
+    }
+    if (strcmp(cmd, "#TURNBACK!") == 0)
+    {
+        turnback_start();
         return;
     }
     if (strcmp(cmd, "#EXP?!") == 0)
@@ -621,7 +785,7 @@ static void handle_command(const char *cmd)
     }
     if (strcmp(cmd, "#MODE=STRAIGHT!") == 0)
     {
-        if (!is_running())
+        if (!is_running() && !turnback_is_active())
         {
             set_mode(MODE_STRAIGHT);
             BspUart_SendString("OK:MODE=STRAIGHT\r\n");
@@ -630,7 +794,7 @@ static void handle_command(const char *cmd)
     }
     if (strcmp(cmd, "#MODE=TRACK!") == 0)
     {
-        if (!is_running())
+        if (!is_running() && !turnback_is_active())
         {
             set_mode(MODE_TRACK);
             BspUart_SendString("OK:MODE=TRACK\r\n");
@@ -639,7 +803,7 @@ static void handle_command(const char *cmd)
     }
     if (strcmp(cmd, "#MODE=SPIN!") == 0)
     {
-        if (!is_running())
+        if (!is_running() && !turnback_is_active())
         {
             set_mode(MODE_SPIN);
             BspUart_SendString("OK:MODE=SPIN\r\n");
@@ -829,6 +993,14 @@ static void run_control(uint32_t now)
         g_encoder.filteredRightSpeed = ENC_SPEED_LPF_ALPHA * nr + (1.0f - ENC_SPEED_LPF_ALPHA) * g_encoder.filteredRightSpeed;
     }
 
+    if (turnback_is_active())
+    {
+        run_turnback(now);
+        g_pid.leftPWM = MotorDriver_GetActualL();
+        g_pid.rightPWM = MotorDriver_GetActualR();
+        return;
+    }
+
     if (!is_running())
         return;
 
@@ -902,10 +1074,17 @@ static void run_imu_update(void)
 
 static void send_telemetry(void)
 {
-    uint32_t t = g_tickMs - g_runStartTick;
+    uint32_t t = turnback_is_active() ? (g_tickMs - g_turnback.startTick) : (g_tickMs - g_runStartTick);
     uint8_t run = is_running();
 
-    if (g_sysState == SYS_TRACKING)
+    if (turnback_is_active())
+    {
+        BspUart_SendTelemetrySpin(t, g_experimentId, 0u,
+                                  g_encoder.leftSpeed, g_encoder.rightSpeed,
+                                  g_imu.yaw, g_fastYawRate,
+                                  g_pid.leftPWM, g_pid.rightPWM);
+    }
+    else if (g_sysState == SYS_TRACKING)
     {
         BspUart_SendTelemetryTrack(t, g_experimentId, run,
                                    g_encoder.leftSpeed, g_encoder.rightSpeed,
@@ -941,7 +1120,7 @@ static void send_telemetry(void)
 
 static void update_display(uint32_t now)
 {
-    if (is_running())
+    if (is_running() || turnback_is_active())
         return;
 
     if (!g_displayDirty && (now - g_lastDisplayTick) < 200u)

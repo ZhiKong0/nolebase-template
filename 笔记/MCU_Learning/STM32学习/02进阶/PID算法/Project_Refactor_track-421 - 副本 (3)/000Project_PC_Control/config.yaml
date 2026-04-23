@@ -100,7 +100,7 @@ autotune:
       lkp_bounds: [12.0, 28.0]
       lkd_bounds: [4.0, 16.0]
   track_adaptive:
-    duration_s: 5.0
+    duration_s: 4.0
     settle_skip_s: 0.8
     repeats: 1
     confirm_best_repeats: 2
@@ -111,6 +111,10 @@ autotune:
       max_search_streak: 24
       max_stall_streak: 16
       stall_speed_threshold: 12.0
+    turnaround:
+      enabled: true
+      timeout_s: 5.5
+      settle_s: 0.20
     params:
       lkp:
         key: track.lkp
