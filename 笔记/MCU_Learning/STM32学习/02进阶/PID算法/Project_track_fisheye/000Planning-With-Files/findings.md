@@ -255,3 +255,25 @@
 - `TRACK_FOLLOW_DEV_RATIO: 0.58 -> 0.62`
 - `TRACK_FOLLOW_DEV_STEP_LIMIT: 34 -> 40`
 - 搜索确认、找线方向、搜索退出逻辑全部保持不变，避免把 `exp284/285` 的问题重新带回来
+
+## 2026-04-24 exp289 抓线力仍偏弱
+
+### 关键证据
+- [`exp_0289_20260424_073012_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0289_20260424_073012_KEY_T.txt) 里，普通 `SCRV` 区间 `sb=12/48`、`lp≈56` 时输出差速大约 `16~18`，这部分仍属可接受。
+- 真正的问题在 `EDGE/TRMR`：多处出现 `sb=192`、`lp≈185~191`、`bd=4`，但输出只有类似 `OL=290, OR=226` 到 `OL=310, OR=246`，等价单边差速约 `32`。
+- 结合当前公式：
+  - `error = (linePos - deadband) / errorScale`
+  - `output = kp * error + kd * d`
+  在 `linePos≈191` 时，即使 `dev_ratio` 还没打满，`PD` 本体输出也只在三十多，说明当前主限制点就是 `kp / deadband / errorScale` 这一组，而不是搜索链或差速上限。
+
+### 判断
+- `exp289` 里的“抓线力不够”已经不是“找线太慢”的问题，而是单链主循迹在大偏差时的输出强度仍偏保守。
+- 由于 `exp284/285` 刚修好误入搜索，因此这轮继续遵守边界：只强化单链主 `PD`，不去改搜索确认、搜索方向、搜索退出。
+
+### 本轮修正
+- `PID_TRACK_LINE_KP: 12.6 -> 13.8`
+- `TRACK_FOLLOW_DEADBAND: 8.0 -> 6.0`
+- `TRACK_FOLLOW_ERROR_SCALE: 72.0 -> 64.0`
+- `TRACK_FOLLOW_DEV_RATIO: 0.62 -> 0.64`
+- `TRACK_FOLLOW_DEV_STEP_LIMIT: 40 -> 44`
+- 搜索链相关参数保持不变
