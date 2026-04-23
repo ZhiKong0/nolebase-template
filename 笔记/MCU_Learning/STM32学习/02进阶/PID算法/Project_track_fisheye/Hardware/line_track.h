@@ -23,11 +23,6 @@
 #define LT_TRACK_SEARCH_RIGHT  2u
 #define LT_TRACK_CROSS         3u
 
-#define LT_DIRECT_NONE         0u
-#define LT_DIRECT_CENTER       1u
-#define LT_DIRECT_INNER        2u
-#define LT_DIRECT_EDGE         3u
-
 /* ========== 找线阶段 ========== */
 #define LT_SEARCH_PHASE_ARC    0u
 #define LT_SEARCH_PHASE_PIVOT  1u
@@ -37,28 +32,39 @@
 #define LT_CROSS_SEEN      2u
 
 /* ========== 8 路位定义 ========== */
-#define LT_BIT_S1          (1u << 0)
-#define LT_BIT_S2          (1u << 1)
-#define LT_BIT_S3          (1u << 2)
-#define LT_BIT_S4          (1u << 3)
-#define LT_BIT_S5          (1u << 4)
-#define LT_BIT_S6          (1u << 5)
-#define LT_BIT_S7          (1u << 6)
-#define LT_BIT_S8          (1u << 7)
+#define LT_BIT_LEFT_OUTER_A  (1u << 0)
+#define LT_BIT_LEFT_OUTER_B  (1u << 1)
+#define LT_BIT_LEFT_INNER    (1u << 2)
+#define LT_BIT_CENTER_LEFT   (1u << 3)
+#define LT_BIT_CENTER_RIGHT  (1u << 4)
+#define LT_BIT_RIGHT_INNER   (1u << 5)
+#define LT_BIT_RIGHT_OUTER_A (1u << 6)
+#define LT_BIT_RIGHT_OUTER_B (1u << 7)
 
-#define LT_MASK_LEFT_OUTER   (LT_BIT_S1 | LT_BIT_S2)
-#define LT_MASK_LEFT_INNER   LT_BIT_S3
-#define LT_MASK_CENTER       (LT_BIT_S4 | LT_BIT_S5)
-#define LT_MASK_RIGHT_INNER  LT_BIT_S6
-#define LT_MASK_RIGHT_OUTER  (LT_BIT_S7 | LT_BIT_S8)
+#define LT_BIT_S1            LT_BIT_LEFT_OUTER_A
+#define LT_BIT_S2            LT_BIT_LEFT_OUTER_B
+#define LT_BIT_S3            LT_BIT_LEFT_INNER
+#define LT_BIT_S4            LT_BIT_CENTER_LEFT
+#define LT_BIT_S5            LT_BIT_CENTER_RIGHT
+#define LT_BIT_S6            LT_BIT_RIGHT_INNER
+#define LT_BIT_S7            LT_BIT_RIGHT_OUTER_A
+#define LT_BIT_S8            LT_BIT_RIGHT_OUTER_B
+
+#define LT_MASK_LEFT_OUTER   (LT_BIT_LEFT_OUTER_A | LT_BIT_LEFT_OUTER_B)
+#define LT_MASK_LEFT_INNER   LT_BIT_LEFT_INNER
+#define LT_MASK_CENTER       (LT_BIT_CENTER_LEFT | LT_BIT_CENTER_RIGHT)
+#define LT_MASK_RIGHT_INNER  LT_BIT_RIGHT_INNER
+#define LT_MASK_RIGHT_OUTER  (LT_BIT_RIGHT_OUTER_A | LT_BIT_RIGHT_OUTER_B)
 #define LT_MASK_LEFT_ZONE    (LT_MASK_LEFT_OUTER | LT_MASK_LEFT_INNER)
 #define LT_MASK_RIGHT_ZONE   (LT_MASK_RIGHT_INNER | LT_MASK_RIGHT_OUTER)
+#define LT_MASK_INNER_GUIDE  (LT_BIT_LEFT_INNER | LT_BIT_RIGHT_INNER)
+#define LT_MASK_CENTER_BAND  (LT_BIT_LEFT_INNER | LT_BIT_CENTER_LEFT | LT_BIT_CENTER_RIGHT | LT_BIT_RIGHT_INNER)
 
 /* ========== 遥测状态 ========== */
 #define LT_TLM_STATE_TRACK        0u
 #define LT_TLM_STATE_STRAIGHT     1u
 #define LT_TLM_STATE_SCURVE       2u
-#define LT_TLM_STATE_CORNER       3u
+#define LT_TLM_STATE_EDGE         3u
 #define LT_TLM_STATE_SEARCH_LEFT  4u
 #define LT_TLM_STATE_SEARCH_RIGHT 5u
 #define LT_TLM_STATE_TRIM_LEFT    6u
@@ -73,26 +79,19 @@
 #define LT_TLM_FLAG_CROSS         0x0020u
 #define LT_TLM_FLAG_EDGE          0x0040u
 #define LT_TLM_FLAG_LOST          0x0080u
-#define LT_TLM_FLAG_DIRECT        0x0100u
 #define LT_TLM_FLAG_PIVOT         0x0200u
 
 typedef struct
 {
     float    sensorScale[LINE_SENSOR_COUNT];
-    float    centerKpScale;
-    float    midKpScale;
-    float    edgeKpScale;
-    float    centerDevRatio;
-    float    midDevRatio;
-    float    edgeDevRatio;
-    int16_t  recenterDecayStep;
-    int16_t  staticSteerBias;
-    float    centerDeadband;
+    float    devRatio;
+    float    deadband;
+    float    errorScale;
     float    posFilterAlpha;
     float    dFilterAlpha;
-    float    yawDampGain;
-    float    offcenterBoost;
-    uint8_t  centerSingleHoldTicks;
+    int16_t  baseMinPwm;
+    int16_t  staticSteerBias;
+    int16_t  devStepLimit;
     uint8_t  recoverTicks;
     uint16_t searchArcPwmFast;
     uint16_t searchArcPwmSlow;
@@ -111,14 +110,12 @@ typedef struct
     uint8_t  lastData;
 
     int8_t   bearingDev;
-    int8_t   lastBearingDev;
     int16_t  linePos;
     int16_t  lastValidLinePos;
     int16_t  devSpeed;
     int16_t  lastDevSpeedCmd;
 
     float    filteredTrackError;
-    float    targetTrackError;
     float    lastFilteredTrackError;
     float    filteredDTerm;
     float    smoothedLinePos;
@@ -132,20 +129,15 @@ typedef struct
     uint8_t  lastTurnDir;
     uint8_t  searchDir;
     uint8_t  searchPhase;
-    uint8_t  centerHoldDir;
-    uint8_t  centerHoldTicks;
     uint8_t  cornerDone;
     uint16_t searchTicks;
-    uint8_t  searchExitCount;
 
     float    kp;
     float    kd;
     float    activeKp;
     float    activeKd;
-    float    activeDevRatio;
 
     uint8_t  gainStage;
-    uint8_t  directMode;
     uint8_t  recoverDir;
     uint8_t  recoverTicks;
 

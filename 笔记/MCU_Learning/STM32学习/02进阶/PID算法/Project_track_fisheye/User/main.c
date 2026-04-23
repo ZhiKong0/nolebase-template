@@ -852,19 +852,11 @@ static void handle_command(const char *cmd)
     {
         return;
     }
-    if (handle_track_short_param_command(cmd, "#CSR", "track.center_dev_ratio")) return;
-    if (handle_track_short_param_command(cmd, "#CSM", "track.center_kp_scale")) return;
-    if (handle_track_short_param_command(cmd, "#CMR", "track.mid_dev_ratio")) return;
-    if (handle_track_short_param_command(cmd, "#CMM", "track.mid_kp_scale")) return;
-    if (handle_track_short_param_command(cmd, "#EDR", "track.edge_dev_ratio")) return;
-    if (handle_track_short_param_command(cmd, "#EDM", "track.edge_kp_scale")) return;
-    if (handle_track_short_param_command(cmd, "#RCD", "track.recenter_decay")) return;
+    if (handle_track_short_param_command(cmd, "#TDR", "track.dev_ratio")) return;
     if (handle_track_short_param_command(cmd, "#STB", "track.static_bias")) return;
-    if (handle_track_short_param_command(cmd, "#CDB", "track.center_deadband")) return;
+    if (handle_track_short_param_command(cmd, "#TDB", "track.deadband")) return;
     if (handle_track_short_param_command(cmd, "#PLF", "track.pos_lpf")) return;
     if (handle_track_short_param_command(cmd, "#DLF", "track.d_lpf")) return;
-    if (handle_track_short_param_command(cmd, "#OCB", "track.offcenter_boost")) return;
-    if (handle_track_short_param_command(cmd, "#CHT", "track.center_hold_ticks")) return;
     if (handle_track_short_param_command(cmd, "#RCT", "track.recover_ticks")) return;
     if (handle_track_short_param_command(cmd, "#STF", "track.search_turn_fast")) return;
     if (handle_track_short_param_command(cmd, "#STS", "track.search_turn_slow")) return;

@@ -155,81 +155,78 @@ typedef enum
 #define HEADING_INTEGRAL_ATTEN      0.3f
 
 /* ========== TRACK 模式默认参数 ========== */
-#define PID_TRACK_SPEED_TARGET      42.0f
+/* 调参建议（单主链 PD）
+  1) 先降速度：先调 PID_TRACK_SPEED_TARGET，再谈循迹 PD。
+     速度过高时，就算方向正确，也会因机械滞后和采样延迟出现左右摆。
+  2) 先定 P，再补 D：先让 PID_TRACK_LINE_KP 达到“能快速回线”，
+     再用 PID_TRACK_LINE_KD 压制过冲和左右来回摆动。
+  3) 先调主链，再调辅参：优先顺序是 KP -> KD -> DEV_RATIO -> DEADBAND。 */
+/* 速度环：影响基础推进力。
+   如果速度目标太高，或者速度环太冲，小车会在循迹环还没来得及稳定前不断左右修正。
+   对“轻微蛇形、越跑越晃”最有效的第一刀通常是先降速度目标。 */
+#define PID_TRACK_SPEED_TARGET      40.0f
 #define PID_TRACK_SPEED_KP          1.50f
 #define PID_TRACK_SPEED_KI          0.10f
 #define PID_TRACK_SPEED_KD          0.0f
 
-/* 5 路模板风格: bearing_dev 进入 PD, 输出左右轮差速 */
-#define PID_TRACK_LINE_KP           10.3f
+/* 主循迹 PD：主链只保留单一位置误差与统一 KP/KD。
+   PID_TRACK_LINE_KP：主纠偏力度。
+     - 调大：回线更猛，但也更容易左右摆。
+     - 调小：更稳，但弯道和大偏差回中会变慢。
+   PID_TRACK_LINE_KD：主阻尼。
+     - 调大：抑制回中过冲与左右抽动。
+     - 过大：会让车变钝，出现看见偏差但修正迟疑。 */
+#define PID_TRACK_LINE_KP           9.8f
 #define PID_TRACK_LINE_KD           6.8f
 
-/* 连续单误差 PD:
-   8 路灯先映射到一条严格单调的梯度序列
-   S1 -> S1S2 -> S2 -> S2S3 -> ... -> S4S5 -> ... -> S7S8 -> S8
-   再进入单一 PD 主链，避免离开 S4/S5 时出现约束力突变。 */
-#define TRACK_DYNAMIC_PID_ENABLE    1
-
-#define TRACK_CENTER_KP_SCALE       0.70f
-#define TRACK_CENTER_KD_SCALE       0.75f
-#define TRACK_CENTER_DEV_RATIO      0.32f
-
-#define TRACK_MID_KP_SCALE          1.00f
-#define TRACK_MID_KD_SCALE          0.85f
-#define TRACK_MID_DEV_RATIO         0.60f
-
-#define TRACK_EDGE_KP_SCALE         1.00f
-#define TRACK_EDGE_KD_SCALE         0.75f
-#define TRACK_EDGE_DEV_RATIO        0.68f
-
+/* 传感器位置映射：把 8 路灯映射到一条连续位置轴。
+   TRACK_LINE_POS_STEP / TRACK_SENSOR_POS_TRIM_RANGE 主要影响“位置误差”的细腻程度。
+   如果位置映射过陡，会让相邻灯切换时控制量变化偏大，更容易抖。 */
 #define TRACK_LINE_POS_STEP         45
-#define TRACK_SENSOR_POS_TRIM_RANGE 60.0f
+#define TRACK_SENSOR_POS_TRIM_RANGE 40.0f
 
-#define TRACK_LINE_POS_S1           (-315)
-#define TRACK_LINE_POS_S2           (-225)
-#define TRACK_LINE_POS_S3           (-135)
+#define TRACK_LINE_POS_S1           (-225)
+#define TRACK_LINE_POS_S2           (-135)
+#define TRACK_LINE_POS_S3           (-90)
 #define TRACK_LINE_POS_S4           (-45)
 #define TRACK_LINE_POS_S5           45
-#define TRACK_LINE_POS_S6           135
-#define TRACK_LINE_POS_S7           225
-#define TRACK_LINE_POS_S8           315
+#define TRACK_LINE_POS_S6           90
+#define TRACK_LINE_POS_S7           135
+#define TRACK_LINE_POS_S8           225
 
-#define TRACK_LINE_POS_CENTER_MAX   22
-#define TRACK_LINE_POS_SMALL_MAX    155
-#define TRACK_LINE_POS_MEDIUM_MAX   245
-#define TRACK_LINE_POS_LARGE_MAX    330
-#define TRACK_CENTER_SINGLE_HOLD_TICKS 2
-#define TRACK_CENTER_KP_SCALE_DEFAULT   0.58f
-#define TRACK_MID_KP_SCALE_DEFAULT      0.92f
-#define TRACK_EDGE_KP_SCALE_DEFAULT     1.12f
-#define TRACK_CENTER_DEV_RATIO_DEFAULT  0.28f
-#define TRACK_MID_DEV_RATIO_DEFAULT     0.48f
-#define TRACK_EDGE_DEV_RATIO_DEFAULT    0.60f
-#define TRACK_RECENTER_DECAY_STEP       14
-#define TRACK_STATIC_STEER_BIAS         8
+/* 分区阈值：决定当前位置误差落在哪个区间。
+   这些阈值只用于状态判断、找线与遥测分级，不再用于分段增益调度。 */
+#define TRACK_LINE_POS_CENTER_MAX   18
+#define TRACK_LINE_POS_SMALL_MAX    95
+#define TRACK_LINE_POS_MEDIUM_MAX   150
+#define TRACK_LINE_POS_LARGE_MAX    235
 
-/* TRACK 内环改为“连续位置误差 + 滤波导数”。
-   bearing_dev 仍保留给状态判定和遥测，但差速输出不再直接吃离散跳变。 */
-#define TRACK_CTRL_CENTER_DEADBAND    16.0f
-#define TRACK_CTRL_CENTER_SLOPE_RATIO 0.60f
-#define TRACK_CTRL_ERROR_SCALE        90.0f
-#define TRACK_CTRL_POS_FILTER_ALPHA   0.64f
-#define TRACK_CTRL_D_FILTER_ALPHA     0.40f
-#define TRACK_CTRL_YAW_DAMP_GAIN      0.70f
-#define TRACK_CTRL_DEV_STEP_LIMIT     26
-#define TRACK_CTRL_OFFCENTER_BOOST    1.12f
+/* 单主链控制参数：
+   TRACK_FOLLOW_DEADBAND：中心死区，小偏差直接视为 0。
+   TRACK_FOLLOW_ERROR_SCALE：位置误差缩放，决定 linePos 到控制量的换算尺度。
+   TRACK_FOLLOW_POS_LPF_ALPHA：位置低通。
+   TRACK_FOLLOW_D_LPF_ALPHA：导数低通。
+   TRACK_FOLLOW_DEV_RATIO：差速输出占基础 PWM 的最大比例。
+   TRACK_FOLLOW_DEV_STEP_LIMIT：每周期差速变化限幅。
+   TRACK_FOLLOW_BASE_MIN_PWM：大偏差时基础速度下压到的最小 PWM。 */
+#define TRACK_FOLLOW_DEADBAND        8.0f
+#define TRACK_FOLLOW_ERROR_SCALE     80.0f
+#define TRACK_FOLLOW_POS_LPF_ALPHA   0.60f
+#define TRACK_FOLLOW_D_LPF_ALPHA     0.38f
+#define TRACK_FOLLOW_DEV_RATIO       0.52f
+#define TRACK_FOLLOW_DEV_STEP_LIMIT  28
+#define TRACK_FOLLOW_BASE_MIN_PWM    220
+#define TRACK_STATIC_STEER_BIAS         0
 
-#define TRACK_DEV_MAX_RATIO         0.62f
+/* 输出限制：限制左右轮差速与 PWM 上下限。
+   单主链中左右轮都保持正向，差速通过 TRACK_FOLLOW_DEV_RATIO 限制。 */
 #define TRACK_PWM_MAX               480
 #define TRACK_PWM_MIN               0
-#define TRACK_EDGE_BASE_PWM_MAX     260
 #define TRACK_EDGE_BEARING_MIN      4
 
 #define TRACK_LOST_CONFIRM_TICKS    3
-#define TRACK_LOST_STRAIGHT_CONFIRM_TICKS 5
 #define TRACK_LOST_FAST_CONFIRM_TICKS 2
 #define TRACK_SEARCH_BLIND_TICKS    1
-#define TRACK_SEARCH_EXIT_CONFIRM_TICKS 2
 #define TRACK_SEARCH_ARC_TICKS      3
 #define TRACK_SEARCH_TIMEOUT_TICKS  18
 #define TRACK_SEARCH_ARC_PWM_FAST   220
@@ -237,7 +234,7 @@ typedef enum
 #define TRACK_SEARCH_TURN_PWM_FAST  240
 #define TRACK_SEARCH_TURN_PWM_SLOW  150
 #define TRACK_RECOVER_TICKS         8
-#define TRACK_RESUME_SPEED_MAX      38.0f
+#define TRACK_RESUME_SPEED_MAX      40.0f
 
 #define TRACK_DEFAULT_CROSSINGS     4
 #define TRACK_CROSS_MIN_ACTIVE      5

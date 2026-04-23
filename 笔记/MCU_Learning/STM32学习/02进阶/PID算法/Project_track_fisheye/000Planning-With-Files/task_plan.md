@@ -1,42 +1,61 @@
-# Task Plan: 全局关闭 IMU 初始化
+# Task Plan: 重构为单链循迹 PID
 
 ## Goal
-把 `IMU` 在当前工程里彻底关掉，确保上电不初始化、主循环不更新、OLED 不再显示 IMU 初始化页，同时不破坏直线、循迹和基础串口状态页。
+把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并同步清理旧参数接口与调参脚本中的分层参数面。
 
 ## Current Phase
-Phase 4
+Phase 5
 
 ## Phases
 
-### Phase 1: 定位 IMU 入口
-- [x] 确认 `BNO085_Init()`、`run_imu_update()`、`BNO085_ResetAttitude()`、`#IMU?!` 的调用链
-- [x] 确认 `OLED` 仍会在 `!BNO085_IsReady()` 时显示 IMU 诊断
+### Phase 1: 锁定参考实现与重构边界
+- [x] 对照 `Project_track_infrared` 的单链实现
+- [x] 读取当前 `fisheye` 的 `config.h / line_track.h / line_track.c / main.c`
+- [x] 确认需要保留的兼容面：`LineTrack_*` 接口、主循环框架、串口遥测
 - **Status:** complete
 
-### Phase 2: 实现统一关停开关
-- [x] 在 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 增加 `IMU_ENABLE`
-- [x] 在 [`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c) 为 `BNO085_*` 提供禁用分支
-- [x] 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 切断启动初始化、周期更新和 IMU 显示入口
+### Phase 2: 重构 TRACK 主链
+- [x] 将 `line_track` 收敛为单一 `linePos -> PD -> devSpeed`
+- [x] 删除中心/中间/边缘分层增益与差速梯度
+- [x] 保留独立找线/交叉状态机，不把它们混进主控制律
 - **Status:** complete
 
-### Phase 3: 编译、烧录、串口验证
-- [x] 编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
-- [x] 通过 `pyOCD` 完成 `erase -> load -> reset`
-- [x] 串口验证 `#IMU?!` 和 `#STAT!`
+### Phase 3: 清理参数面与命令口
+- [x] 清理旧的 `center/mid/edge` 相关宏
+- [x] 清理旧的短命令口 `#CSR/#CSM/#CMR/#CMM/#EDR/#EDM/#RCD/#CDB/#OCB/#CHT`
+- [x] 保留并统一为 `#TDR/#STB/#TDB/#PLF/#DLF/#RCT/#STF/#STS/#STO`
 - **Status:** complete
 
-### Phase 4: 记录结果并收口
+### Phase 4: 编译验证
+- [x] 编译 `project.uvprojx`
+- [x] 检查 `bsp_uart` 遥测状态字符串与新状态枚举兼容
+- [x] 确认工程 `0 Error(s), 0 Warning(s)`
+- **Status:** complete
+
+### Phase 5: 文档收口
 - [x] 更新 `task_plan.md`
 - [x] 更新 `findings.md`
 - [x] 更新 `progress.md`
 - **Status:** complete
 
 ## Decisions Made
-- 本轮采用编译期开关 `IMU_ENABLE=0`，而不是继续修 `BNO085` 初始化链。
-- 禁用后保留 `BNO085_*` 接口桩，避免主循环和命令路径大量改签名。
-- 烧录阶段继续使用 `pyOCD`，但对当前 `Horco CMSIS-DAP` 需要加 `PYOCD_CMSIS_DAP_LIMIT_PACKETS=1` 才稳定。
+- 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。
+- `TRACK` 主控制只保留一套运行时参数：
+  - `sensorScale[8]`
+  - `lkp / lkd`
+  - `dev_ratio`
+  - `deadband`
+  - `pos_lpf / d_lpf`
+  - `static_bias`
+  - `recover_ticks`
+  - `search_turn_fast / search_turn_slow / search_timeout`
+- 为减少联动面，遥测里暂时保留 `dbgScoreEnabled` 字段，但其语义已简化为“搜索/丢线/交叉是否计分”。
 
 ## Hot Files
 - `Hardware/config.h`
-- `Hardware/sensor_fusion.c`
+- `Hardware/line_track.h`
+- `Hardware/line_track.c`
 - `User/main.c`
+- `Hardware/bsp_uart.c`
+- `000Project_PC_Control/config.yaml`
+- `000Project_PC_Control/track_adaptive_tuner.py`

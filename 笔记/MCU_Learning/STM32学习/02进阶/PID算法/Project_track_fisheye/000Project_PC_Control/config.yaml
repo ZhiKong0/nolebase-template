@@ -1,0 +1,253 @@
+serial:
+  port: COM18
+  baudrate: 115200
+  timeout_s: 0.05
+  read_chunk_size: 512
+  mode: STRAIGHT
+  duration_s: 35.0
+  start_after_config: true
+  start_command: "#RUN!"
+  stop_command: "#STOP!"
+telemetry:
+  protocol: TEXT
+robot:
+  wheel_diameter_m: 0.065
+  track_width_m: 0.145
+  encoder_counts_per_rev: 390.0
+  left_count_sign: 1.0
+  right_count_sign: 1.0
+  initial_pose: [0.0, 0.0, 0.0]
+  max_dt_s: 1.0
+line_sensor:
+  enabled: true
+  positions_m: [-0.035, -0.025, -0.015, -0.005, 0.005, 0.015, 0.025, 0.035]
+  min_active_count: 1
+  variance_m2: 0.0004
+reference_path:
+  enabled: false
+  type: line
+  heading_deg: 0.0
+  offset_m: 0.0
+  csv_path: ""
+ekf:
+  process_noise:
+    position_m2: 0.0004
+    heading_rad2: 0.0008
+    speed_mps2: 0.04
+    omega_radps2: 0.08
+    gyro_bias_radps2: 0.0005
+  encoder_variance:
+    linear_mps2: 0.015
+    omega_radps2: 0.03
+  yaw_variance_rad2: 0.0015
+  gyro_variance_radps2: 0.01
+  slip_threshold_radps: 0.9
+  slip_encoder_variance_scale: 5.0
+optimization:
+  enabled: false
+  trigger_interval_s: 0.5
+  window_size: 40
+  max_nfev: 40
+  motion_weight: 1.0
+  yaw_weight: 1.0
+  gyro_weight: 1.0
+  speed_weight: 0.5
+  line_weight: 0.5
+analysis:
+  motion_threshold_mps: 0.05
+  yaw_jump_threshold_deg: 20.0
+  pwm_bias_threshold: 5.0
+output:
+  root_dir: "000Data/trajectory_reconstruction"
+  csv_name_prefix: "trajectory"
+  save_raw_bin: true
+  save_summary_json: true
+  save_plot_png: true
+  live_plot: true
+commands:
+  straight:
+    target_speed: 10.0
+    speed_pid: [1.50, 0.10, 0.0]
+    angle_pid: [6.00, 0.060, 3.20]
+    feedforward_gain: 8.7
+  track:
+    target_speed: 25.0
+    speed_pid: [1.50, 0.10, 0.0]
+    line_pid: [9.5, 6.8]
+    feedforward_gain: 8.7
+autotune:
+  track:
+    strategy: staged
+    duration_s: 6.0
+    settle_skip_s: 0.8
+    repeats: 1
+    confirm_best_repeats: 2
+    early_stop:
+      enabled: true
+      min_runtime_s: 1.2
+      max_loss_streak: 18
+      max_search_streak: 24
+      max_stall_streak: 16
+      stall_speed_threshold: 12.0
+    spd_candidates: [26.0, 28.0, 30.0]
+    lkp_candidates: [16.0, 20.0, 24.0]
+    lkd_candidates: [6.0, 10.0, 14.0]
+    staged:
+      spd_steps: [4.0, 2.0, 1.0]
+      lkp_steps: [6.0, 3.0, 1.5]
+      lkd_steps: [4.0, 2.0, 1.0]
+      spd_bounds: [24.0, 34.0]
+      lkp_bounds: [12.0, 28.0]
+      lkd_bounds: [4.0, 16.0]
+  track_adaptive:
+    duration_s: 7.0
+    speed_target: 40.0
+    settle_skip_s: 1.0
+    repeats: 1
+    confirm_best_repeats: 2
+    phases:
+      - name: fit
+        params: [sensor_scale3, sensor_scale4, sensor_scale5, sensor_scale6, deadband, pos_lpf, d_lpf]
+        repeats: 1
+        confirm_best_repeats: 1
+        min_improve: 0.4
+      - name: pid
+        params: [lkp, lkd, dev_ratio, deadband, pos_lpf, d_lpf]
+        repeats: 2
+        confirm_best_repeats: 2
+        min_improve: 0.8
+    score:
+      weights:
+        mean_forward_speed: 0.18
+        center_band_ratio: 28.0
+        exact_center_ratio: 18.0
+        center_core_ratio: 140.0
+        center_single_ratio: -28.0
+        straight_ratio: 0.0
+        scurve_ratio: 30.0
+        outer_ratio: -160.0
+        corner_ratio: -185.0
+        search_ratio: -220.0
+        trim_ratio: -120.0
+        loss_ratio: -120.0
+        mean_abs_lp: -0.15
+        mean_abs_lp_delta: -0.35
+        center_mean_abs_lp: -1.10
+        center_mean_abs_lp_delta: -3.20
+        lp_flip_rate_hz: -10.0
+        center_flip_rate_hz: -58.0
+        scurve_center_band_ratio: 95.0
+        scurve_center_core_ratio: 210.0
+        scurve_outer_ratio: -220.0
+        scurve_mean_abs_lp: -1.40
+        scurve_mean_abs_lp_delta: -4.50
+        scurve_flip_rate_hz: -82.0
+    early_stop:
+      enabled: true
+      min_runtime_s: 2.5
+      max_loss_streak: 24
+      max_search_streak: 45
+      max_stall_streak: 24
+      stall_speed_threshold: 12.0
+    turnaround:
+      enabled: false
+      timeout_s: 5.5
+      settle_s: 0.20
+      retries: 1
+    params:
+      sensor_scale1:
+        key: track.sensor_scale1
+        start: 1.00
+        bounds: [0.96, 1.04]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale2:
+        key: track.sensor_scale2
+        start: 1.00
+        bounds: [0.94, 1.06]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale3:
+        key: track.sensor_scale3
+        start: 1.00
+        bounds: [0.94, 1.06]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale4:
+        key: track.sensor_scale4
+        start: 0.98
+        bounds: [0.94, 1.02]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale5:
+        key: track.sensor_scale5
+        start: 0.98
+        bounds: [0.94, 1.02]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale6:
+        key: track.sensor_scale6
+        start: 1.00
+        bounds: [0.94, 1.06]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale7:
+        key: track.sensor_scale7
+        start: 1.00
+        bounds: [0.94, 1.06]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale8:
+        key: track.sensor_scale8
+        start: 1.00
+        bounds: [0.96, 1.04]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      speed_target:
+        key: track.speed_target
+        start: 40.0
+        bounds: [36.0, 44.0]
+        steps: [2.0, 1.0, 0.0]
+        digits: 2
+      lkp:
+        key: track.lkp
+        start: 11.0
+        bounds: [9.5, 14.0]
+        steps: [0.8, 0.4, 0.0]
+        digits: 3
+      lkd:
+        key: track.lkd
+        start: 6.8
+        bounds: [6.0, 10.0]
+        steps: [0.6, 0.3, 0.0]
+        digits: 3
+      dev_ratio:
+        key: track.dev_ratio
+        start: 0.28
+        bounds: [0.20, 0.40]
+        steps: [0.04, 0.02, 0.0]
+        digits: 3
+      static_bias:
+        key: track.static_bias
+        start: 0.0
+        bounds: [-12.0, 12.0]
+        steps: [2.0, 1.0, 0.0]
+        digits: 1
+      deadband:
+        key: track.deadband
+        start: 8.0
+        bounds: [4.0, 12.0]
+        steps: [2.0, 1.0, 0.0]
+        digits: 1
+      pos_lpf:
+        key: track.pos_lpf
+        start: 0.60
+        bounds: [0.45, 0.70]
+        steps: [0.04, 0.02, 0.0]
+        digits: 3
+      d_lpf:
+        key: track.d_lpf
+        start: 0.38
+        bounds: [0.26, 0.46]
+        steps: [0.02, 0.01, 0.0]
+        digits: 3
