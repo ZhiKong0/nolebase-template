@@ -255,3 +255,35 @@
     - `erase --chip`
     - `load project.hex`
     - `reset`
+
+## Session: 2026-04-24 exp287 主循迹力度增强
+
+### Phase 22: exp287 日志复核
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0287_20260424_072003_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0287_20260424_072003_KEY_T.txt)
+  - 确认普通 `SCRV` 区间 `lp≈55、bd=±1` 时表现正常
+  - 确认真正“跟线不积极”的区间是 `EDGE`：`lp≈191、bd=±4` 时输出差速仍偏小
+  - 判断这轮应优先增强单链主循环，不动刚修稳的搜索方向逻辑
+
+### Phase 23: 主链参数强化
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 调整：
+    - `PID_TRACK_LINE_KP = 12.6`
+    - `TRACK_FOLLOW_ERROR_SCALE = 72.0`
+    - `TRACK_FOLLOW_DEV_RATIO = 0.62`
+    - `TRACK_FOLLOW_DEV_STEP_LIMIT = 40`
+  - 保持 `TRACK_LOST_CONFIRM_TICKS / FAST_CONFIRM_TICKS / SEARCH_* / RECOVER_*` 不变，避免重新引入 `exp284/285` 的误入搜索问题
+
+### Phase 24: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 使用 `pyOCD` 顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`

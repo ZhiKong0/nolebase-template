@@ -231,3 +231,27 @@
     - 中心/内侧/交叉：立即退出
     - 任一外侧稳定两拍：允许退出
   - 这样既不会回到“一闪就退”，也不会因为方向判错而在错误方向上锁死搜索
+
+## 2026-04-24 exp287 跟线不积极
+
+### 关键证据
+- [`exp_0287_20260424_072003_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0287_20260424_072003_KEY_T.txt) 的普通 `SCRV` 区间里，`sb=12/48`、`lp≈55`、`bd=±1` 时输出差速约 `14`，这部分并不异常，说明中心附近小偏差主链没有完全失效。
+- 真正偏软的是 `EDGE` 区间：日志中多次出现 `sb=3/192`、`lp≈191`、`bd=±4`，但输出只有类似 `OL=245, OR=297` 或 `OL=297, OR=245`，差速仍偏小，导致车在大偏差时回中不够积极。
+- 当前参数组为：
+  - `PID_TRACK_LINE_KP = 11.4`
+  - `TRACK_FOLLOW_ERROR_SCALE = 80.0`
+  - `TRACK_FOLLOW_DEV_RATIO = 0.58`
+  - `TRACK_FOLLOW_DEV_STEP_LIMIT = 34`
+  这一组叠在一起，会把单链 `PD` 的回中力度压得偏保守。
+
+### 判断
+- 这次用户说“是不是 `P` 小了”，方向基本是对的，但不只是单纯 `KP` 小。
+- 更准确的根因是：单链主 `P` 偏软，同时 `errorScale`、`devRatio`、`stepLimit` 也一起限制了大偏差状态下的输出。
+- 因为 `exp284/285` 刚修好误入搜索链，所以本轮不应再碰搜索方向逻辑；最安全有效的做法是只加强主循迹链。
+
+### 本轮修正
+- `PID_TRACK_LINE_KP: 11.4 -> 12.6`
+- `TRACK_FOLLOW_ERROR_SCALE: 80.0 -> 72.0`
+- `TRACK_FOLLOW_DEV_RATIO: 0.58 -> 0.62`
+- `TRACK_FOLLOW_DEV_STEP_LIMIT: 34 -> 40`
+- 搜索确认、找线方向、搜索退出逻辑全部保持不变，避免把 `exp284/285` 的问题重新带回来

@@ -176,7 +176,7 @@ typedef enum
    PID_TRACK_LINE_KD：主阻尼。
      - 调大：抑制回中过冲与左右抽动。
      - 过大：会让车变钝，出现看见偏差但修正迟疑。 */
-#define PID_TRACK_LINE_KP           11.4f
+#define PID_TRACK_LINE_KP           12.6f
 #define PID_TRACK_LINE_KD           6.8f
 
 /* 传感器位置映射：把 8 路灯映射到一条连续位置轴。
@@ -210,11 +210,11 @@ typedef enum
    TRACK_FOLLOW_DEV_STEP_LIMIT：每周期差速变化限幅。
    TRACK_FOLLOW_BASE_MIN_PWM：大偏差时基础速度下压到的最小 PWM。 */
 #define TRACK_FOLLOW_DEADBAND        8.0f
-#define TRACK_FOLLOW_ERROR_SCALE     80.0f
+#define TRACK_FOLLOW_ERROR_SCALE     72.0f
 #define TRACK_FOLLOW_POS_LPF_ALPHA   0.60f
 #define TRACK_FOLLOW_D_LPF_ALPHA     0.38f
-#define TRACK_FOLLOW_DEV_RATIO       0.58f
-#define TRACK_FOLLOW_DEV_STEP_LIMIT  34
+#define TRACK_FOLLOW_DEV_RATIO       0.62f
+#define TRACK_FOLLOW_DEV_STEP_LIMIT  40
 #define TRACK_FOLLOW_BASE_MIN_PWM    250
 #define TRACK_STATIC_STEER_BIAS         0
 

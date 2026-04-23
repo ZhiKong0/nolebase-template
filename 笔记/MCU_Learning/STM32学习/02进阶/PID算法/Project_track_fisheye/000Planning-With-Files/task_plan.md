@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 19
+Phase 22
 
 ## Phases
 
@@ -70,6 +70,18 @@ Phase 19
 ### Phase 12: 编译与记录
 - [x] 编译 `project.uvprojx`
 - [x] 将 `exp266` 结论写入规划文件
+- **Status:** complete
+
+### Phase 22: exp287 主循迹力度复核
+- [x] 读取 `exp287` 日志并区分 `SCRV` 与 `EDGE` 区间
+- [x] 确认问题主因是大偏差回中力度不足，而不是搜索方向链本身
+- **Status:** complete
+
+### Phase 23: 单链参数强化并烧录
+- [x] 提高单链 `KP`
+- [x] 降低 `TRACK_FOLLOW_ERROR_SCALE`
+- [x] 提高 `TRACK_FOLLOW_DEV_RATIO / STEP_LIMIT`
+- [x] 编译并烧录到当前板子
 - **Status:** complete
 
 ## Decisions Made
