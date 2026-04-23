@@ -120,6 +120,7 @@ typedef struct
     float    targetTrackError;
     float    lastFilteredTrackError;
     float    filteredDTerm;
+    float    smoothedLinePos;
 
     uint8_t  filterTimes;
     uint8_t  crossing;

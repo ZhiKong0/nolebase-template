@@ -61,6 +61,15 @@ static float track_lerpf(float a, float b, float ratio)
     return a + (b - a) * ratio;
 }
 
+static float track_smoothstep01(float value)
+{
+    if (value <= 0.0f)
+        return 0.0f;
+    if (value >= 1.0f)
+        return 1.0f;
+    return value * value * (3.0f - 2.0f * value);
+}
+
 static uint8_t track_is_search_state(uint8_t state)
 {
     return (state == LT_TRACK_SEARCH_LEFT || state == LT_TRACK_SEARCH_RIGHT) ? 1u : 0u;
@@ -143,6 +152,7 @@ static void track_reset_follow_control(void)
     g_lineTrack.targetTrackError = 0.0f;
     g_lineTrack.lastFilteredTrackError = 0.0f;
     g_lineTrack.filteredDTerm = 0.0f;
+    g_lineTrack.smoothedLinePos = 0.0f;
 }
 
 static uint8_t track_bit_count(uint8_t bits)
@@ -161,36 +171,45 @@ static uint8_t track_mask_bit_count(uint8_t bits, uint8_t mask)
     return track_bit_count((uint8_t)(bits & mask));
 }
 
-static int16_t track_weighted_run_center(uint8_t bits, uint8_t start, uint8_t end)
+static float track_sensor_fit_pos(uint8_t index)
 {
-    float weightedSum = 0.0f;
-    float weightTotal = 0.0f;
-    uint8_t i;
+    float trim;
+
+    if (index >= LINE_SENSOR_COUNT)
+        return 0.0f;
+
+    trim = (g_lineTrackCfg.sensorScale[index] - 1.0f) * TRACK_SENSOR_POS_TRIM_RANGE;
+    return (float)s_sensorLinePos[index] + trim;
+}
+
+static float track_boundary_fit_pos(uint8_t boundaryIndex)
+{
+    float step = (float)TRACK_LINE_POS_STEP;
+
+    if (boundaryIndex == 0u)
+        return track_sensor_fit_pos(0u) - step;
+    if (boundaryIndex >= LINE_SENSOR_COUNT)
+        return track_sensor_fit_pos(LINE_SENSOR_COUNT - 1u) + step;
+
+    return 0.5f * (track_sensor_fit_pos((uint8_t)(boundaryIndex - 1u))
+                 + track_sensor_fit_pos(boundaryIndex));
+}
+
+static int16_t track_gradient_run_center(uint8_t start, uint8_t end)
+{
+    float leftBoundary;
+    float rightBoundary;
 
     if (start >= LINE_SENSOR_COUNT)
         return 0;
     if (end >= LINE_SENSOR_COUNT)
         end = LINE_SENSOR_COUNT - 1u;
+    if (end < start)
+        end = start;
 
-    for (i = start; i <= end; i++)
-    {
-        float weight;
-
-        if ((bits & (1u << i)) == 0u)
-            continue;
-
-        weight = g_lineTrackCfg.sensorScale[i];
-        if (weight < 0.05f)
-            weight = 0.05f;
-
-        weightedSum += (float)s_sensorLinePos[i] * weight;
-        weightTotal += weight;
-    }
-
-    if (weightTotal <= 0.0f)
-        return 0;
-
-    return track_round_to_i16(weightedSum / weightTotal);
+    leftBoundary = track_boundary_fit_pos(start);
+    rightBoundary = track_boundary_fit_pos((uint8_t)(end + 1u));
+    return track_round_to_i16(0.5f * (leftBoundary + rightBoundary));
 }
 
 static uint8_t track_select_preferred_run(uint8_t bits, uint8_t *bestStart, uint8_t *bestEnd)
@@ -242,7 +261,7 @@ static uint8_t track_select_preferred_run(uint8_t bits, uint8_t *bestStart, uint
         runMask = (uint8_t)(bits & (uint8_t)(((uint16_t)0xFFu >> (7u - runEnd)) & (uint16_t)(0xFFu << runStart)));
         runHasCenter = ((runMask & LT_MASK_CENTER) != 0u) ? 1u : 0u;
         runHasInner = ((runMask & (LT_BIT_S3 | LT_BIT_S6)) != 0u) ? 1u : 0u;
-        runCenter = track_weighted_run_center(bits, runStart, runEnd);
+        runCenter = track_gradient_run_center(runStart, runEnd);
         runDistance = track_abs_i16((int16_t)(runCenter - referencePos));
 
         if (!found)
@@ -351,60 +370,52 @@ static int16_t track_apply_recenter_decay(int16_t currentCmd, int16_t targetCmd)
 
 static int16_t track_apply_center_hysteresis(uint8_t bits, int16_t linePos)
 {
-    uint8_t singleCenterSide = LT_DIR_NONE;
-
     if (bits == 0u || track_is_crossing(bits))
-    {
         track_reset_center_clamp();
-        return linePos;
-    }
-
-    if ((bits & LT_MASK_CENTER) == LT_MASK_CENTER
-        && (bits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE)) == 0u)
-    {
-        track_reset_center_clamp();
-        return 0;
-    }
-
-    if ((bits & LT_MASK_CENTER) == LT_BIT_S4
-        && (bits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE | LT_BIT_S5)) == 0u)
-    {
-        singleCenterSide = LT_DIR_LEFT;
-    }
-    else if ((bits & LT_MASK_CENTER) == LT_BIT_S5
-             && (bits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE | LT_BIT_S4)) == 0u)
-    {
-        singleCenterSide = LT_DIR_RIGHT;
-    }
-    else
-    {
-        track_reset_center_clamp();
-        return linePos;
-    }
-
-    if (g_lineTrack.centerHoldDir == LT_DIR_NONE)
-    {
-        g_lineTrack.centerHoldDir = singleCenterSide;
-        g_lineTrack.centerHoldTicks = 1u;
-        return linePos;
-    }
-
-    if (g_lineTrack.centerHoldDir == singleCenterSide)
-    {
-        if (g_lineTrack.centerHoldTicks < 255u)
-            g_lineTrack.centerHoldTicks++;
-        return linePos;
-    }
-
-    if (g_lineTrack.centerHoldTicks < g_lineTrackCfg.centerSingleHoldTicks)
-    {
-        g_lineTrack.centerHoldTicks++;
-        return 0;
-    }
-
-    g_lineTrack.centerHoldDir = singleCenterSide;
-    g_lineTrack.centerHoldTicks = 1u;
     return linePos;
+}
+
+static int16_t track_smooth_follow_line_pos(uint8_t bits, int16_t rawLinePos)
+{
+    float prev = g_lineTrack.smoothedLinePos;
+    float target = (float)rawLinePos;
+    float alpha = g_lineTrackCfg.posFilterAlpha;
+    float next;
+    float delta;
+    float maxStep;
+    uint8_t innerBits = (uint8_t)(LT_BIT_S3 | LT_BIT_S4 | LT_BIT_S5 | LT_BIT_S6);
+
+    if ((bits & LT_MASK_CENTER) == LT_MASK_CENTER && (bits & (LT_MASK_LEFT_OUTER | LT_MASK_RIGHT_OUTER)) == 0u)
+    {
+        alpha = track_clamp_paramf(alpha + 0.20f, 0.10f, 0.95f);
+        target = 0.0f;
+    }
+    else if ((prev > 0.0f && target < 0.0f) || (prev < 0.0f && target > 0.0f))
+    {
+        if ((bits & innerBits) != 0u
+            && track_absf(prev) <= (float)TRACK_LINE_POS_MEDIUM_MAX
+            && track_absf(target) <= (float)TRACK_LINE_POS_MEDIUM_MAX)
+        {
+            alpha *= 0.35f;
+            target = 0.0f;
+        }
+    }
+
+    next = prev + alpha * (target - prev);
+    maxStep = (track_absf(target) <= (float)TRACK_LINE_POS_MEDIUM_MAX)
+            ? (float)(TRACK_LINE_POS_STEP + 15)
+            : (float)(TRACK_LINE_POS_STEP * 2);
+    delta = next - prev;
+    if (delta > maxStep)
+        next = prev + maxStep;
+    else if (delta < -maxStep)
+        next = prev - maxStep;
+
+    if ((prev > 0.0f && next < 0.0f) || (prev < 0.0f && next > 0.0f))
+        next = 0.0f;
+
+    g_lineTrack.smoothedLinePos = next;
+    return track_round_to_i16(next);
 }
 
 static uint8_t track_follow_stage_from_abs_pos(int16_t absPos)
@@ -440,17 +451,36 @@ static float track_apply_soft_center_deadband(float linePos)
 {
     float absPos = track_absf(linePos);
     float deadband = g_lineTrackCfg.centerDeadband;
+    float ratio;
+    float slope;
 
     if (deadband <= 0.0f)
         return linePos;
 
-    if (absPos <= deadband)
-        return linePos * TRACK_CTRL_CENTER_SLOPE_RATIO;
+    if (absPos >= deadband)
+        return linePos;
 
-    if (linePos > 0.0f)
-        return deadband * TRACK_CTRL_CENTER_SLOPE_RATIO + (absPos - deadband);
+    ratio = track_smoothstep01(absPos / deadband);
+    slope = track_lerpf(TRACK_CTRL_CENTER_SLOPE_RATIO, 1.0f, ratio);
+    return (linePos >= 0.0f) ? (absPos * slope) : -(absPos * slope);
+}
 
-    return -(deadband * TRACK_CTRL_CENTER_SLOPE_RATIO + (absPos - deadband));
+static float track_compute_offcenter_boost(int16_t absPos)
+{
+    float targetBoost = g_lineTrackCfg.offcenterBoost;
+    float ratio;
+
+    if (targetBoost <= 1.0f)
+        return 1.0f;
+
+    if (absPos <= TRACK_LINE_POS_SMALL_MAX)
+        return 1.0f;
+    if (absPos >= TRACK_LINE_POS_LARGE_MAX)
+        return targetBoost;
+
+    ratio = ((float)absPos - (float)TRACK_LINE_POS_SMALL_MAX)
+          / ((float)TRACK_LINE_POS_LARGE_MAX - (float)TRACK_LINE_POS_SMALL_MAX);
+    return track_lerpf(1.0f, targetBoost, track_smoothstep01(ratio));
 }
 
 static float track_build_follow_error(uint8_t bits, int16_t linePos, uint8_t *stage)
@@ -465,10 +495,7 @@ static float track_build_follow_error(uint8_t bits, int16_t linePos, uint8_t *st
         return 0.0f;
 
     error = track_apply_soft_center_deadband((float)linePos);
-
-    if ((bits & LT_MASK_CENTER) == 0u)
-        error *= g_lineTrackCfg.offcenterBoost;
-
+    error *= track_compute_offcenter_boost(absPos);
     return error / (float)TRACK_CTRL_ERROR_SCALE;
 }
 
@@ -534,7 +561,7 @@ static int16_t track_calculate_line_pos(uint8_t bits)
     if (!track_select_preferred_run(bits, &runStart, &runEnd))
         return 0;
 
-    return track_weighted_run_center(bits, runStart, runEnd);
+    return track_gradient_run_center(runStart, runEnd);
 }
 
 static int8_t track_map_bearing_dev(int16_t linePos)
@@ -736,6 +763,7 @@ static uint8_t track_read_sensor_bits(void)
 static void track_signal_update(void)
 {
     uint8_t bits;
+    int16_t rawLinePos;
     int16_t linePos;
     int8_t bearingDev;
     uint8_t crossActive;
@@ -774,7 +802,8 @@ static void track_signal_update(void)
         return;
     }
 
-    linePos = track_calculate_line_pos(bits);
+    rawLinePos = track_calculate_line_pos(bits);
+    linePos = track_smooth_follow_line_pos(bits, rawLinePos);
     linePos = track_apply_center_hysteresis(bits, linePos);
     bearingDev = track_map_bearing_dev(linePos);
 
@@ -841,13 +870,13 @@ static int16_t track_limit_follow_base(int16_t basePwm, int16_t linePos)
         return basePwm;
 
     absPos = track_abs_i16(linePos);
-    if (absPos <= TRACK_LINE_POS_SMALL_MAX)
+    if (absPos <= TRACK_LINE_POS_MEDIUM_MAX)
         return basePwm;
     if (absPos >= TRACK_LINE_POS_LARGE_MAX)
         return TRACK_EDGE_BASE_PWM_MAX;
 
-    ratio = (float)(absPos - TRACK_LINE_POS_SMALL_MAX)
-          / (float)(TRACK_LINE_POS_LARGE_MAX - TRACK_LINE_POS_SMALL_MAX);
+    ratio = (float)(absPos - TRACK_LINE_POS_MEDIUM_MAX)
+          / (float)(TRACK_LINE_POS_LARGE_MAX - TRACK_LINE_POS_MEDIUM_MAX);
     return track_round_to_i16(track_lerpf((float)basePwm,
                                           (float)TRACK_EDGE_BASE_PWM_MAX,
                                           ratio));

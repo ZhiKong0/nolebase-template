@@ -167,8 +167,9 @@ typedef enum
 #define PID_TRACK_LINE_KD           6.8f
 
 /* 连续单误差 PD:
-   正常循迹只保留一条 linePos -> PD 的连续控制链，
-   再按偏差大小做平滑增益调度，不再用灯型等级硬切档。 */
+   8 路灯先映射到一条严格单调的梯度序列
+   S1 -> S1S2 -> S2 -> S2S3 -> ... -> S4S5 -> ... -> S7S8 -> S8
+   再进入单一 PD 主链，避免离开 S4/S5 时出现约束力突变。 */
 #define TRACK_DYNAMIC_PID_ENABLE    1
 
 #define TRACK_CENTER_KP_SCALE       0.70f
@@ -183,19 +184,22 @@ typedef enum
 #define TRACK_EDGE_KD_SCALE         0.75f
 #define TRACK_EDGE_DEV_RATIO        0.58f
 
-#define TRACK_LINE_POS_S1           (-300)
-#define TRACK_LINE_POS_S2           (-220)
+#define TRACK_LINE_POS_STEP         45
+#define TRACK_SENSOR_POS_TRIM_RANGE 60.0f
+
+#define TRACK_LINE_POS_S1           (-315)
+#define TRACK_LINE_POS_S2           (-225)
 #define TRACK_LINE_POS_S3           (-135)
 #define TRACK_LINE_POS_S4           (-45)
 #define TRACK_LINE_POS_S5           45
 #define TRACK_LINE_POS_S6           135
-#define TRACK_LINE_POS_S7           220
-#define TRACK_LINE_POS_S8           300
+#define TRACK_LINE_POS_S7           225
+#define TRACK_LINE_POS_S8           315
 
-#define TRACK_LINE_POS_CENTER_MAX   55
-#define TRACK_LINE_POS_SMALL_MAX    115
-#define TRACK_LINE_POS_MEDIUM_MAX   190
-#define TRACK_LINE_POS_LARGE_MAX    280
+#define TRACK_LINE_POS_CENTER_MAX   22
+#define TRACK_LINE_POS_SMALL_MAX    155
+#define TRACK_LINE_POS_MEDIUM_MAX   245
+#define TRACK_LINE_POS_LARGE_MAX    330
 #define TRACK_CENTER_SINGLE_HOLD_TICKS 2
 #define TRACK_CENTER_KP_SCALE_DEFAULT   0.58f
 #define TRACK_MID_KP_SCALE_DEFAULT      0.92f
@@ -203,18 +207,18 @@ typedef enum
 #define TRACK_CENTER_DEV_RATIO_DEFAULT  0.24f
 #define TRACK_MID_DEV_RATIO_DEFAULT     0.42f
 #define TRACK_EDGE_DEV_RATIO_DEFAULT    0.52f
-#define TRACK_RECENTER_DECAY_STEP       19
+#define TRACK_RECENTER_DECAY_STEP       14
 #define TRACK_STATIC_STEER_BIAS         8
 
 /* TRACK 内环改为“连续位置误差 + 滤波导数”。
    bearing_dev 仍保留给状态判定和遥测，但差速输出不再直接吃离散跳变。 */
-#define TRACK_CTRL_CENTER_DEADBAND    53.0f
-#define TRACK_CTRL_CENTER_SLOPE_RATIO 0.35f
+#define TRACK_CTRL_CENTER_DEADBAND    18.0f
+#define TRACK_CTRL_CENTER_SLOPE_RATIO 0.60f
 #define TRACK_CTRL_ERROR_SCALE        90.0f
-#define TRACK_CTRL_POS_FILTER_ALPHA   0.56f
-#define TRACK_CTRL_D_FILTER_ALPHA     0.46f
+#define TRACK_CTRL_POS_FILTER_ALPHA   0.60f
+#define TRACK_CTRL_D_FILTER_ALPHA     0.40f
 #define TRACK_CTRL_DEV_STEP_LIMIT     26
-#define TRACK_CTRL_OFFCENTER_BOOST    1.16f
+#define TRACK_CTRL_OFFCENTER_BOOST    1.08f
 
 #define TRACK_DEV_MAX_RATIO         0.58f
 #define TRACK_PWM_MAX               480

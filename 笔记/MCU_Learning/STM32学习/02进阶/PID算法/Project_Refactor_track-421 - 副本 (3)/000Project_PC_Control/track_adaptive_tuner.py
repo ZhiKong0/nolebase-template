@@ -612,7 +612,7 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     lp_flip_rate_hz = sign_changes_with_deadband(valid_lp_signed, 80.0) / duration_s if valid_lp_signed else 0.0
     center_focus = [
         rec for rec in valid
-        if ((rec.sb & LT_MASK_CENTER) != 0) or abs(rec.lp) <= 90.0
+        if ((rec.sb & LT_MASK_CENTER) != 0) or abs(rec.lp) <= 70.0
     ]
     center_focus_lp = [abs(rec.lp) for rec in center_focus]
     center_focus_lp_signed = [rec.lp for rec in center_focus]
@@ -622,29 +622,30 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     center_mean_abs_yr = statistics.fmean(abs(value) for value in center_focus_yr) if center_focus_yr else 999.0
     center_mean_abs_yr_delta = mean_abs_delta(center_focus_yr) if center_focus_yr else 999.0
     center_flip_rate_hz = (
-        sign_changes_with_deadband(center_focus_lp_signed, 18.0) / duration_s
+        sign_changes_with_deadband(center_focus_lp_signed, 12.0) / duration_s
         if center_focus_lp_signed else 0.0
     )
 
     score = 0.0
-    score += 0.06 * mean_forward_speed
-    score += 36.0 * center_band_ratio
-    score += 150.0 * center_core_ratio
-    score += 24.0 * exact_center_ratio
-    score += 8.0 * straight_ratio
-    score -= 60.0 * loss_ratio
-    score -= 60.0 * outer_ratio
-    score -= 10.0 * scurve_ratio
-    score -= 0.16 * mean_abs_lp
-    score -= 0.20 * mean_abs_lp_delta
-    score -= 0.34 * center_mean_abs_lp
-    score -= 0.80 * center_mean_abs_lp_delta
+    score += 0.04 * mean_forward_speed
+    score += 42.0 * center_band_ratio
+    score += 185.0 * center_core_ratio
+    score += 65.0 * exact_center_ratio
+    score += 6.0 * straight_ratio
+    score -= 18.0 * center_single_ratio
+    score -= 70.0 * loss_ratio
+    score -= 78.0 * outer_ratio
+    score -= 8.0 * scurve_ratio
+    score -= 0.18 * mean_abs_lp
+    score -= 0.24 * mean_abs_lp_delta
+    score -= 0.55 * center_mean_abs_lp
+    score -= 1.20 * center_mean_abs_lp_delta
     score -= 0.18 * mean_abs_yr
-    score -= 0.24 * mean_abs_yr_delta
-    score -= 0.50 * center_mean_abs_yr
-    score -= 0.90 * center_mean_abs_yr_delta
-    score -= 5.00 * lp_flip_rate_hz
-    score -= 20.00 * center_flip_rate_hz
+    score -= 0.26 * mean_abs_yr_delta
+    score -= 0.65 * center_mean_abs_yr
+    score -= 1.20 * center_mean_abs_yr_delta
+    score -= 6.00 * lp_flip_rate_hz
+    score -= 28.00 * center_flip_rate_hz
 
     return {
         "sample_count": float(len(analyzed)),
@@ -690,9 +691,9 @@ def detect_early_stop(cfg: EarlyStopConfig,
     return ""
 
 
-def perform_turnaround(port: serial.Serial, cfg: TurnaroundConfig) -> None:
+def perform_turnaround(port: serial.Serial, cfg: TurnaroundConfig) -> bool:
     if not cfg.enabled:
-        return
+        return True
 
     last_error = "turnback timeout waiting for EVT:TURNBACK,DONE"
 
@@ -712,7 +713,7 @@ def perform_turnaround(port: serial.Serial, cfg: TurnaroundConfig) -> None:
                 continue
             if line.startswith("EVT:TURNBACK,DONE"):
                 time.sleep(cfg.settle_s)
-                return
+                return True
             if line.startswith("EVT:TURNBACK,"):
                 last_error = f"turnback failed: {line}"
                 break
@@ -723,7 +724,10 @@ def perform_turnaround(port: serial.Serial, cfg: TurnaroundConfig) -> None:
             print(f"[adaptive] turnaround retry {attempt + 1}/{cfg.retries}", flush=True)
             time.sleep(0.35)
 
-    raise RuntimeError(last_error)
+    print(f"[adaptive] turnaround fallback: {last_error}", flush=True)
+    ensure_stop(port, attempts=3, timeout_s=2.0)
+    time.sleep(cfg.settle_s)
+    return False
 
 
 def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], list[TrackRecord], bool, str, float]:
