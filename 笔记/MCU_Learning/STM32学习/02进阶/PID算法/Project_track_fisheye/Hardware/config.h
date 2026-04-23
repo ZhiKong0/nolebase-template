@@ -176,13 +176,13 @@ typedef enum
    PID_TRACK_LINE_KD：主阻尼。
      - 调大：抑制回中过冲与左右抽动。
      - 过大：会让车变钝，出现看见偏差但修正迟疑。 */
-#define PID_TRACK_LINE_KP           15.0f
+#define PID_TRACK_LINE_KP           16.2f
 #define PID_TRACK_LINE_KD           6.8f
 
 /* 传感器位置映射：把 8 路灯映射到一条连续位置轴。
    TRACK_LINE_POS_STEP / TRACK_SENSOR_POS_TRIM_RANGE 主要影响“位置误差”的细腻程度。
    如果位置映射过陡，会让相邻灯切换时控制量变化偏大，更容易抖。 */
-#define TRACK_LINE_POS_STEP         45
+#define TRACK_LINE_POS_STEP         60
 #define TRACK_SENSOR_POS_TRIM_RANGE 40.0f
 
 #define TRACK_LINE_POS_S1           (-225)
@@ -211,10 +211,10 @@ typedef enum
    TRACK_FOLLOW_BASE_MIN_PWM：大偏差时基础速度下压到的最小 PWM。 */
 #define TRACK_FOLLOW_DEADBAND        4.0f
 #define TRACK_FOLLOW_ERROR_SCALE     58.0f
-#define TRACK_FOLLOW_POS_LPF_ALPHA   0.60f
-#define TRACK_FOLLOW_D_LPF_ALPHA     0.38f
+#define TRACK_FOLLOW_POS_LPF_ALPHA   0.74f
+#define TRACK_FOLLOW_D_LPF_ALPHA     0.46f
 #define TRACK_FOLLOW_DEV_RATIO       0.66f
-#define TRACK_FOLLOW_DEV_STEP_LIMIT  48
+#define TRACK_FOLLOW_DEV_STEP_LIMIT  60
 #define TRACK_FOLLOW_BASE_MIN_PWM    250
 #define TRACK_STATIC_STEER_BIAS         0
 
@@ -231,8 +231,8 @@ typedef enum
 #define TRACK_SEARCH_TIMEOUT_TICKS  18
 #define TRACK_SEARCH_ARC_PWM_FAST   240
 #define TRACK_SEARCH_ARC_PWM_SLOW   160
-#define TRACK_SEARCH_TURN_PWM_FAST  320
-#define TRACK_SEARCH_TURN_PWM_SLOW  210
+#define TRACK_SEARCH_TURN_PWM_FAST  340
+#define TRACK_SEARCH_TURN_PWM_SLOW  220
 #define TRACK_SEARCH_SIDE_EXIT_TICKS 1
 #define TRACK_RECOVER_TICKS         10
 #define TRACK_RESUME_SPEED_MIN      28.0f

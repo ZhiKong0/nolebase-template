@@ -356,3 +356,36 @@
     - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
     - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
     - `reset --no-config -t stm32f103rc -u 031305620164`
+
+## Session: 2026-04-24 exp305 主循迹响应提速
+
+### Phase 31: exp305 日志复核
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0305_20260424_074215_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0305_20260424_074215_KEY_T.txt)
+  - 确认用户抱怨的“跟线不够及时”主要出现在 `EDGE/TRMR` 段
+  - 确认主因是单链主循迹响应迟滞，而不是搜索方向链本身
+
+### Phase 32: 单链响应提速
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 调整：
+    - `PID_TRACK_LINE_KP = 16.2`
+    - `TRACK_LINE_POS_STEP = 60`
+    - `TRACK_FOLLOW_POS_LPF_ALPHA = 0.74`
+    - `TRACK_FOLLOW_D_LPF_ALPHA = 0.46`
+    - `TRACK_FOLLOW_DEV_STEP_LIMIT = 60`
+    - `TRACK_SEARCH_TURN_PWM_FAST/SLOW = 340/220`
+  - 保持 `TRACK_FOLLOW_DEV_RATIO`、搜索确认、搜索方向和搜索退出条件不变，避免把前一轮已修好的搜索链带坏
+
+### Phase 33: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 使用 `pyOCD` 顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`

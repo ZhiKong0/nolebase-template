@@ -102,6 +102,22 @@ Phase 27
 - [x] 编译并烧录到当前板子
 - **Status:** complete
 
+### Phase 31: exp305 响应滞后区间复核
+- [x] 读取 `exp305` 日志并定位“跟线不够及时”的主要区段
+- [x] 区分主因是主循迹链响应迟滞，而不是搜索方向链本身
+- **Status:** complete
+
+### Phase 32: 单链响应提速
+- [x] 提高单链 `KP`
+- [x] 放快 `linePos` 跟随速度与位置/导数低通
+- [x] 放宽差速步进限幅并抬高找线 pivot
+- **Status:** complete
+
+### Phase 33: 编译与烧录
+- [x] 重新编译 `project.uvprojx`
+- [x] 使用 `pyOCD` 完成 `erase -> load -> reset`
+- **Status:** complete
+
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。
 - 自动调参骨架本轮固定 `speed_target=40`，不在本轮搜索目标速度。
@@ -115,6 +131,7 @@ Phase 27
   - `recover_ticks`
   - `search_turn_fast / search_turn_slow / search_timeout`
 - 为减少联动面，遥测里暂时保留 `dbgScoreEnabled` 字段，但其语义已简化为“搜索/丢线/交叉是否计分”。
+- `exp305` 之后，单链主循迹优先沿“更快响应”方向调：先放快 `linePos` / `dev` 跟随，再适度增加 `KP`，不先动搜索方向链。
 
 ## Hot Files
 - `Hardware/config.h`

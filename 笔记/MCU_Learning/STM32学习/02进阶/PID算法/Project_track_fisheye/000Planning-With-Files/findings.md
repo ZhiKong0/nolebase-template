@@ -308,3 +308,28 @@
   - 中心/内侧/交叉：立即退出
   - 同侧外缘：计为可退出
   - 反侧外缘：不计退出，继续搜索
+
+## 2026-04-24 exp305 跟线还不够及时
+
+### 关键证据
+- [`exp_0305_20260424_074215_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0305_20260424_074215_KEY_T.txt) 的 `EDGE/TRMR` 段里，`lp≈180~191`、`bd=±4` 时输出虽然已经比更早版本大，但仍常表现为“慢慢爬上去”，不像用户想要的那种更早、更果断地回中。
+- 代码链上更像是“迟滞叠加”而不是单纯 `P` 不够：
+  - `TRACK_LINE_POS_STEP = 45`
+  - `TRACK_FOLLOW_POS_LPF_ALPHA = 0.60`
+  - `TRACK_FOLLOW_D_LPF_ALPHA = 0.38`
+  - `TRACK_FOLLOW_DEV_STEP_LIMIT = 48`
+  这一组会同时限制 `linePos` 跟随速度、误差导数刷新速度和差速输出爬升速度。
+- 搜索方向链在本轮日志里不是第一主因。`exp305` 主要抱怨是“跟线不够及时”，不是“方向找错”。
+
+### 判断
+- 这次不应再先碰搜索方向逻辑，否则容易把 `exp284/285` 刚修好的误入搜索链带坏。
+- 更准确的处理方式是：保持单链结构不变，只把主循迹响应提速，让位置误差、导数和差速都更快跟上真实线位变化。
+
+### 本轮修正
+- `PID_TRACK_LINE_KP: 15.0 -> 16.2`
+- `TRACK_LINE_POS_STEP: 45 -> 60`
+- `TRACK_FOLLOW_POS_LPF_ALPHA: 0.60 -> 0.74`
+- `TRACK_FOLLOW_D_LPF_ALPHA: 0.38 -> 0.46`
+- `TRACK_FOLLOW_DEV_STEP_LIMIT: 48 -> 60`
+- `TRACK_SEARCH_TURN_PWM_FAST/SLOW: 320/210 -> 340/220`
+- 其余搜索确认、搜索方向、搜索退出条件保持不变
