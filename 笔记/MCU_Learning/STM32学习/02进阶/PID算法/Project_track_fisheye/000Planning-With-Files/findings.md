@@ -81,3 +81,21 @@
 ### 当前边界
 - 本轮只把自动调参骨架补完整，不实际启动扫描。
 - 也不在本轮重新改动单链 PID 主实现，避免把“控制律问题”和“评分器问题”混在一起。
+
+## 2026-04-24 提速并关闭自动停车
+
+### 关键证据
+- 当前 `TRACK` 默认目标速度仍是 `40.0f`，并且大偏差时基础 PWM 会被压到 `220`，整体手感偏保守。
+- 自动停车链并不在 `main.c` 主状态机里主动判停，而是在 [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 内部通过“交叉计数达到阈值 -> `autoFlag` 置停 -> `LineTrack_Update()` 把自身打回 idle”实现。
+- 这条链已经和当前单链 PID 主控制脱节，继续保留只会让车在正常循迹过程中被内部状态机意外停下。
+
+### 判断
+- 提速应优先改默认速度档和大偏差下的基础推进下限，不需要碰主 `PD`。
+- 自动停车应整条删除，而不是只改单个阈值，否则后面仍会保留半废弃停机状态。
+
+### 本轮修正
+- `PID_TRACK_SPEED_TARGET: 40.0 -> 44.0`
+- `TRACK_FOLLOW_BASE_MIN_PWM: 220 -> 250`
+- `TRACK_DEFAULT_CROSSINGS: 4 -> 0`
+- 删除 `line_track` 内部的 `autoFlag` 停机链和交叉计数到点自动停逻辑
+- 保留 `LineTrack_Start(uint8_t crossings)` 接口名，但 `crossings` 仅为兼容占位，不再参与停车

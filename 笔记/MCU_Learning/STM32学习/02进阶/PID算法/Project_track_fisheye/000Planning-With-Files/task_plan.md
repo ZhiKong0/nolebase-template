@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 6
+Phase 9
 
 ## Phases
 
@@ -44,6 +44,17 @@ Phase 6
 - [x] 完成 `Python` 语法、`YAML` 结构与 `--help` 入口验证
 - [ ] 后续如需实跑，再单独启动自动复测，不在本轮直接扫描
 - **Status:** in progress
+
+### Phase 8: 提速与停机链清理
+- [x] 提高 `TRACK` 默认速度档
+- [x] 提高大偏差时的基础速度下限
+- [x] 删除 `line_track` 内部自动停车链
+- **Status:** complete
+
+### Phase 9: 编译与记录
+- [x] 编译 `project.uvprojx`
+- [x] 记录本轮“提速 + 关停机链”结论到规划文件
+- **Status:** complete
 
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。

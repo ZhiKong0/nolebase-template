@@ -9,9 +9,6 @@
 #define LT_STATE_STARTING  1u
 #define LT_STATE_RUNNING   2u
 
-#define LT_FLAG_STOP       0u
-#define LT_FLAG_START      1u
-
 /* ========== 找线方向 ========== */
 #define LT_DIR_NONE        0u
 #define LT_DIR_LEFT        1u
@@ -103,7 +100,6 @@ typedef struct
 typedef struct
 {
     uint8_t  state;
-    uint8_t  autoFlag;
     uint8_t  trackState;
 
     uint8_t  sensorData;
@@ -121,7 +117,6 @@ typedef struct
     float    smoothedLinePos;
 
     uint8_t  filterTimes;
-    uint8_t  crossing;
     uint8_t  crossCount;
     uint8_t  crossState;
     uint8_t  overrunCount;

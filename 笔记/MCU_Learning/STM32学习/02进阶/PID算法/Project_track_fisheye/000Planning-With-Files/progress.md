@@ -90,3 +90,25 @@
 - 单链 PID 主实现不再改动
 - 自动调参链当前处于“骨架完成，可随时实跑”的状态
 - 当前没有实际启动参数扫描，符合本轮“只做骨架”的边界
+
+## Session: 2026-04-24 提速与关闭自动停车
+
+### Phase 8: 提速与停机链清理
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 提升默认速度档与弯中基础速度：
+    - `PID_TRACK_SPEED_TARGET = 44.0`
+    - `TRACK_FOLLOW_BASE_MIN_PWM = 250`
+    - `TRACK_DEFAULT_CROSSINGS = 0`
+  - 在 [`Project_track_fisheye/Hardware/line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h) 删除已经失效的 `autoFlag` 字段与标志宏
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 去掉：
+    - 交叉计数到点自动停
+    - `LineTrack_Update()` 内部因 `autoFlag` 触发的 idle/stop 分支
+    - 将 `LineTrack_Start(uint8_t crossings)` 中的 `crossings` 收为兼容占位
+
+### Phase 9: 编译验证
+- **Status:** complete
+- Actions taken:
+  - 编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`

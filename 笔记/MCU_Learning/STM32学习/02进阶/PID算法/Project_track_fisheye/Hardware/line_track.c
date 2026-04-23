@@ -619,8 +619,6 @@ static void track_update_cross_state(uint8_t bits)
             g_lineTrack.crossState = LT_CROSS_SEEN;
             g_lineTrack.filterTimes = 0u;
 
-            if (g_lineTrack.crossing > 0u && g_lineTrack.crossCount >= g_lineTrack.crossing)
-                g_lineTrack.autoFlag = LT_FLAG_STOP;
         }
         return;
     }
@@ -994,8 +992,9 @@ void LineTrack_Start(uint8_t crossings)
     float kp = g_lineTrack.kp;
     float kd = g_lineTrack.kd;
 
+    (void)crossings;
+
     g_lineTrack.state = LT_STATE_STARTING;
-    g_lineTrack.autoFlag = LT_FLAG_START;
     g_lineTrack.trackState = LT_TRACK_FOLLOW;
     g_lineTrack.sensorData = 0u;
     g_lineTrack.lastData = LT_MASK_CENTER;
@@ -1004,7 +1003,6 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.lastValidLinePos = 0;
     g_lineTrack.devSpeed = 0;
     g_lineTrack.filterTimes = 0u;
-    g_lineTrack.crossing = crossings;
     g_lineTrack.crossCount = 0u;
     g_lineTrack.crossState = LT_CROSS_READY;
     g_lineTrack.overrunCount = 0u;
@@ -1032,7 +1030,6 @@ void LineTrack_Start(uint8_t crossings)
 void LineTrack_Stop(void)
 {
     g_lineTrack.state = LT_STATE_IDLE;
-    g_lineTrack.autoFlag = LT_FLAG_STOP;
     g_lineTrack.trackState = LT_TRACK_FOLLOW;
     g_lineTrack.sensorData = 0u;
     g_lineTrack.bearingDev = 0;
@@ -1075,13 +1072,6 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
         return;
 
     track_signal_update();
-
-    if (g_lineTrack.autoFlag == LT_FLAG_STOP)
-    {
-        g_lineTrack.state = LT_STATE_IDLE;
-        track_motor_stop();
-        return;
-    }
 
     if (g_lineTrack.trackState == LT_TRACK_SEARCH_LEFT
         || g_lineTrack.trackState == LT_TRACK_SEARCH_RIGHT)
