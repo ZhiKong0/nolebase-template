@@ -580,9 +580,8 @@ static void track_enter_search(uint8_t dir)
 
 static uint8_t track_search_reacquire_class(uint8_t bits, uint8_t dir)
 {
-    uint8_t sideBits;
-
-    (void)dir;
+    uint8_t sameSideBits = 0u;
+    uint8_t oppositeSideBits = 0u;
 
     if (bits == 0u)
         return 0u;
@@ -593,9 +592,25 @@ static uint8_t track_search_reacquire_class(uint8_t bits, uint8_t dir)
     if ((bits & LT_MASK_INNER_GUIDE) != 0u)
         return 2u;
 
-    sideBits = (uint8_t)(bits & (LT_MASK_LEFT_OUTER | LT_MASK_RIGHT_OUTER));
-    if (sideBits != 0u)
+    if (dir == LT_DIR_LEFT)
+    {
+        sameSideBits = (uint8_t)(bits & LT_MASK_LEFT_OUTER);
+        oppositeSideBits = (uint8_t)(bits & LT_MASK_RIGHT_OUTER);
+    }
+    else if (dir == LT_DIR_RIGHT)
+    {
+        sameSideBits = (uint8_t)(bits & LT_MASK_RIGHT_OUTER);
+        oppositeSideBits = (uint8_t)(bits & LT_MASK_LEFT_OUTER);
+    }
+    else
+    {
+        sameSideBits = (uint8_t)(bits & (LT_MASK_LEFT_OUTER | LT_MASK_RIGHT_OUTER));
+    }
+
+    if (sameSideBits != 0u)
         return 1u;
+    if (oppositeSideBits != 0u)
+        return 0u;
 
     return 0u;
 }

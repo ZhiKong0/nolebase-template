@@ -277,3 +277,34 @@
 - `TRACK_FOLLOW_DEV_RATIO: 0.62 -> 0.64`
 - `TRACK_FOLLOW_DEV_STEP_LIMIT: 40 -> 44`
 - 搜索链相关参数保持不变
+
+## 2026-04-24 exp293 跟线仍不积极且回正找线偏慢
+
+### 关键证据
+- [`exp_0293_20260424_073421_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0293_20260424_073421_KEY_T.txt) 里，`EDGE/TRMR` 段仍长期出现：
+  - `lp≈188~191`
+  - `bd=±4`
+  - 输出大约 `OL/OR = 310/228` 或 `233/313`
+  说明大偏差回中仍偏软。
+- 同一日志里，找线恢复虽然方向基本对，但 `FNDL/FNDR -> TRML/TRMR` 常要多拖一拍，原因不是 pivot 不动，而是当前 `track_search_reacquire_class()` 对左右外侧一视同仁，为避免误退只好配 `TRACK_SEARCH_SIDE_EXIT_TICKS=2`，结果“同侧已经重新见线”时也被迫多等。
+- 这条结构问题在代码里是明确的：[`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 原实现里 `track_search_reacquire_class(uint8_t bits, uint8_t dir)` 实际忽略了 `dir`，只要任一外侧亮都算 `class 1`。
+
+### 判断
+- `exp293` 的问题已经拆成两条：
+  - 主循迹单链 `PD` 仍偏软
+  - 找线回正的同侧重获线退出链过慢
+- 如果只继续加 `P`，找线回正还是会拖；如果只改搜索退出，不够硬的主链又会很快重新掉回搜索。
+- 因此这轮需要同时改两条最短链路，但仍不碰搜索方向选择逻辑。
+
+### 本轮修正
+- `PID_TRACK_LINE_KP: 13.8 -> 15.0`
+- `TRACK_FOLLOW_DEADBAND: 6.0 -> 4.0`
+- `TRACK_FOLLOW_ERROR_SCALE: 64.0 -> 58.0`
+- `TRACK_FOLLOW_DEV_RATIO: 0.64 -> 0.66`
+- `TRACK_FOLLOW_DEV_STEP_LIMIT: 44 -> 48`
+- `TRACK_SEARCH_TURN_PWM_FAST/SLOW: 300/190 -> 320/210`
+- `TRACK_SEARCH_SIDE_EXIT_TICKS: 2 -> 1`
+- `track_search_reacquire_class()` 改为真正按 `searchDir` 判定：
+  - 中心/内侧/交叉：立即退出
+  - 同侧外缘：计为可退出
+  - 反侧外缘：不计退出，继续搜索

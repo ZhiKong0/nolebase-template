@@ -319,3 +319,40 @@
     - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
     - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
     - `reset --no-config -t stm32f103rc -u 031305620164`
+
+## Session: 2026-04-24 exp293 主循迹与回正找线联调
+
+### Phase 28: exp293 根因拆分
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0293_20260424_073421_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0293_20260424_073421_KEY_T.txt)
+  - 确认主循迹问题仍在 `EDGE/TRMR`：`lp≈191、bd=±4` 时差速输出仍偏小
+  - 确认找线“回正慢”不是方向选错，而是同侧重获线退出链被 `2` 拍门槛拖慢
+
+### Phase 29: 主链与找线回正同步修正
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 调整：
+    - `PID_TRACK_LINE_KP = 15.0`
+    - `TRACK_FOLLOW_DEADBAND = 4.0`
+    - `TRACK_FOLLOW_ERROR_SCALE = 58.0`
+    - `TRACK_FOLLOW_DEV_RATIO = 0.66`
+    - `TRACK_FOLLOW_DEV_STEP_LIMIT = 48`
+    - `TRACK_SEARCH_TURN_PWM_FAST/SLOW = 320/210`
+    - `TRACK_SEARCH_SIDE_EXIT_TICKS = 1`
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 重构 `track_search_reacquire_class()`：
+    - 同侧外缘才计作可退出
+    - 反侧外缘不计退出
+    - 中心/内侧/交叉仍立即退出
+
+### Phase 30: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 使用 `pyOCD` 顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
