@@ -574,30 +574,37 @@ static void track_enter_search(uint8_t dir)
 
     track_apply_search_dir(dir);
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_PIVOT;
+    g_lineTrack.searchSeenTicks = 0u;
     g_lineTrack.searchTicks = 0u;
 }
 
-static uint8_t track_search_exit_ready(uint8_t bits, uint8_t dir)
+static uint8_t track_search_reacquire_class(uint8_t bits, uint8_t dir)
 {
-    uint8_t centerBand;
-
     if (bits == 0u)
         return 0u;
     if (track_is_crossing(bits))
-        return 1u;
+        return 2u;
     if (bits & LT_MASK_CENTER)
-        return 1u;
-
-    centerBand = (uint8_t)(bits & LT_MASK_CENTER_BAND);
-    if (centerBand == 0u)
-        return 0u;
+        return 2u;
 
     if (dir == LT_DIR_LEFT)
-        return ((centerBand & (LT_MASK_LEFT_INNER | LT_BIT_CENTER_LEFT)) != 0u) ? 1u : 0u;
+    {
+        if ((bits & (LT_MASK_LEFT_INNER | LT_BIT_CENTER_LEFT)) != 0u)
+            return 2u;
+        if ((bits & LT_MASK_LEFT_OUTER) != 0u)
+            return 1u;
+        return 0u;
+    }
     if (dir == LT_DIR_RIGHT)
-        return ((centerBand & (LT_MASK_RIGHT_INNER | LT_BIT_CENTER_RIGHT)) != 0u) ? 1u : 0u;
+    {
+        if ((bits & (LT_MASK_RIGHT_INNER | LT_BIT_CENTER_RIGHT)) != 0u)
+            return 2u;
+        if ((bits & LT_MASK_RIGHT_OUTER) != 0u)
+            return 1u;
+        return 0u;
+    }
 
-    return 1u;
+    return 0u;
 }
 
 static void track_progress_search(void)
@@ -705,14 +712,35 @@ static void track_signal_update(void)
 
     if (track_is_search_state(g_lineTrack.trackState))
     {
-        if (g_lineTrack.searchTicks > TRACK_SEARCH_BLIND_TICKS
-            && track_search_exit_ready(bits, g_lineTrack.searchDir))
+        uint8_t reacquireClass = 0u;
+
+        if (g_lineTrack.searchTicks > TRACK_SEARCH_BLIND_TICKS)
+        {
+            reacquireClass = track_search_reacquire_class(bits, g_lineTrack.searchDir);
+        }
+
+        if (reacquireClass == 1u)
+        {
+            if (g_lineTrack.searchSeenTicks < 0xFFu)
+                g_lineTrack.searchSeenTicks++;
+        }
+        else if (reacquireClass == 2u)
+        {
+            g_lineTrack.searchSeenTicks = TRACK_SEARCH_SIDE_EXIT_TICKS;
+        }
+        else
+        {
+            g_lineTrack.searchSeenTicks = 0u;
+        }
+
+        if (g_lineTrack.searchSeenTicks >= TRACK_SEARCH_SIDE_EXIT_TICKS)
         {
             g_lineTrack.recoverDir = g_lineTrack.searchDir;
             g_lineTrack.recoverTicks = g_lineTrackCfg.recoverTicks;
             g_lineTrack.trackState = crossActive ? LT_TRACK_CROSS : LT_TRACK_FOLLOW;
             g_lineTrack.searchDir = LT_DIR_NONE;
             g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
+            g_lineTrack.searchSeenTicks = 0u;
             g_lineTrack.searchTicks = 0u;
             g_lineTrack.cornerDone = 1u;
         }
@@ -994,6 +1022,7 @@ void LineTrack_Init(void)
     g_lineTrack.lastValidLinePos = 0;
     g_lineTrack.lastTurnDir = LT_DIR_NONE;
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
+    g_lineTrack.searchSeenTicks = 0u;
     g_lineTrack.crossState = LT_CROSS_READY;
     g_lineTrack.recoverDir = LT_DIR_NONE;
     g_lineTrack.recoverTicks = 0u;
@@ -1023,6 +1052,7 @@ void LineTrack_Start(uint8_t crossings)
     g_lineTrack.lastTurnDir = LT_DIR_NONE;
     g_lineTrack.searchDir = LT_DIR_NONE;
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
+    g_lineTrack.searchSeenTicks = 0u;
     g_lineTrack.cornerDone = 0u;
     g_lineTrack.recoverDir = LT_DIR_NONE;
     g_lineTrack.recoverTicks = 0u;
@@ -1053,6 +1083,7 @@ void LineTrack_Stop(void)
     g_lineTrack.overrunCount = 0u;
     g_lineTrack.searchDir = LT_DIR_NONE;
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
+    g_lineTrack.searchSeenTicks = 0u;
     g_lineTrack.cornerDone = 0u;
     g_lineTrack.recoverDir = LT_DIR_NONE;
     g_lineTrack.recoverTicks = 0u;

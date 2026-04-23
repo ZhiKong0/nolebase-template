@@ -176,3 +176,43 @@
   - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
   - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
     - `0 Error(s), 0 Warning(s)`
+
+## Session: 2026-04-24 exp277 主 P 与找线退出继续增强
+
+### Phase 16: exp277 日志定位
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0277_20260424_070545_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0277_20260424_070545_KEY_T.txt)
+  - 确认 `exp277` 的主问题有两条：
+    - `EDGE` 区回中力度仍偏软
+    - 搜索退出条件“只认中心带”导致恢复偏慢
+
+### Phase 17: 单链 P 与搜索退出门槛修正
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 调整：
+    - `PID_TRACK_LINE_KP = 12.2`
+    - `TRACK_FOLLOW_DEV_RATIO = 0.62`
+    - `TRACK_FOLLOW_DEV_STEP_LIMIT = 38`
+    - `TRACK_SEARCH_TURN_PWM_FAST/SLOW = 320/200`
+    - `TRACK_RECOVER_TICKS = 12`
+    - `TRACK_SEARCH_SIDE_EXIT_TICKS = 2`
+  - 在 [`Project_track_fisheye/Hardware/line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h) 增加 `searchSeenTicks`
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 将搜索退出收成：
+    - 中心/内侧/交叉：立即退出
+    - 同侧外缘：稳定 2 拍后退出
+    - 其余：继续 pivot 搜索
+
+### Phase 18: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 产物时间戳校验通过，`project.hex` 晚于热文件源码
+  - 使用 `pyOCD` 按顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
+  - 板上串口参数回读尝试失败，原因是 `COM18` 被其他串口进程占用；烧录链本身成功

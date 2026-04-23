@@ -124,6 +124,7 @@ typedef struct
     uint8_t  lastTurnDir;
     uint8_t  searchDir;
     uint8_t  searchPhase;
+    uint8_t  searchSeenTicks;
     uint8_t  cornerDone;
     uint16_t searchTicks;
 

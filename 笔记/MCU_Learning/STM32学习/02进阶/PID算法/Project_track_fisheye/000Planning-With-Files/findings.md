@@ -166,3 +166,36 @@
 - `line_track.c`
   - 在 `recoverTicks` 窗口内再次丢线时，优先沿 `recoverDir` 继续找线
   - `track_search_exit_ready()` 改成只在中心带重新见线时退出搜索，不再扫到外侧边灯就立刻接管
+
+## 2026-04-24 exp277 主 P 仍偏软且找线退出过慢
+
+### 关键证据
+- [`exp_0277_20260424_070545_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0277_20260424_070545_KEY_T.txt) 显示，当前 `S` 弯前半段可以正常循迹，但进入 `EDGE` 后仍然容易因为主链约束不足而打到 `FNDL/FNDR`。
+- 日志中多处出现：
+  - `EDGE` 时 `bd=4`、`lp≈175~190`，但输出仍不足以把车快速拉回中线；
+  - 进入搜索后长时间保持 `OL=320, OR=-200` 或镜像值，说明 pivot 虽增强，但退出条件仍拖慢恢复。
+- 更关键的是：在搜索过程中已经重新扫到同侧外缘线，例如 `sb=3`，但状态仍持续停留在 `FNDL`，说明“只认中心带退出搜索”的门槛过严，造成恢复链过慢。
+
+### 判断
+- `exp277` 这轮不是单纯“找线 PWM 不够”，而是：
+  - 主 `P` 和差速上限仍偏软；
+  - 搜索退出从“过早”改成“只认中心带”后，现在又偏慢；
+  - 更合理的链路应是：
+    - 中心/内侧立即退出搜索；
+    - 同侧外缘稳定连续若干拍后退出搜索；
+    - 避免一闪就退，也避免明明已经重新扫到线还继续原地拖。
+
+### 本轮修正
+- `PID_TRACK_LINE_KP: 11.0 -> 12.2`
+- `TRACK_FOLLOW_DEV_RATIO: 0.58 -> 0.62`
+- `TRACK_FOLLOW_DEV_STEP_LIMIT: 34 -> 38`
+- `TRACK_SEARCH_TURN_PWM_FAST/SLOW: 290/180 -> 320/200`
+- `TRACK_RECOVER_TICKS: 10 -> 12`
+- 新增 `TRACK_SEARCH_SIDE_EXIT_TICKS = 2`
+- `line_track.c`
+  - 新增 `searchSeenTicks`
+  - 将搜索重获线判断改成三类：
+    - `0`: 未重获
+    - `1`: 同侧外缘，需稳定累计
+    - `2`: 中心/内侧/交叉，立即退出
+  - 这样外侧同侧线连续两拍即可退出搜索并交还给单链 `PD`，不再拖到中心带才放手
