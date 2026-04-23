@@ -1,10 +1,10 @@
-# Task Plan: 重构为单链循迹 PID
+# Task Plan: 单链循迹 PID 与自动调参骨架
 
 ## Goal
-把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并同步清理旧参数接口与调参脚本中的分层参数面。
+把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 5
+Phase 6
 
 ## Phases
 
@@ -38,8 +38,16 @@ Phase 5
 - [x] 更新 `progress.md`
 - **Status:** complete
 
+### Phase 6: 自动调参骨架收口
+- [x] 将 `track_adaptive_tuner.py` 扩展为“中心稳定 + S 弯稳定 + 搜线恢复”评分骨架
+- [x] 将 `config.yaml` 改成固定 `speed_target=40`、三阶段复测骨架
+- [x] 完成 `Python` 语法、`YAML` 结构与 `--help` 入口验证
+- [ ] 后续如需实跑，再单独启动自动复测，不在本轮直接扫描
+- **Status:** in progress
+
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。
+- 自动调参骨架本轮固定 `speed_target=40`，不在本轮搜索目标速度。
 - `TRACK` 主控制只保留一套运行时参数：
   - `sensorScale[8]`
   - `lkp / lkd`

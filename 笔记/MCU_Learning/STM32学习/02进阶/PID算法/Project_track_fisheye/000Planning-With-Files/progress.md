@@ -57,3 +57,36 @@
 - `TRACK` 主链已经切换为单一连续误差 + 单一循迹 PD
 - 旧的分层增益和短命令口已经从主实现与脚本参数面中清掉
 - 工程当前可编译，后续可以直接围绕单链参数做板上调试
+
+## Session: 2026-04-24 自动调参骨架收口
+
+### Phase 6: 自动调参脚本骨架补齐
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/000Project_PC_Control/track_adaptive_tuner.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/track_adaptive_tuner.py) 新增恢复评分指标：
+    - `edge_recovery_success_ratio`
+    - `edge_recovery_mean_s`
+    - `search_recovery_success_ratio`
+    - `search_recovery_mean_s`
+  - 保持“单链 PID + 固定速度 40 档”前提，不把 `speed_target` 纳入本轮搜索维度
+  - 在 [`Project_track_fisheye/000Project_PC_Control/config.yaml`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/config.yaml) 切成三阶段骨架：
+    - `fit`
+    - `pid`
+    - `recovery`
+  - 将恢复链参数纳入参数表：
+    - `recover_ticks`
+    - `search_turn_fast`
+    - `search_turn_slow`
+    - `search_timeout`
+
+### Phase 7: 骨架验证
+- **Status:** complete
+- Actions taken:
+  - 用 `py_compile` 验证 [`track_adaptive_tuner.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/track_adaptive_tuner.py) 语法通过
+  - 用 `yaml.safe_load()` 验证 [`config.yaml`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/config.yaml) 结构通过
+  - 用 `--help` 验证脚本命令入口可用
+
+## Current State
+- 单链 PID 主实现不再改动
+- 自动调参链当前处于“骨架完成，可随时实跑”的状态
+- 当前没有实际启动参数扫描，符合本轮“只做骨架”的边界

@@ -35,30 +35,34 @@ LT_MASK_OUTER = 0xC3
 LT_CENTER_CORE_STATES = (0x08, 0x10, 0x18)
 
 DEFAULT_SCORE_WEIGHTS = {
-    "mean_forward_speed": 0.12,
-    "center_band_ratio": 40.0,
-    "exact_center_ratio": 85.0,
-    "center_core_ratio": 245.0,
-    "center_single_ratio": -18.0,
-    "straight_ratio": 18.0,
-    "scurve_ratio": 22.0,
-    "outer_ratio": -140.0,
+    "mean_forward_speed": 0.18,
+    "center_band_ratio": 24.0,
+    "exact_center_ratio": 18.0,
+    "center_core_ratio": 165.0,
+    "center_single_ratio": -32.0,
+    "straight_ratio": 0.0,
+    "scurve_ratio": 12.0,
+    "outer_ratio": -165.0,
     "corner_ratio": -150.0,
-    "search_ratio": 0.0,
-    "trim_ratio": 0.0,
-    "loss_ratio": -95.0,
-    "mean_abs_lp": -0.32,
-    "mean_abs_lp_delta": -0.55,
-    "center_mean_abs_lp": -1.05,
-    "center_mean_abs_lp_delta": -2.35,
-    "lp_flip_rate_hz": -12.0,
-    "center_flip_rate_hz": -46.0,
-    "scurve_center_band_ratio": 0.0,
-    "scurve_center_core_ratio": 0.0,
-    "scurve_outer_ratio": 0.0,
-    "scurve_mean_abs_lp": 0.0,
-    "scurve_mean_abs_lp_delta": 0.0,
-    "scurve_flip_rate_hz": 0.0,
+    "search_ratio": -240.0,
+    "trim_ratio": -140.0,
+    "loss_ratio": -160.0,
+    "mean_abs_lp": -0.22,
+    "mean_abs_lp_delta": -0.70,
+    "center_mean_abs_lp": -1.35,
+    "center_mean_abs_lp_delta": -3.90,
+    "lp_flip_rate_hz": -16.0,
+    "center_flip_rate_hz": -76.0,
+    "scurve_center_band_ratio": 110.0,
+    "scurve_center_core_ratio": 210.0,
+    "scurve_outer_ratio": -240.0,
+    "scurve_mean_abs_lp": -1.80,
+    "scurve_mean_abs_lp_delta": -5.60,
+    "scurve_flip_rate_hz": -100.0,
+    "edge_recovery_success_ratio": 85.0,
+    "edge_recovery_mean_s": -55.0,
+    "search_recovery_success_ratio": 125.0,
+    "search_recovery_mean_s": -70.0,
 }
 
 
@@ -156,6 +160,12 @@ class TrialResult:
     scurve_mean_abs_lp: float
     scurve_mean_abs_lp_delta: float
     scurve_flip_rate_hz: float
+    edge_event_count: int
+    edge_recovery_success_ratio: float
+    edge_recovery_mean_s: float
+    search_event_count: int
+    search_recovery_success_ratio: float
+    search_recovery_mean_s: float
     score: float
     stopped_early: int
     stop_reason: str
@@ -231,6 +241,12 @@ def empty_metrics(sample_count: float, duration_s: float) -> dict[str, float]:
         "scurve_mean_abs_lp": 350.0,
         "scurve_mean_abs_lp_delta": 350.0,
         "scurve_flip_rate_hz": 0.0,
+        "edge_event_count": 0.0,
+        "edge_recovery_success_ratio": 0.0,
+        "edge_recovery_mean_s": 2.0,
+        "search_event_count": 0.0,
+        "search_recovery_success_ratio": 0.0,
+        "search_recovery_mean_s": 2.0,
         "score": -9999.0,
     }
 
@@ -487,6 +503,56 @@ def is_center_eval_record(rec: TrackRecord) -> bool:
     return (not is_skip_state(rec.st)) and (not is_corner_state(rec.st))
 
 
+def has_center_band(bits: int) -> bool:
+    return ((bits & LT_MASK_CENTER) != 0) and ((bits & LT_MASK_OUTER) == 0)
+
+
+def has_center_core(bits: int) -> bool:
+    return bits in LT_CENTER_CORE_STATES
+
+
+def collect_recovery_metrics(records: list[TrackRecord],
+                             start_predicate,
+                             recovered_predicate,
+                             timeout_s: float) -> tuple[int, float, float]:
+    if not records:
+        return 0, 1.0, 0.0
+
+    total = 0
+    success = 0
+    durations: list[float] = []
+    active = False
+    active_start_ms = 0
+    prev_start = False
+    timeout_ms = int(timeout_s * 1000.0)
+
+    for rec in records:
+        current_start = bool(start_predicate(rec))
+        if (not active) and current_start and (not prev_start):
+            active = True
+            active_start_ms = rec.t_ms
+            total += 1
+
+        if active:
+            if recovered_predicate(rec):
+                durations.append(max(0.0, (rec.t_ms - active_start_ms) / 1000.0))
+                success += 1
+                active = False
+            elif timeout_ms > 0 and (rec.t_ms - active_start_ms) >= timeout_ms:
+                active = False
+
+        prev_start = current_start
+
+    if total == 0:
+        return 0, 1.0, 0.0
+
+    return (
+        total,
+        success / float(total),
+        statistics.fmean(durations) if durations else timeout_s,
+    )
+
+
 def clamp_value(value: float, bounds: tuple[float, float], digits: int) -> float:
     lo, hi = bounds
     if value < lo:
@@ -711,6 +777,18 @@ def analyze_trial(records: list[TrackRecord],
         sign_changes_with_deadband(scurve_lp_signed, 18.0) / duration_s
         if scurve_lp_signed else 0.0
     )
+    edge_event_count, edge_recovery_success_ratio, edge_recovery_mean_s = collect_recovery_metrics(
+        analyzed,
+        lambda rec: rec.st.upper() == "EDGE",
+        lambda rec: has_center_core(rec.sb),
+        1.40,
+    )
+    search_event_count, search_recovery_success_ratio, search_recovery_mean_s = collect_recovery_metrics(
+        analyzed,
+        lambda rec: is_search_state(rec.st),
+        lambda rec: has_center_core(rec.sb),
+        2.10,
+    )
 
     metrics = {
         "sample_count": float(len(analyzed)),
@@ -743,6 +821,12 @@ def analyze_trial(records: list[TrackRecord],
         "scurve_mean_abs_lp": scurve_mean_abs_lp,
         "scurve_mean_abs_lp_delta": scurve_mean_abs_lp_delta,
         "scurve_flip_rate_hz": scurve_flip_rate_hz,
+        "edge_event_count": float(edge_event_count),
+        "edge_recovery_success_ratio": edge_recovery_success_ratio,
+        "edge_recovery_mean_s": edge_recovery_mean_s,
+        "search_event_count": float(search_event_count),
+        "search_recovery_success_ratio": search_recovery_success_ratio,
+        "search_recovery_mean_s": search_recovery_mean_s,
     }
     metrics["score"] = score_metrics(metrics, score_weights)
     return metrics
@@ -948,6 +1032,12 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
         scurve_mean_abs_lp=metrics["scurve_mean_abs_lp"],
         scurve_mean_abs_lp_delta=metrics["scurve_mean_abs_lp_delta"],
         scurve_flip_rate_hz=metrics["scurve_flip_rate_hz"],
+        edge_event_count=int(metrics["edge_event_count"]),
+        edge_recovery_success_ratio=metrics["edge_recovery_success_ratio"],
+        edge_recovery_mean_s=metrics["edge_recovery_mean_s"],
+        search_event_count=int(metrics["search_event_count"]),
+        search_recovery_success_ratio=metrics["search_recovery_success_ratio"],
+        search_recovery_mean_s=metrics["search_recovery_mean_s"],
         score=score,
         stopped_early=1 if stopped_early else 0,
         stop_reason=stop_reason,
@@ -965,6 +1055,8 @@ def append_trial(ctx: SearchContext, params: dict[str, float], stage: int, sourc
         f"outer={result.outer_ratio:.2%} sc_outer={result.scurve_outer_ratio:.2%} "
         f"corner={result.corner_ratio:.2%} wob={result.center_flip_rate_hz:.2f}Hz "
         f"sc_wob={result.scurve_flip_rate_hz:.2f}Hz "
+        f"edge_rec={result.edge_recovery_mean_s:.2f}s/{result.edge_recovery_success_ratio:.0%} "
+        f"search_rec={result.search_recovery_mean_s:.2f}s/{result.search_recovery_success_ratio:.0%} "
         f"c|lp|={result.center_mean_abs_lp:.1f} c|yr|={result.center_mean_abs_yr:.1f} "
         f"c|dyr|={result.center_mean_abs_yr_delta:.1f} sc|lp|={result.scurve_mean_abs_lp:.1f} "
         f"|lp|={result.mean_abs_lp:.1f}",

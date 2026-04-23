@@ -100,53 +100,62 @@ autotune:
       lkp_bounds: [12.0, 28.0]
       lkd_bounds: [4.0, 16.0]
   track_adaptive:
-    duration_s: 7.0
+    duration_s: 10.0
     speed_target: 40.0
     settle_skip_s: 1.0
-    repeats: 1
-    confirm_best_repeats: 2
+    repeats: 2
+    confirm_best_repeats: 3
     phases:
       - name: fit
-        params: [sensor_scale3, sensor_scale4, sensor_scale5, sensor_scale6, deadband, pos_lpf, d_lpf]
+        params: [sensor_scale2, sensor_scale3, sensor_scale4, sensor_scale5, sensor_scale6, sensor_scale7, static_bias, deadband, pos_lpf, d_lpf]
         repeats: 1
         confirm_best_repeats: 1
-        min_improve: 0.4
+        min_improve: 0.6
       - name: pid
-        params: [lkp, lkd, dev_ratio, deadband, pos_lpf, d_lpf]
+        params: [lkp, lkd, dev_ratio, deadband, pos_lpf, d_lpf, static_bias]
         repeats: 2
         confirm_best_repeats: 2
-        min_improve: 0.8
+        min_improve: 1.0
+      - name: recovery
+        params: [recover_ticks, search_turn_fast, search_turn_slow, search_timeout, sensor_scale1, sensor_scale8]
+        repeats: 2
+        confirm_best_repeats: 3
+        min_improve: 1.0
     score:
       weights:
-        mean_forward_speed: 0.18
-        center_band_ratio: 28.0
+        mean_forward_speed: 0.20
+        center_band_ratio: 24.0
         exact_center_ratio: 18.0
-        center_core_ratio: 140.0
-        center_single_ratio: -28.0
+        center_core_ratio: 165.0
+        center_single_ratio: -32.0
         straight_ratio: 0.0
-        scurve_ratio: 30.0
-        outer_ratio: -160.0
-        corner_ratio: -185.0
-        search_ratio: -220.0
-        trim_ratio: -120.0
-        loss_ratio: -120.0
-        mean_abs_lp: -0.15
-        mean_abs_lp_delta: -0.35
-        center_mean_abs_lp: -1.10
-        center_mean_abs_lp_delta: -3.20
-        lp_flip_rate_hz: -10.0
-        center_flip_rate_hz: -58.0
-        scurve_center_band_ratio: 95.0
+        scurve_ratio: 12.0
+        outer_ratio: -165.0
+        corner_ratio: -150.0
+        search_ratio: -240.0
+        trim_ratio: -140.0
+        loss_ratio: -160.0
+        mean_abs_lp: -0.22
+        mean_abs_lp_delta: -0.70
+        center_mean_abs_lp: -1.35
+        center_mean_abs_lp_delta: -3.90
+        lp_flip_rate_hz: -16.0
+        center_flip_rate_hz: -76.0
+        scurve_center_band_ratio: 110.0
         scurve_center_core_ratio: 210.0
-        scurve_outer_ratio: -220.0
-        scurve_mean_abs_lp: -1.40
-        scurve_mean_abs_lp_delta: -4.50
-        scurve_flip_rate_hz: -82.0
+        scurve_outer_ratio: -240.0
+        scurve_mean_abs_lp: -1.80
+        scurve_mean_abs_lp_delta: -5.60
+        scurve_flip_rate_hz: -100.0
+        edge_recovery_success_ratio: 85.0
+        edge_recovery_mean_s: -55.0
+        search_recovery_success_ratio: 125.0
+        search_recovery_mean_s: -70.0
     early_stop:
       enabled: true
-      min_runtime_s: 2.5
-      max_loss_streak: 24
-      max_search_streak: 45
+      min_runtime_s: 3.0
+      max_loss_streak: 26
+      max_search_streak: 52
       max_stall_streak: 24
       stall_speed_threshold: 12.0
     turnaround:
@@ -206,8 +215,8 @@ autotune:
       speed_target:
         key: track.speed_target
         start: 40.0
-        bounds: [36.0, 44.0]
-        steps: [2.0, 1.0, 0.0]
+        bounds: [40.0, 40.0]
+        steps: [0.0, 0.0, 0.0]
         digits: 2
       lkp:
         key: track.lkp
@@ -251,3 +260,27 @@ autotune:
         bounds: [0.26, 0.46]
         steps: [0.02, 0.01, 0.0]
         digits: 3
+      recover_ticks:
+        key: track.recover_ticks
+        start: 8.0
+        bounds: [5.0, 14.0]
+        steps: [2.0, 1.0, 0.0]
+        digits: 1
+      search_turn_fast:
+        key: track.search_turn_fast
+        start: 240.0
+        bounds: [220.0, 320.0]
+        steps: [16.0, 8.0, 0.0]
+        digits: 1
+      search_turn_slow:
+        key: track.search_turn_slow
+        start: 150.0
+        bounds: [130.0, 220.0]
+        steps: [12.0, 6.0, 0.0]
+        digits: 1
+      search_timeout:
+        key: track.search_timeout
+        start: 18.0
+        bounds: [12.0, 30.0]
+        steps: [4.0, 2.0, 0.0]
+        digits: 1
