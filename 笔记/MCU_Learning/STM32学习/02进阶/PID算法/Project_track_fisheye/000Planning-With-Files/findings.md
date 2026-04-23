@@ -199,3 +199,35 @@
     - `1`: 同侧外缘，需稳定累计
     - `2`: 中心/内侧/交叉，立即退出
   - 这样外侧同侧线连续两拍即可退出搜索并交还给单链 `PD`，不再拖到中心带才放手
+
+## 2026-04-24 exp284/285 无故出线根因
+
+### 关键证据
+- [`exp_0284_20260424_071315_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0284_20260424_071315_KEY_T.txt) 和 [`exp_0285_20260424_071323_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0285_20260424_071323_KEY_T.txt) 都在正常 `SCRV/TRM` 区间里出现了短暂 `sb=0`，随后立即进入 `FNDL/FNDR`。
+- `exp284` 在 `t=160ms` 仍是稳定 `SCRV`，到 `t=180ms` 只因一拍 `sb=0` 就进 `FNDL`。
+- `exp285` 在 `t=120ms` 出现一次 `sb=0`，到 `t=140ms` 就进 `FNDL`；说明 `TRACK_LOST_CONFIRM_TICKS=2`、`TRACK_LOST_FAST_CONFIRM_TICKS=1` 已经过于激进。
+- 更严重的是，`exp285` 在搜索中已经重新见到 `sb=192` 这类反侧外缘线，但状态仍长时间保持 `FNDL`。这证明上一轮新增的：
+  - `recoverDir` 优先选方向
+  - 搜索退出只认同侧/中心
+  两条链叠起来后，会把错误方向搜索锁死。
+
+### 判断
+- 这次“无缘无故就出去了”不是单纯 `P` 太大，而是上轮为了提速恢复引入了新的状态耦合：
+  - 瞬时全灭过快触发搜索
+  - 错误方向搜索一旦进入，就会因为只认同侧退出而持续越找越远
+- 所以修正重点不是再调硬，而是先把这条错误触发链拆掉。
+
+### 本轮修正
+- `PID_TRACK_LINE_KP: 12.2 -> 11.4`
+- `TRACK_FOLLOW_DEV_RATIO: 0.62 -> 0.58`
+- `TRACK_FOLLOW_DEV_STEP_LIMIT: 38 -> 34`
+- `TRACK_LOST_CONFIRM_TICKS: 2 -> 3`
+- `TRACK_LOST_FAST_CONFIRM_TICKS: 1 -> 2`
+- `TRACK_SEARCH_TURN_PWM_FAST/SLOW: 320/200 -> 300/190`
+- `TRACK_RECOVER_TICKS: 12 -> 10`
+- `line_track.c`
+  - 去掉 `recoverDir` 在 `track_pick_search_dir()` 里的最高优先级，改回优先相信最近有效线历史和最近差速方向
+  - `track_search_reacquire_class()` 改成：
+    - 中心/内侧/交叉：立即退出
+    - 任一外侧稳定两拍：允许退出
+  - 这样既不会回到“一闪就退”，也不会因为方向判错而在错误方向上锁死搜索

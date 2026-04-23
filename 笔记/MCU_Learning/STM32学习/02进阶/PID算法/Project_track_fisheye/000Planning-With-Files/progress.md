@@ -216,3 +216,42 @@
     - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
     - `reset --no-config -t stm32f103rc -u 031305620164`
   - 板上串口参数回读尝试失败，原因是 `COM18` 被其他串口进程占用；烧录链本身成功
+
+## Session: 2026-04-24 exp284/285 根因回退修正
+
+### Phase 19: 日志根因定位
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0284_20260424_071315_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0284_20260424_071315_KEY_T.txt)
+  - 读取 [`exp_0285_20260424_071323_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0285_20260424_071323_KEY_T.txt)
+  - 确认两轮共同根因不是单纯 `P` 太大，而是：
+    - 丢线确认门槛过低，短暂 `sb=0` 过快进搜索
+    - `recoverDir` 最高优先级导致方向判错
+    - 搜索退出只认同侧/中心，造成错误方向搜索锁死
+
+### Phase 20: 触发链回退与收敛
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 回调：
+    - `PID_TRACK_LINE_KP = 11.4`
+    - `TRACK_FOLLOW_DEV_RATIO = 0.58`
+    - `TRACK_FOLLOW_DEV_STEP_LIMIT = 34`
+    - `TRACK_LOST_CONFIRM_TICKS = 3`
+    - `TRACK_LOST_FAST_CONFIRM_TICKS = 2`
+    - `TRACK_SEARCH_TURN_PWM_FAST/SLOW = 300/190`
+    - `TRACK_RECOVER_TICKS = 10`
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)：
+    - 降低 `recoverDir` 优先级
+    - 将搜索重获线改成“中心/内侧立即退出、任一外侧稳定两拍退出”
+
+### Phase 21: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 产物时间戳校验通过
+  - 使用 `pyOCD` 顺序完成：
+    - `erase --chip`
+    - `load project.hex`
+    - `reset`
