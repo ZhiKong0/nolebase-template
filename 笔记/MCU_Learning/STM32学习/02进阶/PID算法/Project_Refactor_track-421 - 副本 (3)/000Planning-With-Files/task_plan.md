@@ -1,68 +1,53 @@
-# Task Plan: 421 接线边界与循迹输入链重构
+# Task Plan: IMU 初始化阻塞排查
 
 ## Goal
-按当前真实硬件边界收口 `Project_Refactor_track-421 - 副本 (3)`：
-
-- 循迹前端仍是 `74HC4051 + 12 路模块 A3~A10`
-- MCU 内部将扫描结果整理成 `8` 位状态帧供 `LineSensor_Read()` / `line_track` 消费
-- `DAPlink` 主串口固定为 `USART1` 重映射 `PB6/PB7`
-- 当前“无线串口”能力来自 `DAPlink` 自身，因此仍走 `PB6/PB7`
-- `BNO085_RST` 保持在 `PB14`
-- 项目内 `000Planning-With-Files` 作为后续默认上下文恢复位置
+解决 `Project_Refactor_track-421 - 副本 (3)` 当前 `BNO085` 初始化卡在 `IMU:1 / IMU:5` 的问题，先恢复板上可观测性和可启动性，再决定是否继续 `TRACK` 联调。
 
 ## Current Phase
-Phase 4
+Phase 5
 
 ## Phases
 
-### Phase 1: 核对真实硬件链
-- [x] 读取 [`000/接线总表——END.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/000/接线总表——END.md)
-- [x] 核对当前工程 `config / sensor_fusion / bsp_uart / stm32f10x_it`
-- [x] 识别“外部 UART 数据帧”与“4051 扫描后内部状态帧”这两个概念的歧义
+### Phase 1: 核对 IMU 引脚与状态号
+- [x] 读取 `config.h / sensor_fusion.c / main.c / bsp_oled.c`
+- [x] 确认 `INT=PA15`、`RST=PB14` 与当前代码一致
+- [x] 确认 OLED `IMU:x` 阶段含义
 - **Status:** complete
 
-### Phase 2: 修正输入主链
-- [x] 将 `LineSensor` 主链收回到 `74HC4051` 扫描实现
-- [x] 移除误接入的串口循迹帧缓存逻辑
-- [x] 保留 `LineSensor_Read()` 对 `line_track` 的既有消费接口
+### Phase 2: 识别真实失败点
+- [x] 区分 `IMU:1` 与 `IMU:5` 的失败路径
+- [x] 判断 `IMU:5` 可能受 `INT` 首包门控影响
+- [x] 判断当前启动期存在超长阻塞风险
 - **Status:** complete
 
-### Phase 3: 修正串口与引脚边界
-- [x] 保持 `USART1(PB6/PB7 remap)` 作为 `DAPlink/命令串口`
-- [x] 确认 `PB6/PB7` 同时承接 `DAPlink` 的无线串口桥能力
-- [x] 将 `BNO085_RST` 收回 `PB14`
-- [x] 清掉 `PB14/PB15` 无线串口预留的错误假设
+### Phase 3: 实施鲁棒性修正
+- [x] 初始化期加入无 `INT` 轮询首包兜底
+- [x] 增加 `failCode` 失败码
+- [x] OLED 改为显示 `IMU/ADDR/FAIL`
+- [x] 新增串口 `#IMU?!` 诊断命令
 - **Status:** complete
 
-### Phase 4: 文档与验证
-- [x] 修正接线总表里 `DAPlink` / 无线串口 / `74HC4051` 的角色描述
-- [x] 用项目内 `000Planning-With-Files` 刷新当前任务记录
-- [x] 完成 Keil 编译验证
+### Phase 4: 收缩启动阻塞窗口
+- [x] 去掉无效 `0x28/0x29` 地址探测
+- [x] 缩短 `present/product-id/first-report` 超时
+- [x] 重新编译并烧录
 - **Status:** complete
 
-### Phase 5: 收尾
-- [ ] 整理最终说明
-- [ ] 按需要提交推送
+### Phase 5: 板上验证与结论
+- [x] 串口验证 `#STAT!` 已恢复响应
+- [x] 串口验证 `#IMU?!` 已返回具体失败码
+- [ ] 如需继续修复，转入硬件链检查或进一步降级 IMU 依赖
 - **Status:** in_progress
 
 ## Decisions Made
-| Decision | Rationale |
-|----------|-----------|
-| 采用 `lean-context-stack = Continue + planning-with-files + files-to-prompt` | 当前任务跨多步，但已缩到少量热文件 |
-| 项目内 `000Planning-With-Files/` 作为默认上下文恢复位置 | 符合用户要求，也能减少后续线程上下文占用 |
-| 这次“数据帧”按 MCU 内部 `8` 位状态帧理解，不再误判成外部 UART 传感器持续输入 | 用户已明确实际硬件仍是 `74HC4051` 前端 |
-| `PB6/PB7` 作为 `DAPlink` 主串口，同时承接其无线串口桥能力 | 用户已明确无线能力来自 `DAPlink` 本体，而不是独立 `PB14/PB15` 模块 |
-| `BNO085_RST` 恢复到 `PB14` | 减少额外改线，回到更贴近用户现有接线的状态 |
-
-## Errors Encountered
-| Error | Attempt | Resolution |
-|-------|---------|------------|
-| 把“数据帧”误解释成外部 UART 循迹模块输入 | 1 | 按用户澄清和旧 4051 适配记录，恢复为“4051 扫描 -> MCU 内部状态帧” |
+- `TRACK` 自适应联调暂时暂停，先清除 IMU 启动阻塞。
+- 当前最关键的证据来源改为 `#IMU?!`，不再只依赖 OLED 阶段号。
+- 已确认不是 `PA15/PB14` 宏定义错误，而是运行时 `BNO` 探测阶段没有收到设备应答。
 
 ## Hot Files
-- [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/config.h)
-- [`Hardware/sensor_fusion.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/sensor_fusion.h)
-- [`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/sensor_fusion.c)
-- [`Hardware/bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/bsp_uart.c)
-- [`User/stm32f10x_it.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/User/stm32f10x_it.c)
-- [`000/接线总表——END.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/000/接线总表——END.md)
+- `Hardware/config.h`
+- `Hardware/sensor_fusion.h`
+- `Hardware/sensor_fusion.c`
+- `Hardware/bsp_oled.h`
+- `Hardware/bsp_oled.c`
+- `User/main.c`

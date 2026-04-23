@@ -40,14 +40,14 @@
 #define BNO_Q_ROT      14u
 
 #define BNO_RAD2DEG              57.2957795130823208768f
-#define BNO_NO_RESET_BOOT_MS     250u
+#define BNO_NO_RESET_BOOT_MS     120u
 #define BNO_PRESENT_STABLE_CNT   3u
 #define BNO_PRESENT_STABLE_GAP   10u
 #define BNO_FLUSH_ROUNDS         8u
-#define BNO_FIRST_REPORT_MS      1500u
+#define BNO_FIRST_REPORT_MS      700u
 #define BNO_PRESENT_SETTLE_MS    40u
 #define BNO_SOFT_RESET_DELAY_MS  100u
-#define BNO_PRODUCT_ID_TIMEOUT   2000u
+#define BNO_PRODUCT_ID_TIMEOUT   300u
 #define BNO_SEND_RETRY_COUNT     3u
 #define BNO_RECOVER_NOT_READY    200u
 #define BNO_RECOVER_STALL        40u
@@ -61,6 +61,12 @@
 #define BNO_INIT_WAIT     5u
 #define BNO_INIT_READY    6u
 
+#define BNO_FAIL_NONE             0u
+#define BNO_FAIL_PRESENT_TIMEOUT  1u
+#define BNO_FAIL_PRESENT_UNSTABLE 2u
+#define BNO_FAIL_ENABLE_REPORT    3u
+#define BNO_FAIL_FIRST_REPORT     4u
+
 static uint8_t  s_bnoAddr = 0;
 static uint8_t  s_bnoWho = 0;
 static uint8_t  s_bnoSeq[6];
@@ -70,6 +76,7 @@ static float    s_bnoYawBase = 0.0f;
 static float    s_bnoRawYaw = 0.0f;
 static uint8_t  s_bnoReady = 0u;
 static uint8_t  s_bnoInitStage = BNO_INIT_IDLE;
+static uint8_t  s_bnoInitFailCode = BNO_FAIL_NONE;
 static uint8_t  s_bnoInitBusy = 0u;
 static uint16_t s_bnoReadFailStreak = 0u;
 static uint16_t s_bnoNoNewDataCount = 0u;
@@ -82,7 +89,7 @@ static uint16_t s_bnoLastPayloadLen = 0u;
 
 static void bno_diag_update(void)
 {
-    BspOled_ShowIMUInit(s_bnoInitStage, s_bnoAddr);
+    BspOled_ShowIMUInit(s_bnoInitStage, s_bnoAddr, s_bnoInitFailCode);
 }
 
 static void bno_set_addr(uint8_t addr)
@@ -97,7 +104,14 @@ static void bno_set_stage(uint8_t stage)
     bno_diag_update();
 }
 
+static void bno_set_fail(uint8_t failCode)
+{
+    s_bnoInitFailCode = failCode;
+    bno_diag_update();
+}
+
 static uint8_t BNO_ReceivePacket(uint8_t *channel, uint16_t *payloadLen);
+static uint8_t bno_read_all_core(IMU_Data_t *data, uint8_t forcePoll);
 
 /* ---------- Software I2C ---------- */
 
@@ -348,12 +362,12 @@ static uint8_t bno_send_packet(uint8_t channel, const uint8_t *payload, uint8_t 
     return 0u;
 }
 
-static uint8_t BNO_ReceivePacket(uint8_t *channel, uint16_t *payloadLen)
+static uint8_t BNO_ReceivePacketEx(uint8_t *channel, uint16_t *payloadLen, uint8_t forcePoll)
 {
     uint16_t totalLen, len, i;
     uint8_t raw[BNO_PACKET_MAX + 4u];
 
-    if (GPIO_ReadInputDataBit(BNO_INT_PORT, BNO_INT_PIN) != Bit_RESET) return 0u;
+    if (!forcePoll && GPIO_ReadInputDataBit(BNO_INT_PORT, BNO_INT_PIN) != Bit_RESET) return 0u;
 
     s_bnoRxAttemptCount++;
     s_bnoLastRxFailCode = 0u;
@@ -378,6 +392,11 @@ static uint8_t BNO_ReceivePacket(uint8_t *channel, uint16_t *payloadLen)
     if (channel) *channel = s_bnoHeader[2];
     if (payloadLen) *payloadLen = len;
     return 1u;
+}
+
+static uint8_t BNO_ReceivePacket(uint8_t *channel, uint16_t *payloadLen)
+{
+    return BNO_ReceivePacketEx(channel, payloadLen, 0u);
 }
 
 /* ---------- Report Parsing ---------- */
@@ -491,7 +510,18 @@ static uint8_t bno_wait_first_report(IMU_Data_t *data, uint16_t timeoutMs)
 {
     uint16_t t;
     for (t = 0; t < timeoutMs; t++) {
-        if (BNO085_ReadAll(data) && data->ahrsInited) return 1u;
+        uint8_t forcePoll = 0u;
+
+        if (GPIO_ReadInputDataBit(BNO_INT_PORT, BNO_INT_PIN) == Bit_RESET) {
+            forcePoll = 1u;
+        } else if ((t % 20u) == 0u) {
+            /* Some boards leave INT unconnected or inverted. During init,
+               fall back to periodic polled reads so first report can still
+               be captured and the driver does not stick at IMU:5 forever. */
+            forcePoll = 1u;
+        }
+
+        if (bno_read_all_core(data, forcePoll) && data->ahrsInited) return 1u;
         Delay_ms(1);
     }
     return 0u;
@@ -502,6 +532,7 @@ static uint8_t bno_attempt_init_at_addr(uint8_t addr, uint8_t doReset, uint16_t 
 {
     bno_set_addr(addr);
     bno_set_stage(BNO_INIT_PROBE);
+    bno_set_fail(BNO_FAIL_NONE);
     memset(s_bnoSeq, 0, sizeof(s_bnoSeq));
     s_bnoReady = 0u;
     s_bnoWho = 0u;
@@ -513,20 +544,30 @@ static uint8_t bno_attempt_init_at_addr(uint8_t addr, uint8_t doReset, uint16_t 
         Delay_ms(BNO_NO_RESET_BOOT_MS);
     }
 
-    if (!bno_wait_present(presentTimeoutMs)) { bno_set_addr(0u); return 0u; }
+    if (!bno_wait_present(presentTimeoutMs)) {
+        bno_set_fail(BNO_FAIL_PRESENT_TIMEOUT);
+        bno_set_addr(0u);
+        return 0u;
+    }
     if (!bno_wait_present_stable(
             (uint16_t)(BNO_PRESENT_STABLE_CNT * BNO_PRESENT_STABLE_GAP * 6u),
             BNO_PRESENT_STABLE_CNT)) {
-        bno_set_addr(0u); return 0u;
+        bno_set_fail(BNO_FAIL_PRESENT_UNSTABLE);
+        bno_set_addr(0u);
+        return 0u;
     }
 
+    bno_set_stage(BNO_INIT_PRESENT);
     bno_set_stage(BNO_INIT_PID);
     (void)bno_request_product_id();
 
     bno_set_stage(BNO_INIT_FEATURE);
     if (!bno_enable_report(BNO_SENSOR_GAME_ROT_VEC, BNO_REPORT_INTERVAL_US)) {
-        bno_set_addr(0u); return 0u;
+        bno_set_fail(BNO_FAIL_ENABLE_REPORT);
+        bno_set_addr(0u);
+        return 0u;
     }
+    (void)bno_enable_report(BNO_SENSOR_ROT_VEC, BNO_REPORT_INTERVAL_US);
     /* Enable calibrated gyroscope for direct angular velocity (D-term).
        Gyro output has ~5ms latency vs ~25ms for differentiated rot-vec,
        Use 20ms interval (50Hz) — same as GAME_ROT_VEC.
@@ -537,10 +578,15 @@ static uint8_t bno_attempt_init_at_addr(uint8_t addr, uint8_t doReset, uint16_t 
     s_bnoReady = 1u;
     bno_set_stage(BNO_INIT_WAIT);
     if (!bno_wait_first_report(tempData, BNO_FIRST_REPORT_MS)) {
-        s_bnoReady = 0u; s_bnoWho = 0u; bno_set_addr(0u); return 0u;
+        s_bnoReady = 0u;
+        s_bnoWho = 0u;
+        bno_set_fail(BNO_FAIL_FIRST_REPORT);
+        bno_set_addr(0u);
+        return 0u;
     }
 
     s_bnoWho = 0x85u;
+    bno_set_fail(BNO_FAIL_NONE);
     bno_set_stage(BNO_INIT_READY);
     return 1u;
 }
@@ -564,7 +610,7 @@ static void bno_try_recover(IMU_Data_t *data)
 void BNO085_Init(void)
 {
     static const uint8_t addrList[] = {
-        BNO_ADDR_ALT, BNO_ADDR_DEFAULT, BNO_ADDR_DOC_ALT, BNO_ADDR_DOC_DEF
+        BNO_ADDR_ALT, BNO_ADDR_DEFAULT
     };
     GPIO_InitTypeDef g;
     uint8_t i;
@@ -598,6 +644,7 @@ void BNO085_Init(void)
     s_bnoRawYaw = 0.0f;
     s_bnoReady = 0u;
     bno_set_stage(BNO_INIT_IDLE);
+    bno_set_fail(BNO_FAIL_NONE);
     s_bnoWho = 0u;
     bno_set_addr(0u);
     s_bnoReadFailStreak = 0u;
@@ -617,7 +664,7 @@ void BNO085_Init(void)
     s_bnoInitBusy = 0u;
 }
 
-uint8_t BNO085_ReadAll(IMU_Data_t *data)
+static uint8_t bno_read_all_core(IMU_Data_t *data, uint8_t forcePoll)
 {
     uint8_t ch;
     uint16_t len;
@@ -637,7 +684,7 @@ uint8_t BNO085_ReadAll(IMU_Data_t *data)
     }
 
     for (i = 0; i < 3u; i++) {
-        if (!BNO_ReceivePacket(&ch, &len)) break;
+        if (!BNO_ReceivePacketEx(&ch, &len, forcePoll)) break;
         got = 1u;
         s_bnoLastChannel = ch;
         s_bnoLastPayloadLen = len;
@@ -676,6 +723,11 @@ uint8_t BNO085_ReadAll(IMU_Data_t *data)
         }
     }
     return parsed ? 1u : 0u;
+}
+
+uint8_t BNO085_ReadAll(IMU_Data_t *data)
+{
+    return bno_read_all_core(data, 0u);
 }
 
 void BNO085_ResetAttitude(IMU_Data_t *data)
@@ -732,6 +784,7 @@ float BNO085_GetYawError(float target, float current)
 uint8_t BNO085_IsReady(void)      { return s_bnoReady; }
 uint8_t BNO085_GetInitStage(void) { return s_bnoInitStage; }
 uint8_t BNO085_GetI2CAddr(void)   { return s_bnoAddr; }
+uint8_t BNO085_GetInitFailCode(void) { return s_bnoInitFailCode; }
 
 uint8_t BNO085_GetLastRxFailCode(void)  { return s_bnoLastRxFailCode; }
 uint8_t BNO085_GetLastChannel(void)     { return s_bnoLastChannel; }

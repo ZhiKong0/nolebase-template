@@ -874,8 +874,19 @@ static void handle_command(const char *cmd)
         if (cmd_parse_float(cmd + 5, &fval))
         {
             g_pid.targetSpeed = fval;
-            BspUart_SendString("OK:SPD\r\n");
+            {
+                char out[40];
+                snprintf(out, sizeof(out), "OK:SPD=%.3f\r\n", (double)g_pid.targetSpeed);
+                BspUart_SendString(out);
+            }
         }
+        return;
+    }
+    if (strcmp(cmd, "#SPD?!") == 0)
+    {
+        char out[40];
+        snprintf(out, sizeof(out), "OK:SPD=%.3f\r\n", (double)g_pid.targetSpeed);
+        BspUart_SendString(out);
         return;
     }
     if (strncmp(cmd, "#SKP=", 5) == 0)
@@ -991,6 +1002,22 @@ static void handle_command(const char *cmd)
                          g_pid.targetSpeed);
         return;
     }
+    if (strcmp(cmd, "#IMU?!") == 0)
+    {
+        char out[112];
+        snprintf(out, sizeof(out),
+                 "OK:IMU=%u,addr=%02X,fail=%u,ready=%u,rx=%u,ch=%u,rid=%u,len=%u\r\n",
+                 (unsigned)BNO085_GetInitStage(),
+                 (unsigned)BNO085_GetI2CAddr(),
+                 (unsigned)BNO085_GetInitFailCode(),
+                 (unsigned)BNO085_IsReady(),
+                 (unsigned)BNO085_GetLastRxFailCode(),
+                 (unsigned)BNO085_GetLastChannel(),
+                 (unsigned)BNO085_GetLastReportId(),
+                 (unsigned)BNO085_GetLastPayloadLen());
+        BspUart_SendString(out);
+        return;
+    }
     if (strcmp(cmd, "#CAL!") == 0)
     {
         BspUart_SendString("OK:CAL\r\n");
@@ -1049,7 +1076,7 @@ static void run_control(uint32_t now)
     {
         avgSpeed = (g_encoder.filteredLeftSpeed + g_encoder.filteredRightSpeed) * 0.5f;
         DualLoop_ComputeSpeed(&g_pid, avgSpeed, dt);
-        LineTrack_Update(now, g_pid.pwmCore, g_imu.yaw);
+        LineTrack_Update(now, g_pid.pwmCore, g_fastYawRate);
 
         if (g_lineTrack.cornerDone)
         {
@@ -1128,7 +1155,8 @@ static void send_telemetry(void)
                                    g_lineTrack.bearingDev, g_lineTrack.crossCount,
                                    g_lineTrack.dbgTrackState, g_lineTrack.dbgTurnDir,
                                    g_lineTrack.dbgCrossActive,
-                                   g_lineTrack.dbgTelemState, g_lineTrack.dbgTelemFlags,
+                                   g_lineTrack.dbgTelemState, g_lineTrack.dbgScoreEnabled,
+                                   g_lineTrack.dbgTelemFlags,
                                    g_lineTrack.gainStage, g_lineTrack.searchPhase,
                                    g_lineTrack.recoverTicks);
     }
@@ -1181,12 +1209,12 @@ int main(void)
     BspOled_ShowFaultCode(FaultTrace_GetAndClearCode());
 
     Timer_Init();
-    BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr());
+    BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr(), BNO085_GetInitFailCode());
 
     MotorDriver_Init();
     Encoder_Init();
     BNO085_Init();
-    BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr());
+    BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr(), BNO085_GetInitFailCode());
     LineSensor_Init();
 
     DualLoop_Init(&g_pid);

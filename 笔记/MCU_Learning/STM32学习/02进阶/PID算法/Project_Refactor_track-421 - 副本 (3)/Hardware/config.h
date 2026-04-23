@@ -76,7 +76,7 @@ typedef enum
 
 #define BNO_REPORT_INTERVAL_US 20000UL
 #define BNO_BOOT_DELAY_MS      80u
-#define BNO_PRESENT_TIMEOUT_MS 1000u
+#define BNO_PRESENT_TIMEOUT_MS 250u
 #define BNO_PACKET_MAX         384u
 
 #define BNO_YAW_JUMP_REJECT_DEG 45.0f
@@ -154,13 +154,13 @@ typedef enum
 #define HEADING_INTEGRAL_ATTEN      0.3f
 
 /* ========== TRACK 模式默认参数 ========== */
-#define PID_TRACK_SPEED_TARGET      40.0f
+#define PID_TRACK_SPEED_TARGET      42.0f
 #define PID_TRACK_SPEED_KP          1.50f
 #define PID_TRACK_SPEED_KI          0.10f
 #define PID_TRACK_SPEED_KD          0.0f
 
 /* 5 路模板风格: bearing_dev 进入 PD, 输出左右轮差速 */
-#define PID_TRACK_LINE_KP           9.5f
+#define PID_TRACK_LINE_KP           10.3f
 #define PID_TRACK_LINE_KD           6.8f
 
 /* 连续单误差 PD:
@@ -171,15 +171,15 @@ typedef enum
 
 #define TRACK_CENTER_KP_SCALE       0.70f
 #define TRACK_CENTER_KD_SCALE       0.75f
-#define TRACK_CENTER_DEV_RATIO      0.30f
+#define TRACK_CENTER_DEV_RATIO      0.32f
 
 #define TRACK_MID_KP_SCALE          1.00f
 #define TRACK_MID_KD_SCALE          0.85f
-#define TRACK_MID_DEV_RATIO         0.52f
+#define TRACK_MID_DEV_RATIO         0.60f
 
 #define TRACK_EDGE_KP_SCALE         1.00f
 #define TRACK_EDGE_KD_SCALE         0.75f
-#define TRACK_EDGE_DEV_RATIO        0.58f
+#define TRACK_EDGE_DEV_RATIO        0.68f
 
 #define TRACK_LINE_POS_STEP         45
 #define TRACK_SENSOR_POS_TRIM_RANGE 60.0f
@@ -201,24 +201,24 @@ typedef enum
 #define TRACK_CENTER_KP_SCALE_DEFAULT   0.58f
 #define TRACK_MID_KP_SCALE_DEFAULT      0.92f
 #define TRACK_EDGE_KP_SCALE_DEFAULT     1.12f
-#define TRACK_CENTER_DEV_RATIO_DEFAULT  0.24f
-#define TRACK_MID_DEV_RATIO_DEFAULT     0.42f
-#define TRACK_EDGE_DEV_RATIO_DEFAULT    0.52f
+#define TRACK_CENTER_DEV_RATIO_DEFAULT  0.28f
+#define TRACK_MID_DEV_RATIO_DEFAULT     0.48f
+#define TRACK_EDGE_DEV_RATIO_DEFAULT    0.60f
 #define TRACK_RECENTER_DECAY_STEP       14
 #define TRACK_STATIC_STEER_BIAS         8
 
 /* TRACK 内环改为“连续位置误差 + 滤波导数”。
    bearing_dev 仍保留给状态判定和遥测，但差速输出不再直接吃离散跳变。 */
-#define TRACK_CTRL_CENTER_DEADBAND    18.0f
+#define TRACK_CTRL_CENTER_DEADBAND    16.0f
 #define TRACK_CTRL_CENTER_SLOPE_RATIO 0.60f
 #define TRACK_CTRL_ERROR_SCALE        90.0f
-#define TRACK_CTRL_POS_FILTER_ALPHA   0.60f
+#define TRACK_CTRL_POS_FILTER_ALPHA   0.64f
 #define TRACK_CTRL_D_FILTER_ALPHA     0.40f
 #define TRACK_CTRL_YAW_DAMP_GAIN      0.70f
 #define TRACK_CTRL_DEV_STEP_LIMIT     26
-#define TRACK_CTRL_OFFCENTER_BOOST    1.08f
+#define TRACK_CTRL_OFFCENTER_BOOST    1.12f
 
-#define TRACK_DEV_MAX_RATIO         0.58f
+#define TRACK_DEV_MAX_RATIO         0.62f
 #define TRACK_PWM_MAX               480
 #define TRACK_PWM_MIN               0
 #define TRACK_EDGE_BASE_PWM_MAX     260

@@ -29,6 +29,11 @@ float BNO085_GetYawError(float target, float current);
 uint8_t BNO085_IsReady(void);
 uint8_t BNO085_GetInitStage(void);
 uint8_t BNO085_GetI2CAddr(void);
+uint8_t BNO085_GetInitFailCode(void);
+uint8_t BNO085_GetLastRxFailCode(void);
+uint8_t BNO085_GetLastChannel(void);
+uint8_t BNO085_GetLastReportId(void);
+uint16_t BNO085_GetLastPayloadLen(void);
 
 void LineSensor_Init(void);
 void LineSensor_Read(LineSensor_Data_t *data);

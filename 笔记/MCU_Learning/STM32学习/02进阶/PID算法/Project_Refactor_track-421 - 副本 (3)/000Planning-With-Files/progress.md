@@ -51,3 +51,46 @@
 - 代码主线已经回到真实硬件边界
 - 文档已同步修正
 - `BNO085_RST` 已恢复为 `PB14`，不需要为了这一轮再额外改 IMU 复位线
+
+## Session: 2026-04-23 IMU 阻塞排查
+
+### Phase 1: 重新定性 IMU 阶段号
+- **Status:** complete
+- Actions taken:
+  - 读取 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/config.h)、[`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/sensor_fusion.c)、[`Hardware/bsp_oled.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/bsp_oled.c)、[`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/User/main.c)
+  - 确认 `IMU:1=PROBE`、`IMU:5=WAIT`
+  - 用户补充确认：`INT=PA15`、`RST=PB14`，与当前代码一致
+
+### Phase 2: 软件鲁棒性修正
+- **Status:** complete
+- Actions taken:
+  - 在 [`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/sensor_fusion.c) 增加初始化失败码
+  - 初始化等待首包时加入无 `INT` 轮询兜底
+  - 同时打开 `GAME_ROT_VEC` 与 `ROT_VEC`
+  - 将无效 `0x28/0x29` 地址探测移除
+  - 将 `present/product-id/first-report` 超时收紧，避免长时间阻塞启动
+
+### Phase 3: 可观测性补强
+- **Status:** complete
+- Actions taken:
+  - 在 [`Hardware/bsp_oled.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/bsp_oled.c) 显示 `IMU/ADDR/FAIL`
+  - 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/User/main.c) 新增 `#IMU?!`
+  - 在 [`Hardware/sensor_fusion.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_Refactor_track-421%20-%20副本%20(3)/Hardware/sensor_fusion.h) 暴露诊断 getter
+
+### Phase 4: 编译、烧录、板上验证
+- **Status:** complete
+- Actions taken:
+  - 使用 `D:\keil\Keil-v5\Arm\UV4\UV4.exe` 完成实际编译
+  - 编译结果：`0 Error(s), 0 Warning(s)`
+  - 按顺序执行 `pyocd list -> erase -> load -> reset`
+  - 串口 `COM18` 实测：
+    - `#STAT!` 已恢复正常回包
+    - `#IMU?!` 返回 `OK:IMU=1,addr=00,fail=1,ready=0,rx=2,ch=2,rid=0,len=48`
+
+### 结论
+- 本轮已经排除“代码把 `INT/RST` 宏写错”的可能。
+- 当前最直接的根因是：`BNO085` 在 I2C `PROBE` 阶段未应答，属于硬件链或模块模式问题。
+- 本轮软件修改的价值在于：
+  - 不再长时间假死
+  - 板上可以直接通过串口看到失败码
+  - 后续排查可以直接围绕 `SCL/SDA/PS0/PS1/ADDR/VDD/RST` 做

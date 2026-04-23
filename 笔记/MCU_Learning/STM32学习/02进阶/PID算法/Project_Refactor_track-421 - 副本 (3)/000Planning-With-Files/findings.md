@@ -1,57 +1,31 @@
 # Findings
 
-## 当前真实硬件边界
+## 2026-04-23 IMU 阻塞调查
 
-- 循迹前端仍然是 `74HC4051 + 12 路循迹模块 A3~A10`。
-- `74HC4051` 地址与输出脚为：
-  - `S0 -> PA2`
-  - `S1 -> PA11`
-  - `S2 -> PA10`
-  - `Z  -> PA3`
-- `DAPlink / 命令串口` 走 `USART1` 重映射：
-  - `TX -> PB6`
-  - `RX -> PB7`
-- 你当前说的“无线串口”能力来自 `DAPlink` 本身，因此物理上仍然落在 `PB6/PB7` 这组主串口上。
+### 关键证据
+- `PA15` 作为 `INT`、`PB14` 作为 `RST`，和当前代码完全一致，不是引脚宏写错。
+- 固件新增 `#IMU?!` 后，板上实测回包：
+  - `OK:IMU=1,addr=00,fail=1,ready=0,rx=2,ch=2,rid=0,len=48`
+- 该回包说明：
+  - `stage=1`：停在 `PROBE`
+  - `fail=1`：`BNO_FAIL_PRESENT_TIMEOUT`
+  - `addr=00`：所有候选地址均未建立稳定设备存在
 
-## 这轮纠正的关键歧义
+### 判断
+- 当前主因不是 `IMU:5` 首包等待，而是更前面的 I2C 设备探测阶段没有收到 `BNO085` ACK。
+- 之前看到的 `IMU:5` 很可能是旧版本初始化链中的次级现象；本轮修正后，最根本的失败点已经明确收敛到 `PROBE`。
+- `PID`、`TRACK`、`S` 弯控制都不是当前一号阻塞项。
 
-- 用户提到“数据帧”时，真实语义不是“外部 UART 传感器持续给 MCU 发串口帧”。
-- 当前更准确的理解是：
-  - `4051` 逐路扫描 `A3~A10`
-  - MCU 内部组合成 `8` 位状态帧
-  - `LineSensor_Read()` / `line_track` 消费该状态帧
-- 因此此前把 `sensor_fusion` 改成“纯 UART 帧缓存输入”是偏离真实硬件的。
+### 已做的软件修正
+- 初始化期加入“无 `INT` 周期轮询首包”兜底，避免 `INT` 门控导致假性卡 `WAIT`。
+- 加入 `failCode` 诊断。
+- OLED 增补 `FAIL` 显示。
+- 串口增补 `#IMU?!`。
+- 缩短超时并删除无效地址，避免 IMU 初始化把整机拖成“像死机一样”。
 
-## 本轮代码收口
-
-- `Hardware/config.h`
-  - 恢复 `LINE_MUX_S0/S1/S2/Z` 宏
-  - 移除“外部 UART 循迹帧”默认配置
-  - `BNO085_RST` 收回到 `PB14`
-  - 删除 `PB14/PB15` 无线串口预留宏
-- `Hardware/sensor_fusion.c`
-  - 恢复 `74HC4051` 逐路扫描逻辑
-  - `LineSensor_Read()` 回到“扫描 -> bits -> count -> weighted position”
-  - 删除串口循迹帧解析状态机
-- `Hardware/sensor_fusion.h`
-  - 删除 `LineSensor_Tick1ms / FrameRxByte / FrameIsOnline / FrameAgeMs`
-- `Hardware/bsp_uart.c`
-  - 串口 RX 回到只处理命令帧 `#...!`
-  - 不再把串口字节喂给 `LineSensor`
-- `User/stm32f10x_it.c`
-  - 去掉 `LineSensor_Tick1ms()` 定时调用
-- `000/接线总表——END.md`
-  - `PB6/PB7` 明确写成 `DAPlink` 的有线/无线主串口
-  - 把“数据帧”解释为 MCU 内部 `8` 位状态帧
-  - `74HC4051` 恢复为当前现行方案
-  - 删除 `PB14/PB15` 无线串口预留的错误描述，并保留 `PA15` 的 JTAG 说明
-
-## 额外发现
-
-- `PA15` 若作为 `BNO085_INT`，才需要释放 `JTAG`；`PB14/PB15` 本身不是 `JTAG` 脚。
-- 当前工程里已经在 `BNO085_Init()` 中调用 `GPIO_Remap_SWJ_JTAGDisable`，因此 `PA15` 作为 GPIO 是成立的。
-
-## 风险与后续
-
-- 当前代码与更贴近现状的 `BNO085_RST -> PB14` 接法一致，不需要为了这轮修正文档再额外改 IMU 复位线。
-- 由于这次纠正的是硬件边界而不是算法参数，所以优先级应高于继续联调 `PID`。
+### 当前最可能的硬件检查项
+1. `BNO085` 的 `SCL/SDA` 是否确实接在 `PB12/PB13`。
+2. `PS0/PS1` 是否真的配置为 I2C 模式。
+3. `ADDR` 是否悬空，导致地址模式不稳定。
+4. `VDD/GND` 与上电时序是否正常。
+5. `RST` 是否真的接到 `PB14`，且没有被别的模块占用。
