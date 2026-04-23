@@ -191,7 +191,9 @@ static void transition_start(ExperimentTrigger_t trigger)
         g_experimentId++;
 
     g_experimentActive = 1u;
+#if IMU_ENABLE
     BNO085_ResetAttitude(&g_imu);
+#endif
     memset(&g_encoder, 0, sizeof(g_encoder));
     Encoder_Reset();
     DualLoop_ResetAll(&g_pid);
@@ -1122,17 +1124,22 @@ static void run_control(uint32_t now)
 
 static void run_imu_update(void)
 {
+#if !IMU_ENABLE
+    memset(&g_imu, 0, sizeof(g_imu));
+    g_fastYawRate = 0.0f;
+    g_lastImuTick = g_tickMs;
+#else
     float dt;
     uint32_t now = g_tickMs;
 
     dt = (float)(now - g_lastImuTick) * 0.001f;
     if (dt <= 0.0f || dt > 0.5f)
         dt = 0.2f;
-
     BNO085_ReadAll(&g_imu);
     BNO085_UpdateYaw(&g_imu, dt);
     g_fastYawRate += 0.5f * (-g_imu.gyroZf - g_fastYawRate);
     g_lastImuTick = g_tickMs;
+#endif
 }
 
 static void send_telemetry(void)
@@ -1199,7 +1206,7 @@ static void update_display(uint32_t now)
                        (float)g_encoder.rightSpeed,
                        g_experimentId);
 
-    if (!BNO085_IsReady())
+    if (IMU_ENABLE && !BNO085_IsReady())
     {
         BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr(), BNO085_GetInitFailCode());
     }
@@ -1217,12 +1224,16 @@ int main(void)
     BspOled_ShowFaultCode(FaultTrace_GetAndClearCode());
 
     Timer_Init();
+#if IMU_ENABLE
     BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr(), BNO085_GetInitFailCode());
+#endif
 
     MotorDriver_Init();
     Encoder_Init();
+#if IMU_ENABLE
     BNO085_Init();
     BspOled_ShowIMUInit(BNO085_GetInitStage(), BNO085_GetI2CAddr(), BNO085_GetInitFailCode());
+#endif
     LineSensor_Init();
 
     DualLoop_Init(&g_pid);
@@ -1239,7 +1250,7 @@ int main(void)
         if (BspUart_TakeCommand(cmdBuf, sizeof(cmdBuf)))
             handle_command(cmdBuf);
 
-        if ((now - g_lastImuTick) >= IMU_READ_PERIOD_MS)
+        if (IMU_ENABLE && ((now - g_lastImuTick) >= IMU_READ_PERIOD_MS))
             run_imu_update();
 
         if (g_controlFlag)

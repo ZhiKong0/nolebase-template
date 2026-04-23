@@ -137,6 +137,7 @@ typedef enum
 #define HEADING_LOOP_MS           30
 #define TELEMETRY_PERIOD_MS       20
 #define TELEMETRY_IDLE_PERIOD_MS  200
+#define IMU_ENABLE                0
 #define IMU_READ_PERIOD_MS        20
 #define EXP_HOST_SYNC_TIMEOUT_MS  4000
 

@@ -93,3 +93,26 @@
 3. `PS0/PS1=GND` 的模式脚是否真接到位，没有虚焊或被板载默认电路拉偏。
 4. `VDD/GND` 与上电时序是否正常。
 5. `RST` 是否真的接到 `PB14`，且没有被别的模块占用。
+
+## 2026-04-24 全局关闭 IMU
+
+### 关键证据
+- `main.c` 里真正会触发 IMU 的入口只有三类：
+  - 启动阶段的 `BNO085_Init()`
+  - 周期调度里的 `run_imu_update()`
+  - 运行起始时的 `BNO085_ResetAttitude()`
+- 即使不初始化，只要 `update_display()` 仍在 `!BNO085_IsReady()` 时显示诊断，OLED 仍会持续出现 IMU 行。
+- 板上重新烧录后，串口实测：
+  - `#IMU?! -> OK:IMU=0,addr=00,fail=0,ready=0,rx=0,ch=0,rid=0,len=0`
+  - `#STAT!` 仍正常返回 `STOP/STRAIGHT`
+
+### 判断
+- 对当前目标，最稳妥的方案不是继续修 `BNO085`，而是把 IMU 改成编译期总开关。
+- 单改 `main.c` 不够，必须同时给 `sensor_fusion.c` 的 `BNO085_*` 公共接口做禁用桩，才能彻底阻止初始化和自动恢复链。
+- 关闭后，`TRACK/STRAIGHT` 仍可运行，只是所有 yaw/gyro 相关量统一回零。
+
+### 本轮修正
+- 在 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 增加 `IMU_ENABLE 0`
+- 在 [`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c) 为 `BNO085_Init/ReadAll/UpdateYaw/IsReady/Get*` 增加禁用分支
+- 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 切断启动显示、启动初始化、周期更新和 idle OLED 的 IMU 诊断显示
+- 烧录时额外确认：当前 `Horco CMSIS-DAP` 需要 `PYOCD_CMSIS_DAP_LIMIT_PACKETS=1` 才稳定

@@ -1,46 +1,42 @@
-# Task Plan: 误入找线修正与 IMU 失败显示收口
+# Task Plan: 全局关闭 IMU 初始化
 
 ## Goal
-先压掉直线段误入 `FNDL/FNDR` 的状态机问题，再处理 `IMU:3` 时 OLED 被诊断页独占的问题，保证后续可以继续正常看状态并复测。
+把 `IMU` 在当前工程里彻底关掉，确保上电不初始化、主循环不更新、OLED 不再显示 IMU 初始化页，同时不破坏直线、循迹和基础串口状态页。
 
 ## Current Phase
 Phase 4
 
 ## Phases
 
-### Phase 1: 复盘误左转链路
-- [x] 读取 `exp_0257`
-- [x] 对照 `line_track.c` 的丢线进入/退出链
-- [x] 确认根因是“误丢线 -> 右找线短退 -> 恢复期再次丢线 -> 左找线锁死”
+### Phase 1: 定位 IMU 入口
+- [x] 确认 `BNO085_Init()`、`run_imu_update()`、`BNO085_ResetAttitude()`、`#IMU?!` 的调用链
+- [x] 确认 `OLED` 仍会在 `!BNO085_IsReady()` 时显示 IMU 诊断
 - **Status:** complete
 
-### Phase 2: 重构防误入找线链路
-- [x] 提高中心附近全灭进入找线的确认阈值
-- [x] 收紧找线退出条件，禁止扫到反侧一闪就退出
-- [x] 在恢复窗口内优先沿上次找线方向继续
-- [x] 防止恢复期对侧瞬时位型重写方向历史
+### Phase 2: 实现统一关停开关
+- [x] 在 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 增加 `IMU_ENABLE`
+- [x] 在 [`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c) 为 `BNO085_*` 提供禁用分支
+- [x] 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 切断启动初始化、周期更新和 IMU 显示入口
 - **Status:** complete
 
-### Phase 3: 编译烧录并验证串口
-- [x] 编译 `project.uvprojx`
-- [x] 通过 `pyOCD` 擦写并复位
-- [x] 串口验证 `#STAT!/#MODE=TRACK!` 正常
+### Phase 3: 编译、烧录、串口验证
+- [x] 编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+- [x] 通过 `pyOCD` 完成 `erase -> load -> reset`
+- [x] 串口验证 `#IMU?!` 和 `#STAT!`
 - **Status:** complete
 
-### Phase 4: IMU 失败显示收口
-- [x] 读取 `#IMU?!`，确认当前仍是 `IMU=3 fail=5`
-- [x] 判断最近补丁未触碰 `sensor_fusion`，不是新的 IMU 回归
-- [x] 调整 OLED idle 显示策略：即使 IMU 未 ready，仍显示主状态页，仅第 4 行保留 IMU 诊断
-- [x] 重新编译烧录并恢复 `experiment_logger`
+### Phase 4: 记录结果并收口
+- [x] 更新 `task_plan.md`
+- [x] 更新 `findings.md`
+- [x] 更新 `progress.md`
 - **Status:** complete
 
 ## Decisions Made
-- 当前不继续深挖 `BNO085 product id` 握手，只先解决“显示卡在 IMU 诊断页”。
-- 直线段防误入找线优先改状态机，不先继续硬推 `PID`。
-- `experiment_logger` 保持常驻接回 `COM18`。
+- 本轮采用编译期开关 `IMU_ENABLE=0`，而不是继续修 `BNO085` 初始化链。
+- 禁用后保留 `BNO085_*` 接口桩，避免主循环和命令路径大量改签名。
+- 烧录阶段继续使用 `pyOCD`，但对当前 `Horco CMSIS-DAP` 需要加 `PYOCD_CMSIS_DAP_LIMIT_PACKETS=1` 才稳定。
 
 ## Hot Files
 - `Hardware/config.h`
-- `Hardware/line_track.h`
-- `Hardware/line_track.c`
+- `Hardware/sensor_fusion.c`
 - `User/main.c`

@@ -210,3 +210,50 @@
   - 不再长时间假死
   - 板上可以直接通过串口看到失败码
   - 后续排查可以直接围绕 `SCL/SDA/PS0/PS1/ADDR/VDD/RST` 做
+
+## Session: 2026-04-24 全局关闭 IMU
+
+### Phase 1: 梳理触发入口
+- **Status:** complete
+- Actions taken:
+  - 重新读取 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h)、[`Hardware/sensor_fusion.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.h)、[`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c)、[`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c)
+  - 确认启动阶段、周期更新、姿态清零和 OLED 行是当前 IMU 的全部有效入口
+
+### Phase 2: 落统一关停开关
+- **Status:** complete
+- Actions taken:
+  - 在 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 增加 `IMU_ENABLE 0`
+  - 在 [`Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c) 为 `BNO085_*` 公共接口添加禁用桩
+  - 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 切掉 `BNO085_Init()`、`run_imu_update()` 调度和 IMU 诊断显示入口
+
+### Phase 3: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 使用 `UV4.exe -b project.uvprojx -j0 -t "Target 1"` 编译
+  - 编译结果：`0 Error(s), 0 Warning(s)`
+  - 首次 `pyocd erase` 失败，根因是当前 `Horco CMSIS-DAP` 会在默认包策略下超时
+  - 加入 `PYOCD_CMSIS_DAP_LIMIT_PACKETS=1` 后，顺序完成：
+    - `pyocd erase --chip ...`
+    - `pyocd load ... project.hex`
+    - `pyocd reset ...`
+
+### Phase 4: 串口验证
+- **Status:** complete
+- Actions taken:
+  - 串口 `COM18` 实测：
+    - `#IMU?! -> OK:IMU=0,addr=00,fail=0,ready=0,rx=0,ch=0,rid=0,len=0`
+    - `#STAT! -> STAT:state=STOP,mode=STRAIGHT...`
+  - 同时心跳中的 `yaw/yr` 已稳定为 `0.0`
+
+## Test Results
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| IMU 关闭后编译 | `UV4.exe -b project.uvprojx -j0 -t "Target 1"` | 工程可正常构建 | `0 Error(s), 0 Warning(s)` | pass |
+| IMU 关闭后烧录 | `pyocd erase/load/reset` | 板端接受新固件 | 成功 | pass |
+| IMU 关闭后诊断 | `#IMU?!` | 不进入任何初始化阶段 | `IMU=0,ready=0,fail=0` | pass |
+| 主状态页保活 | `#STAT!` | 仍能正常回主状态 | `STOP/STRAIGHT` 正常返回 | pass |
+
+## Error Log
+| Timestamp | Error | Attempt | Resolution |
+|-----------|-------|---------|------------|
+| 2026-04-24 | `pyocd erase` 直接报 `Timeout reading from probe / AssertionError` | 1 | 停止并发访问，关闭残留 `UV4`，并使用 `PYOCD_CMSIS_DAP_LIMIT_PACKETS=1` 重新烧录 |
