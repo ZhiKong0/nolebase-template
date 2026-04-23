@@ -125,3 +125,44 @@
 - `cornerDone` 后恢复目标改为：
   - `currentSpeed + TRACK_RESUME_SPEED_BOOST`
   - 再用 `TRACK_RESUME_SPEED_MIN / MAX / targetSpeed` 夹紧
+
+## 2026-04-24 exp271 丢线找线偏慢与主 P 偏软
+
+### 关键证据
+- [`exp_0271_20260424_065825_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0271_20260424_065825_KEY_T.txt) 前段 `SCRV` 区间并不差，真正的问题从约 `t=460ms` 起连续出现 `sb=0`，随后长时间停留在 `FNDR/FNDL`。
+- 找线区间里左右轮输出长期固定在 `OL=240, OR=-150` 或镜像值，说明当前 pivot 找线力度偏小，而且找线确认链起得偏慢。
+- 回线后很快再次丢线，说明除了找线慢，重新接管也偏早；边灯一闪就退出搜索，会让车还没回到中心带就重新进入跟线。
+- 当前单链参数里：
+  - `PID_TRACK_LINE_KP = 9.8`
+  - `TRACK_FOLLOW_DEV_RATIO = 0.52`
+  - `TRACK_LOST_CONFIRM_TICKS = 3`
+  - `TRACK_SEARCH_TURN_PWM_FAST/SLOW = 240/150`
+  这一组整体偏保守。
+
+### 判断
+- `exp271` 的主因不是“纯粹搜索算法错误”，而是四件事叠在一起：
+  - 丢线确认起得慢
+  - pivot 找线力度不够
+  - 搜索后接管条件过宽
+  - 主循迹 `P` 和差速上限略软，导致回线后不够果断，容易再丢
+- 这轮最合理的修正不是回到旧分层状态机，而是在现有单链 PID 上把：
+  - `P`
+  - 差速上限
+  - 找线确认
+  - 搜索接管门槛
+  - 恢复窗口方向黏性
+  一起提到更适合 `S` 弯的档位。
+
+### 本轮修正
+- `PID_TRACK_LINE_KP: 9.8 -> 11.0`
+- `TRACK_FOLLOW_DEV_RATIO: 0.52 -> 0.58`
+- `TRACK_FOLLOW_DEV_STEP_LIMIT: 28 -> 34`
+- `TRACK_LOST_CONFIRM_TICKS: 3 -> 2`
+- `TRACK_LOST_FAST_CONFIRM_TICKS: 2 -> 1`
+- `TRACK_SEARCH_BLIND_TICKS: 1 -> 0`
+- `TRACK_SEARCH_ARC_PWM_FAST/SLOW: 220/140 -> 240/160`
+- `TRACK_SEARCH_TURN_PWM_FAST/SLOW: 240/150 -> 290/180`
+- `TRACK_RECOVER_TICKS: 8 -> 10`
+- `line_track.c`
+  - 在 `recoverTicks` 窗口内再次丢线时，优先沿 `recoverDir` 继续找线
+  - `track_search_exit_ready()` 改成只在中心带重新见线时退出搜索，不再扫到外侧边灯就立刻接管

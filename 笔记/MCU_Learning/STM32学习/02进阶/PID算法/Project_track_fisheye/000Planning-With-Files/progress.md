@@ -140,3 +140,39 @@
   - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
   - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
     - `0 Error(s), 0 Warning(s)`
+
+## Session: 2026-04-24 exp271 丢线找线偏慢修正
+
+### Phase 13: 日志复盘与根因收敛
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0271_20260424_065825_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0271_20260424_065825_KEY_T.txt)
+  - 确认症状不是单一“主 `P` 偏软”，而是：
+    - 丢线确认偏慢
+    - pivot 找线 PWM 偏弱
+    - 搜索退出太早
+    - 回线后再次丢线时方向历史不够黏
+
+### Phase 14: 单链 PID 与找线恢复增强
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 提高：
+    - `PID_TRACK_LINE_KP = 11.0`
+    - `TRACK_FOLLOW_DEV_RATIO = 0.58`
+    - `TRACK_FOLLOW_DEV_STEP_LIMIT = 34`
+  - 同时加快找线进入与 pivot 力度：
+    - `TRACK_LOST_CONFIRM_TICKS = 2`
+    - `TRACK_LOST_FAST_CONFIRM_TICKS = 1`
+    - `TRACK_SEARCH_BLIND_TICKS = 0`
+    - `TRACK_SEARCH_ARC_PWM_FAST/SLOW = 240/160`
+    - `TRACK_SEARCH_TURN_PWM_FAST/SLOW = 290/180`
+    - `TRACK_RECOVER_TICKS = 10`
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 增加恢复窗口方向黏性
+  - 将 `track_search_exit_ready()` 收紧为“重新进入中心带再退出搜索”，避免边灯一闪就过早交还给跟线主链
+
+### Phase 15: 编译验证
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`

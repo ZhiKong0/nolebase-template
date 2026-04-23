@@ -506,6 +506,11 @@ static uint8_t track_pick_search_dir(void)
     uint8_t leftCount = track_mask_bit_count(last, LT_MASK_LEFT_ZONE);
     uint8_t rightCount = track_mask_bit_count(last, LT_MASK_RIGHT_ZONE);
 
+    if (g_lineTrack.recoverTicks > 0u
+        && (g_lineTrack.recoverDir == LT_DIR_LEFT || g_lineTrack.recoverDir == LT_DIR_RIGHT))
+    {
+        return g_lineTrack.recoverDir;
+    }
     if (leftCount > rightCount)
         return LT_DIR_LEFT;
     if (rightCount > leftCount)
@@ -574,7 +579,7 @@ static void track_enter_search(uint8_t dir)
 
 static uint8_t track_search_exit_ready(uint8_t bits, uint8_t dir)
 {
-    (void)dir;
+    uint8_t centerBand;
 
     if (bits == 0u)
         return 0u;
@@ -583,7 +588,16 @@ static uint8_t track_search_exit_ready(uint8_t bits, uint8_t dir)
     if (bits & LT_MASK_CENTER)
         return 1u;
 
-    return ((bits & (LT_MASK_LEFT_ZONE | LT_MASK_RIGHT_ZONE)) != 0u) ? 1u : 0u;
+    centerBand = (uint8_t)(bits & LT_MASK_CENTER_BAND);
+    if (centerBand == 0u)
+        return 0u;
+
+    if (dir == LT_DIR_LEFT)
+        return ((centerBand & (LT_MASK_LEFT_INNER | LT_BIT_CENTER_LEFT)) != 0u) ? 1u : 0u;
+    if (dir == LT_DIR_RIGHT)
+        return ((centerBand & (LT_MASK_RIGHT_INNER | LT_BIT_CENTER_RIGHT)) != 0u) ? 1u : 0u;
+
+    return 1u;
 }
 
 static void track_progress_search(void)
