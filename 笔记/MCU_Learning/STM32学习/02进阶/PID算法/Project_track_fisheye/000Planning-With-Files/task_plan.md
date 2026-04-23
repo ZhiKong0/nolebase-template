@@ -1,43 +1,46 @@
-# Task Plan: 实验记录器接管
+# Task Plan: 误入找线修正与 IMU 失败显示收口
 
 ## Goal
-停掉当前 `TRACK` 自适应调参，占用 `COM18` 的只保留 `experiment_logger`，让用户后续每次按下启停都能自动落一份实验串口日志。
+先压掉直线段误入 `FNDL/FNDR` 的状态机问题，再处理 `IMU:3` 时 OLED 被诊断页独占的问题，保证后续可以继续正常看状态并复测。
 
 ## Current Phase
 Phase 4
 
 ## Phases
 
-### Phase 1: 清理后台调参与串口占用
-- [x] 检查是否仍有 `track_adaptive_tuner` 后台进程
-- [x] 确认 `COM18` 不再被自动调参占用
+### Phase 1: 复盘误左转链路
+- [x] 读取 `exp_0257`
+- [x] 对照 `line_track.c` 的丢线进入/退出链
+- [x] 确认根因是“误丢线 -> 右找线短退 -> 恢复期再次丢线 -> 左找线锁死”
 - **Status:** complete
 
-### Phase 2: 核对记录器逻辑
-- [x] 读取 `experiment_logger.ps1`
-- [x] 读取 `experiment_logger.py`
-- [x] 确认记录触发条件是 `EVT:EXP_START / EVT:EXP_STOP`，并支持 `HB` 补开文件
+### Phase 2: 重构防误入找线链路
+- [x] 提高中心附近全灭进入找线的确认阈值
+- [x] 收紧找线退出条件，禁止扫到反侧一闪就退出
+- [x] 在恢复窗口内优先沿上次找线方向继续
+- [x] 防止恢复期对侧瞬时位型重写方向历史
 - **Status:** complete
 
-### Phase 3: 修正记录器运行体验
-- [x] 将 `experiment_logger.ps1` 改为 `python -u`
-- [x] 将 `experiment_logger.py` 改为行缓冲输出
-- [x] 为 `#EXP?!` 初始同步加入重试，减少假警告
+### Phase 3: 编译烧录并验证串口
+- [x] 编译 `project.uvprojx`
+- [x] 通过 `pyOCD` 擦写并复位
+- [x] 串口验证 `#STAT!/#MODE=TRACK!` 正常
 - **Status:** complete
 
-### Phase 4: 常驻启动与验证
-- [x] 启动 `experiment_logger` 常驻进程
-- [x] 确认 `powershell.exe + python.exe` 两层进程已存在
-- [x] 确认启动日志已经实时写入 `logger_session_*.out.txt`
-- [x] 已捕获真实启停并生成新的 `exp_0254 ~ exp_0257`
+### Phase 4: IMU 失败显示收口
+- [x] 读取 `#IMU?!`，确认当前仍是 `IMU=3 fail=5`
+- [x] 判断最近补丁未触碰 `sensor_fusion`，不是新的 IMU 回归
+- [x] 调整 OLED idle 显示策略：即使 IMU 未 ready，仍显示主状态页，仅第 4 行保留 IMU 诊断
+- [x] 重新编译烧录并恢复 `experiment_logger`
 - **Status:** complete
 
 ## Decisions Made
-- 当前先暂停自动调参，不再占用串口。
-- 记录器继续使用 `COM18`。
-- 记录目录保持为 `Project_track_fisheye\\000Data\\serial_runs\\experiments`。
-- 启动日志走 `logger_session_*.out.txt / err.txt`，实验正文走 `exp_*.txt`。
+- 当前不继续深挖 `BNO085 product id` 握手，只先解决“显示卡在 IMU 诊断页”。
+- 直线段防误入找线优先改状态机，不先继续硬推 `PID`。
+- `experiment_logger` 保持常驻接回 `COM18`。
 
 ## Hot Files
-- `000Project_PC_Control/experiment_logger.ps1`
-- `000Project_PC_Control/experiment_logger.py`
+- `Hardware/config.h`
+- `Hardware/line_track.h`
+- `Hardware/line_track.c`
+- `User/main.c`

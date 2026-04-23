@@ -25,6 +25,42 @@
 - `experiment_logger.py` 开启 `stdout/stderr` 行缓冲
 - `sync_experiment_base()` 为 `#EXP?!` 增加 3 次重试
 
+## 2026-04-24 exp257 误左转复盘
+
+### 关键证据
+- [`exp_0257_20260424_013942_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0257_20260424_013942_KEY_T.txt) 中，跟线阶段已经出现多次 `sb=0`。
+- 首次进入搜索是 `FNDR`，随后一帧 `S3|S4` 就退出搜索。
+- 退出搜索时仍处在恢复窗口内，又马上二次丢线，随后切成 `FNDL` 并持续左找线到结束。
+
+### 判断
+- 这次“直线突然左转”不是正常 `PD` 修正，而是：
+  - 假丢线触发搜索
+  - 搜索退出条件过宽
+  - 恢复窗口内方向历史被一帧对侧位型改写
+  - 第二次丢线后被状态机锁成左找线
+
+### 本轮修正
+- `TRACK_LOST_STRAIGHT_CONFIRM_TICKS` 提高中心附近全灭进入找线的门槛
+- `TRACK_SEARCH_EXIT_CONFIRM_TICKS` 要求同侧稳定重见线后才退出搜索
+- 恢复窗口内再次丢线时，优先沿 `recoverDir` 继续搜索
+- 恢复窗口内对侧瞬时位型不再重写 `lastData / lastTurnDir`
+
+## 2026-04-24 IMU:3 再次出现
+
+### 关键证据
+- 串口当前稳定返回：
+  - `OK:IMU=3,addr=00,fail=5,ready=0,rx=1,ch=0,rid=0,len=0`
+- 最近这轮修正只触碰了 `line_track/config/main`，没有再改 `sensor_fusion`。
+- 说明这不是新的 IMU 初始化逻辑回归，而是 OLED 又把已有的稳定失败态顶到了前台。
+
+### 判断
+- 板子主循环没死，`#STAT!` 正常回。
+- 当前该优先修的是显示策略，而不是再次误判为 IMU 逻辑新崩了。
+
+### 本轮修正
+- `update_display()` 不再在 `!BNO085_IsReady()` 时直接 `return`
+- 现在 idle OLED 仍显示正常状态页，仅第 4 行显示 `IMU:x A:xx F:x`
+
 ## 2026-04-24 IMU 阻塞调查
 
 ### 关键证据

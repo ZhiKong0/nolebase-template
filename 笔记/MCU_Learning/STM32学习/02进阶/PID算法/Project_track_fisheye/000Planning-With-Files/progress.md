@@ -98,6 +98,47 @@
 | 启动日志落盘 | `logger_session_*.out.txt` | 可立即看到启动状态 | 已写出 `port/output/waiting` | pass |
 | 按键启停自动建档 | 板端真实 `KEY` 启停 | 生成新的 `exp_*.txt` | 已生成 `exp_0254 ~ exp_0257` | pass |
 
+## Session: 2026-04-24 误入找线与 IMU 显示收口
+
+### Phase 1: 复盘 exp257
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0257_20260424_013942_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0257_20260424_013942_KEY_T.txt)
+  - 对照 [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 确认是“假丢线 + 搜索退出过宽 + 恢复期方向翻写”的组合问题
+
+### Phase 2: 收紧找线状态机
+- **Status:** complete
+- Actions taken:
+  - 在 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 新增：
+    - `TRACK_LOST_STRAIGHT_CONFIRM_TICKS`
+    - `TRACK_SEARCH_EXIT_CONFIRM_TICKS`
+  - 在 [`Hardware/line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h) 增加 `searchExitCount`
+  - 在 [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 收紧搜索进入/退出和恢复期方向黏性
+
+### Phase 3: 编译烧录与串口验证
+- **Status:** complete
+- Actions taken:
+  - 编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)，结果 `0 Error(s), 0 Warning(s)`
+  - 通过 `pyOCD` 完成 `erase -> load -> reset`
+  - 串口验证 `#STAT!`、`#MODE=TRACK!` 正常
+
+### Phase 4: IMU 失败页不再霸占 OLED
+- **Status:** complete
+- Actions taken:
+  - 串口读取 `#IMU?!`，确认当前仍是 `IMU=3,fail=5`
+  - 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 修改 `update_display()`
+  - 现在即使 IMU 未 ready，也继续显示主状态页，只在第 4 行显示 IMU 诊断
+  - 重新编译烧录并恢复 `experiment_logger`
+
+## Test Results
+| Test | Input | Expected | Actual | Status |
+|------|-------|----------|--------|--------|
+| 误入找线修正后编译 | `UV4.exe -b project.uvprojx -j0 -t "Target 1"` | 工程正常编译 | `0 Error(s), 0 Warning(s)` | pass |
+| 误入找线修正后烧录 | `pyocd erase/load/reset` | 板端接受新固件 | 成功 | pass |
+| IMU 诊断读取 | `#IMU?!` | 返回稳定失败态 | `IMU=3,fail=5` | pass |
+| 记录器恢复 | `experiment_logger.ps1 --port COM18` | 重新接管串口 | `powershell.exe + python.exe -u` 进程存在 | pass |
+
 ## Session: 2026-04-24 IMU 刷屏抑制
 
 ### Phase 1: 排除假阴性探测
