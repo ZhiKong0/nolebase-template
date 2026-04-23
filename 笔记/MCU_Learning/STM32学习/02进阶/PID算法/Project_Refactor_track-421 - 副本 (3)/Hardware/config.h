@@ -163,15 +163,13 @@ typedef enum
 #define PID_TRACK_SPEED_KD          0.0f
 
 /* 5 路模板风格: bearing_dev 进入 PD, 输出左右轮差速 */
-#define PID_TRACK_LINE_KP           11.0f
+#define PID_TRACK_LINE_KP           9.5f
 #define PID_TRACK_LINE_KD           6.8f
 
-/* 动态循迹 PD:
-   不是在线学习，而是按偏差大小做增益调度。
-   中线附近减小增益抑制蛇形，偏差变大时再逐步抬高转向强度。 */
+/* 连续单误差 PD:
+   正常循迹只保留一条 linePos -> PD 的连续控制链，
+   再按偏差大小做平滑增益调度，不再用灯型等级硬切档。 */
 #define TRACK_DYNAMIC_PID_ENABLE    1
-#define TRACK_GAIN_CENTER_MAX_DEV   1
-#define TRACK_GAIN_MID_MAX_DEV      2
 
 #define TRACK_CENTER_KP_SCALE       0.70f
 #define TRACK_CENTER_KD_SCALE       0.75f
@@ -185,31 +183,32 @@ typedef enum
 #define TRACK_EDGE_KD_SCALE         0.75f
 #define TRACK_EDGE_DEV_RATIO        0.58f
 
-#define TRACK_LINE_POS_UNIT         50
-#define TRACK_LINE_POS_CENTER_MAX   60
-#define TRACK_LINE_POS_SMALL_MAX    120
+#define TRACK_LINE_POS_S1           (-300)
+#define TRACK_LINE_POS_S2           (-220)
+#define TRACK_LINE_POS_S3           (-135)
+#define TRACK_LINE_POS_S4           (-45)
+#define TRACK_LINE_POS_S5           45
+#define TRACK_LINE_POS_S6           135
+#define TRACK_LINE_POS_S7           220
+#define TRACK_LINE_POS_S8           300
+
+#define TRACK_LINE_POS_CENTER_MAX   55
+#define TRACK_LINE_POS_SMALL_MAX    115
 #define TRACK_LINE_POS_MEDIUM_MAX   190
 #define TRACK_LINE_POS_LARGE_MAX    280
-#define TRACK_CENTER_SINGLE_HOLD_TICKS 1
-#define TRACK_PATTERN_LEVEL_CENTER_SINGLE  1.0f
-#define TRACK_PATTERN_LEVEL_INNER_PAIR     2.0f
-#define TRACK_PATTERN_LEVEL_INNER_SINGLE   3.0f
-#define TRACK_PATTERN_LEVEL_MID_PAIR       4.0f
-#define TRACK_PATTERN_LEVEL_MID_SINGLE     5.0f
-#define TRACK_PATTERN_LEVEL_EDGE_PAIR      6.0f
-#define TRACK_PATTERN_LEVEL_EDGE_SINGLE    7.0f
+#define TRACK_CENTER_SINGLE_HOLD_TICKS 2
 #define TRACK_CENTER_KP_SCALE_DEFAULT   0.58f
 #define TRACK_MID_KP_SCALE_DEFAULT      0.92f
 #define TRACK_EDGE_KP_SCALE_DEFAULT     1.12f
 #define TRACK_CENTER_DEV_RATIO_DEFAULT  0.24f
 #define TRACK_MID_DEV_RATIO_DEFAULT     0.42f
 #define TRACK_EDGE_DEV_RATIO_DEFAULT    0.52f
-#define TRACK_RECENTER_DECAY_STEP       18
+#define TRACK_RECENTER_DECAY_STEP       19
 #define TRACK_STATIC_STEER_BIAS         8
 
 /* TRACK 内环改为“连续位置误差 + 滤波导数”。
    bearing_dev 仍保留给状态判定和遥测，但差速输出不再直接吃离散跳变。 */
-#define TRACK_CTRL_CENTER_DEADBAND    45.0f
+#define TRACK_CTRL_CENTER_DEADBAND    53.0f
 #define TRACK_CTRL_CENTER_SLOPE_RATIO 0.35f
 #define TRACK_CTRL_ERROR_SCALE        90.0f
 #define TRACK_CTRL_POS_FILTER_ALPHA   0.56f

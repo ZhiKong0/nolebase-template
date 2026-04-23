@@ -79,6 +79,7 @@ class TurnaroundConfig:
     enabled: bool
     timeout_s: float
     settle_s: float
+    retries: int
 
 
 @dataclass
@@ -208,6 +209,57 @@ def ensure_stop_ready(lines: list[str]) -> None:
     if any(line.startswith("ERR") for line in lines):
         return
     raise RuntimeError(f"STOP no ack: {lines}")
+
+
+def stat_reports_stop(lines: list[str]) -> bool:
+    return any(line.startswith("STAT:") and "state=STOP" in line for line in lines)
+
+
+def wait_for_stop_signal(port: serial.Serial, timeout_s: float = 0.8) -> bool:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        raw = port.readline()
+        if not raw:
+            continue
+        line = decode_serial_text(raw)
+        if not line:
+            continue
+        if line.startswith("STAT:") and "state=STOP" in line:
+            return True
+        if line.startswith("HB:") and ",run=0," in line:
+            return True
+    return False
+
+
+def ensure_stop(port: serial.Serial, attempts: int = 3, timeout_s: float = 2.0) -> None:
+    last_error = "STOP no ack: []"
+
+    for attempt in range(attempts):
+        lines = send_cmd(port, "#STOP!", timeout_s=timeout_s, retries=0)
+        try:
+            ensure_stop_ready(lines)
+            return
+        except RuntimeError as exc:
+            last_error = str(exc)
+            stat_lines = send_cmd(port, "#STAT!", timeout_s=1.2, retries=0)
+            if stat_reports_stop(stat_lines):
+                return
+            if wait_for_stop_signal(port, timeout_s=0.6):
+                return
+            if attempt + 1 < attempts:
+                print(f"[adaptive] stop retry {attempt + 1}/{attempts - 1}", flush=True)
+                time.sleep(0.15)
+
+    raise RuntimeError(last_error)
+
+
+def load_defaults_best_effort(port: serial.Serial) -> None:
+    lines = send_cmd(port, "#TCFG LOAD_DEFAULTS!", timeout_s=2.0, retries=0)
+    if any(line.startswith("OK") for line in lines):
+        return
+    if any(line.startswith("ERR") for line in lines):
+        raise RuntimeError(f"#TCFG LOAD_DEFAULTS! failed: {lines}")
+    print("[adaptive] warn: LOAD_DEFAULTS no ack, continue with explicit param writes", flush=True)
 
 
 def parse_hb_line(line: str) -> TrackRecord | None:
@@ -418,13 +470,35 @@ def parse_reply_value(spec: ParamSpec, lines: list[str]) -> float | None:
 def verify_param_write(port: serial.Serial, spec: ParamSpec, expected: float) -> bool:
     tolerance = max(0.001, 1.5 * (10.0 ** (-spec.digits)))
     query = build_get_command(spec)
-    for _ in range(2):
-        lines = send_cmd(port, query, timeout_s=2.0)
+    for _ in range(3):
+        lines = send_cmd(port, query, timeout_s=1.5, retries=0)
         actual = parse_reply_value(spec, lines)
         if actual is not None and abs(actual - expected) <= tolerance:
             return True
         time.sleep(0.05)
     return False
+
+
+def apply_param_with_verify(port: serial.Serial, spec: ParamSpec, value: float, attempts: int = 3) -> None:
+    cmd = build_set_command(spec, value)
+    last_error = f"{cmd} no ack: []"
+
+    for attempt in range(attempts):
+        lines = send_cmd(port, cmd, timeout_s=2.0, retries=0)
+        if any(line.startswith("ERR") for line in lines):
+            last_error = f"{cmd} failed: {lines}"
+        else:
+            if any(line.startswith("OK") or line.startswith("STAT:") for line in lines):
+                return
+            if verify_param_write(port, spec, value):
+                return
+            last_error = f"{cmd} no ack and verify failed"
+
+        if attempt + 1 < attempts:
+            print(f"[adaptive] param retry {attempt + 1}/{attempts - 1}: {spec.name}", flush=True)
+            time.sleep(0.08)
+
+    raise RuntimeError(last_error)
 
 
 def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str, float]:
@@ -538,7 +612,7 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     lp_flip_rate_hz = sign_changes_with_deadband(valid_lp_signed, 80.0) / duration_s if valid_lp_signed else 0.0
     center_focus = [
         rec for rec in valid
-        if ((rec.sb & LT_MASK_CENTER) != 0) or abs(rec.lp) <= 120.0
+        if ((rec.sb & LT_MASK_CENTER) != 0) or abs(rec.lp) <= 90.0
     ]
     center_focus_lp = [abs(rec.lp) for rec in center_focus]
     center_focus_lp_signed = [rec.lp for rec in center_focus]
@@ -553,24 +627,24 @@ def analyze_trial(records: list[TrackRecord], settle_skip_s: float) -> dict[str,
     )
 
     score = 0.0
-    score += 0.16 * mean_forward_speed
-    score += 44.0 * center_band_ratio
-    score += 110.0 * center_core_ratio
-    score += 18.0 * exact_center_ratio
-    score += 12.0 * straight_ratio
-    score -= 48.0 * loss_ratio
-    score -= 42.0 * outer_ratio
-    score -= 6.0 * scurve_ratio
-    score -= 0.15 * mean_abs_lp
-    score -= 0.16 * mean_abs_lp_delta
-    score -= 0.16 * center_mean_abs_lp
-    score -= 0.32 * center_mean_abs_lp_delta
+    score += 0.06 * mean_forward_speed
+    score += 36.0 * center_band_ratio
+    score += 150.0 * center_core_ratio
+    score += 24.0 * exact_center_ratio
+    score += 8.0 * straight_ratio
+    score -= 60.0 * loss_ratio
+    score -= 60.0 * outer_ratio
+    score -= 10.0 * scurve_ratio
+    score -= 0.16 * mean_abs_lp
+    score -= 0.20 * mean_abs_lp_delta
+    score -= 0.34 * center_mean_abs_lp
+    score -= 0.80 * center_mean_abs_lp_delta
     score -= 0.18 * mean_abs_yr
-    score -= 0.20 * mean_abs_yr_delta
-    score -= 0.22 * center_mean_abs_yr
-    score -= 0.34 * center_mean_abs_yr_delta
-    score -= 3.20 * lp_flip_rate_hz
-    score -= 9.00 * center_flip_rate_hz
+    score -= 0.24 * mean_abs_yr_delta
+    score -= 0.50 * center_mean_abs_yr
+    score -= 0.90 * center_mean_abs_yr_delta
+    score -= 5.00 * lp_flip_rate_hz
+    score -= 20.00 * center_flip_rate_hz
 
     return {
         "sample_count": float(len(analyzed)),
@@ -620,26 +694,36 @@ def perform_turnaround(port: serial.Serial, cfg: TurnaroundConfig) -> None:
     if not cfg.enabled:
         return
 
-    ensure_stop_ready(send_cmd(port, "#STOP!", timeout_s=1.5))
-    ensure_ok("#TURNBACK!", send_cmd(port, "#TURNBACK!", timeout_s=2.0))
-    deadline = time.time() + cfg.timeout_s
+    last_error = "turnback timeout waiting for EVT:TURNBACK,DONE"
 
-    while time.time() < deadline:
-        raw = port.readline()
-        if not raw:
-            continue
-        line = decode_serial_text(raw)
-        if not line:
-            continue
-        if line == "EVT:TURNBACK,START":
-            continue
-        if line.startswith("EVT:TURNBACK,DONE"):
-            time.sleep(cfg.settle_s)
-            return
-        if line.startswith("EVT:TURNBACK,"):
-            raise RuntimeError(f"turnback failed: {line}")
+    for attempt in range(max(1, cfg.retries + 1)):
+        ensure_stop(port, attempts=3, timeout_s=2.0)
+        ensure_ok("#TURNBACK!", send_cmd(port, "#TURNBACK!", timeout_s=2.0))
+        deadline = time.time() + cfg.timeout_s
 
-    raise RuntimeError("turnback timeout waiting for EVT:TURNBACK,DONE")
+        while time.time() < deadline:
+            raw = port.readline()
+            if not raw:
+                continue
+            line = decode_serial_text(raw)
+            if not line:
+                continue
+            if line == "EVT:TURNBACK,START":
+                continue
+            if line.startswith("EVT:TURNBACK,DONE"):
+                time.sleep(cfg.settle_s)
+                return
+            if line.startswith("EVT:TURNBACK,"):
+                last_error = f"turnback failed: {line}"
+                break
+        else:
+            last_error = "turnback timeout waiting for EVT:TURNBACK,DONE"
+
+        if attempt < cfg.retries:
+            print(f"[adaptive] turnaround retry {attempt + 1}/{cfg.retries}", flush=True)
+            time.sleep(0.35)
+
+    raise RuntimeError(last_error)
 
 
 def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], list[TrackRecord], bool, str, float]:
@@ -654,21 +738,13 @@ def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], 
         port.reset_output_buffer()
         time.sleep(0.25)
 
-        ensure_stop_ready(send_cmd(port, "#STOP!", timeout_s=2.0))
+        ensure_stop(port, attempts=3, timeout_s=2.0)
         ensure_ok("#MODE=TRACK!", send_cmd(port, "#MODE=TRACK!", timeout_s=2.0))
-        ensure_ok("#TCFG LOAD_DEFAULTS!", send_cmd(port, "#TCFG LOAD_DEFAULTS!", timeout_s=2.0))
+        load_defaults_best_effort(port)
 
         for spec in ctx.param_specs:
             value = params[spec.name]
-            cmd = build_set_command(spec, value)
-            try:
-                ensure_ok(
-                    cmd,
-                    send_cmd(port, cmd, timeout_s=2.0),
-                )
-            except RuntimeError:
-                if not verify_param_write(port, spec, value):
-                    raise
+            apply_param_with_verify(port, spec, value, attempts=3)
             time.sleep(0.04)
 
         send_cmd(port, "#STAT!", timeout_s=1.0)
@@ -723,7 +799,7 @@ def run_trial(ctx: SearchContext, params: dict[str, float]) -> tuple[list[str], 
                     print(f"[adaptive] early-stop: {reason} at {elapsed_s:.2f}s", flush=True)
                     break
 
-        ensure_stop_ready(send_cmd(port, "#STOP!", timeout_s=1.5))
+        ensure_stop(port, attempts=3, timeout_s=2.0)
         time.sleep(0.15)
         perform_turnaround(port, ctx.turnaround)
 
@@ -1031,6 +1107,7 @@ def main() -> int:
             enabled=(not args.no_turnaround) and bool(turnaround_cfg.get("enabled", True)),
             timeout_s=float(turnaround_cfg.get("timeout_s", 5.5)),
             settle_s=float(turnaround_cfg.get("settle_s", 0.25)),
+            retries=int(turnaround_cfg.get("retries", 1)),
         ),
         out_dir=out_dir,
         param_specs=param_specs,
@@ -1039,7 +1116,7 @@ def main() -> int:
     print(f"[adaptive] port={ctx.port} baud={ctx.baud} duration={ctx.duration_s:.1f}s", flush=True)
     print(
         f"[adaptive] turnaround={'on' if ctx.turnaround.enabled else 'off'} "
-        f"mode=firmware-turnback timeout={ctx.turnaround.timeout_s:.1f}s",
+        f"mode=firmware-turnback timeout={ctx.turnaround.timeout_s:.1f}s retries={ctx.turnaround.retries}",
         flush=True,
     )
     print(f"[adaptive] start={candidate_label(start_params, param_specs)}", flush=True)

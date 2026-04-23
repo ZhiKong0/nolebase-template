@@ -73,7 +73,7 @@ commands:
   track:
     target_speed: 25.0
     speed_pid: [1.50, 0.10, 0.0]
-    line_pid: [11.0, 6.8]
+    line_pid: [9.5, 6.8]
     feedforward_gain: 8.7
 autotune:
   track:
@@ -100,7 +100,7 @@ autotune:
       lkp_bounds: [12.0, 28.0]
       lkd_bounds: [4.0, 16.0]
   track_adaptive:
-    duration_s: 4.0
+    duration_s: 2.4
     settle_skip_s: 0.8
     repeats: 1
     confirm_best_repeats: 2
@@ -115,112 +115,65 @@ autotune:
       enabled: true
       timeout_s: 5.5
       settle_s: 0.20
+      retries: 1
     params:
-      lkp:
-        key: track.lkp
-        start: 11.0
-        bounds: [8.0, 24.0]
-        steps: [3.0, 1.5, 0.8]
-        digits: 3
-      lkd:
-        key: track.lkd
-        start: 6.8
-        bounds: [4.0, 18.0]
-        steps: [3.0, 1.5, 0.8]
-        digits: 3
-      center_dev_ratio:
-        key: track.center_dev_ratio
-        start: 0.24
-        bounds: [0.14, 0.34]
-        steps: [0.05, 0.025, 0.01]
-        digits: 3
-      center_kp_scale:
-        key: track.center_kp_scale
-        start: 0.58
-        bounds: [0.30, 0.90]
-        steps: [0.10, 0.05, 0.02]
-        digits: 3
-      mid_dev_ratio:
-        key: track.mid_dev_ratio
-        start: 0.42
-        bounds: [0.28, 0.58]
-        steps: [0.05, 0.025, 0.01]
-        digits: 3
-      mid_kp_scale:
-        key: track.mid_kp_scale
-        start: 0.92
-        bounds: [0.60, 1.30]
-        steps: [0.12, 0.06, 0.03]
-        digits: 3
-      edge_dev_ratio:
-        key: track.edge_dev_ratio
-        start: 0.52
-        bounds: [0.45, 0.75]
-        steps: [0.05, 0.025, 0.01]
-        digits: 3
-      edge_kp_scale:
-        key: track.edge_kp_scale
-        start: 1.12
-        bounds: [0.80, 1.60]
-        steps: [0.12, 0.06, 0.03]
-        digits: 3
-      recenter_decay:
-        key: track.recenter_decay
-        start: 18.0
-        bounds: [8.0, 30.0]
-        steps: [4.0, 2.0, 1.0]
-        digits: 1
-      static_bias:
-        key: track.static_bias
-        start: 8.0
-        bounds: [0.0, 16.0]
-        steps: [4.0, 2.0, 1.0]
-        digits: 1
       sensor_scale1:
         key: track.sensor_scale1
-        start: 0.89
-        bounds: [0.86, 1.02]
-        steps: [0.03, 0.015, 0.008]
-        digits: 3
-      sensor_scale4:
-        key: track.sensor_scale4
-        start: 0.88
-        bounds: [0.84, 0.96]
-        steps: [0.02, 0.01, 0.005]
-        digits: 3
-      sensor_scale5:
-        key: track.sensor_scale5
-        start: 0.98
-        bounds: [0.92, 1.04]
-        steps: [0.02, 0.01, 0.005]
-        digits: 3
-      sensor_scale3:
-        key: track.sensor_scale3
-        start: 1.00
-        bounds: [0.94, 1.06]
-        steps: [0.02, 0.01, 0.005]
-        digits: 3
-      sensor_scale6:
-        key: track.sensor_scale6
-        start: 0.93
-        bounds: [0.88, 1.00]
-        steps: [0.02, 0.01, 0.005]
+        start: 0.92
+        bounds: [0.89, 0.95]
+        steps: [0.015, 0.010, 0.0]
         digits: 3
       sensor_scale2:
         key: track.sensor_scale2
-        start: 0.87
-        bounds: [0.84, 0.98]
-        steps: [0.03, 0.015, 0.008]
+        start: 0.90
+        bounds: [0.87, 0.93]
+        steps: [0.015, 0.010, 0.0]
         digits: 3
       sensor_scale7:
         key: track.sensor_scale7
-        start: 1.10
-        bounds: [1.02, 1.16]
-        steps: [0.03, 0.015, 0.008]
+        start: 1.13
+        bounds: [1.10, 1.16]
+        steps: [0.015, 0.010, 0.0]
         digits: 3
       sensor_scale8:
         key: track.sensor_scale8
         start: 1.08
-        bounds: [1.00, 1.14]
-        steps: [0.02, 0.01, 0.005]
+        bounds: [1.05, 1.11]
+        steps: [0.015, 0.010, 0.0]
         digits: 3
+      lkp:
+        key: track.lkp
+        start: 9.5
+        bounds: [9.0, 10.0]
+        steps: [0.3, 0.15, 0.0]
+        digits: 3
+      static_bias:
+        key: track.static_bias
+        start: 8.0
+        bounds: [6.0, 10.0]
+        steps: [1.0, 1.0, 0.0]
+        digits: 1
+      center_deadband:
+        key: track.center_deadband
+        start: 53.0
+        bounds: [49.0, 57.0]
+        steps: [4.0, 2.0, 0.0]
+        digits: 1
+      pos_lpf:
+        key: track.pos_lpf
+        start: 0.56
+        bounds: [0.52, 0.62]
+        steps: [0.03, 0.015, 0.0]
+        digits: 3
+      d_lpf:
+        key: track.d_lpf
+        start: 0.46
+        bounds: [0.42, 0.52]
+        steps: [0.03, 0.015, 0.0]
+        digits: 3
+      recenter_decay:
+        key: track.recenter_decay
+        start: 19.0
+        bounds: [16.0, 20.0]
+        steps: [1.0, 1.0, 0.0]
+        digits: 1

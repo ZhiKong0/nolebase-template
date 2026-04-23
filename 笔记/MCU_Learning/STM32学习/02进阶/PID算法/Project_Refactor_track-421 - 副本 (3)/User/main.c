@@ -50,6 +50,8 @@ typedef struct
     float prevYaw;
     float rotatedDeg;
     float targetYaw;
+    int32_t startLeftCount;
+    int32_t startRightCount;
 } TurnbackState_t;
 
 static TurnbackState_t g_turnback;
@@ -285,6 +287,31 @@ static void turnback_abort_silent(void)
     g_displayDirty = 1u;
 }
 
+static float turnback_encoder_rotated_deg(void)
+{
+    float leftDelta;
+    float rightDelta;
+    float wheelCircumference;
+    float countsPerRev;
+    float leftDistance;
+    float rightDistance;
+    float yawRad;
+
+    leftDelta = (float)(g_encoder.leftCount - g_turnback.startLeftCount);
+    rightDelta = (float)(g_encoder.rightCount - g_turnback.startRightCount);
+    wheelCircumference = 3.1415926f * 0.065f;
+    countsPerRev = (float)(ENC_PPR * ENC_RATIO * ENC_QUAD_MULT);
+    if (countsPerRev <= 0.0f)
+        return 0.0f;
+
+    leftDistance = (leftDelta / countsPerRev) * wheelCircumference;
+    rightDistance = (rightDelta / countsPerRev) * wheelCircumference;
+    yawRad = (rightDistance - leftDistance) / 0.145f;
+    if (yawRad < 0.0f)
+        yawRad = -yawRad;
+    return yawRad * 57.2957795f;
+}
+
 static void turnback_start(void)
 {
     float yawErr;
@@ -306,6 +333,8 @@ static void turnback_start(void)
     g_turnback.startYaw = g_imu.yaw;
     g_turnback.prevYaw = g_imu.yaw;
     g_turnback.targetYaw = g_imu.yaw + TURNBACK_TARGET_DEG;
+    g_turnback.startLeftCount = g_encoder.leftCount;
+    g_turnback.startRightCount = g_encoder.rightCount;
     while (g_turnback.targetYaw > 180.0f)
         g_turnback.targetYaw -= 360.0f;
     while (g_turnback.targetYaw < -180.0f)
@@ -324,6 +353,7 @@ static void run_turnback(uint32_t now)
 {
     LineSensor_Data_t line;
     float yawStep;
+    float encoderDeg;
     float remainingDeg;
     int16_t spinPwm;
 
@@ -336,6 +366,9 @@ static void run_turnback(uint32_t now)
         yawStep = 0.0f;
     g_turnback.rotatedDeg += yawStep;
     g_turnback.prevYaw = g_imu.yaw;
+    encoderDeg = turnback_encoder_rotated_deg();
+    if (encoderDeg > g_turnback.rotatedDeg)
+        g_turnback.rotatedDeg = encoderDeg;
 
     if ((now - g_turnback.startTick) >= TURNBACK_TIMEOUT_MS)
     {

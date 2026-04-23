@@ -116,9 +116,9 @@ typedef struct
     int16_t  devSpeed;
     int16_t  lastDevSpeedCmd;
 
-    float    filteredConstraintError;
-    float    constraintError;
-    float    lastConstraintError;
+    float    filteredTrackError;
+    float    targetTrackError;
+    float    lastFilteredTrackError;
     float    filteredDTerm;
 
     uint8_t  filterTimes;
