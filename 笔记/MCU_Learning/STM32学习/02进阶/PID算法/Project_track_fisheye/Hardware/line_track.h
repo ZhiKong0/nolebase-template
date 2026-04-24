@@ -88,6 +88,12 @@
 typedef struct
 {
     float    sensorScale[LINE_SENSOR_COUNT];
+    int16_t  linePosStep;
+    float    sensorPosTrimRange;
+    int16_t  centerPosMax;
+    int16_t  smallPosMax;
+    int16_t  mediumPosMax;
+    int16_t  largePosMax;
     float    devRatio;
     float    deadband;
     float    errorScale;
@@ -96,10 +102,24 @@ typedef struct
     int16_t  baseMinPwm;
     int16_t  staticSteerBias;
     int16_t  devStepLimit;
+    uint8_t  lostConfirmTicks;
+    uint8_t  lostFastConfirmTicks;
+    uint8_t  searchBlindTicks;
     uint8_t  recoverTicks;
+    uint8_t  searchSideExitTicks;
+    uint8_t  crossMinActive;
+    uint8_t  edgeBearingMin;
+    uint16_t crossReleaseTicks;
     uint16_t searchTurnPwmFast;
     uint16_t searchTurnPwmSlow;
     uint16_t searchTimeoutTicks;
+    float    followTurninRatio;
+    int16_t  followTurninMin;
+    float    recoverTurninRatio;
+    int16_t  recoverTurninMin;
+    float    resumeSpeedMin;
+    float    resumeSpeedBoost;
+    float    resumeSpeedMax;
 } LineTrack_RuntimeConfig_t;
 
 typedef struct

@@ -240,3 +240,18 @@ Phase 44
 - [x] 在 `HB:` 中保留 `sb=` 并追加 12 路可读字段
 - [x] 编译并烧录到当前板子
 - [x] 更新规划记录，说明新字段含义
+
+## Session: 2026-04-24 统一串口调参接口
+
+### Goal
+- 将当前零散的 `#TCFG`、`#SPD/#SKP/#LKP...` 与 `LineTrack_ParamSet/Get` 收成统一参数服务
+- 保证 UART 层不再直接写 `g_pid` / `g_lineTrackCfg`
+- 把当前可调变量尽量都暴露成低耦合的串口参数键
+
+### Checklist
+- [x] 梳理 `DualLoop` 与 `LineTrack` 的参数 owner 和现有串口入口
+- [x] 将 `DualLoop` 的 tunable 抽到 `pid_controller` owner 内
+- [x] 将 `LineTrack` 的 tunable 扩成统一参数表并补一致性归一
+- [x] 让 `main.c` 只做 `#TCFG` 分发与别名映射，不直接改业务字段
+- [x] 重新编译并按 `pyOCD` 顺序烧录
+- [x] 记录串口烟测被 `COM18` 占用阻塞

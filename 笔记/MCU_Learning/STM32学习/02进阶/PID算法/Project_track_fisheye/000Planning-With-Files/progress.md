@@ -641,3 +641,92 @@
     - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex -vv`
     - `reset --no-config -t stm32f103rc -u 031305620164 -vv`
   - 本轮未主动发 `#RUN!` 做动态串口实验，避免擅自启动小车跑动
+
+## Session: 2026-04-24 exp447 S 弯抓线力分析
+
+### Phase 43: 读取日志与主链参数
+- **Status:** complete
+- Actions taken:
+  - 检查 [`exp_0447_20260424_102815_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0447_20260424_102815_KEY_T.txt) 的 `SCRV/EDGE/FNDR` 段
+  - 交叉核对 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 中单链 `FOLLOW` 参数
+  - 交叉核对 [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 中主误差、PD 输出、同向导向补强路径
+
+### Phase 44: 提炼最有效变量
+- **Status:** complete
+- Actions taken:
+  - 判断 `S` 弯抓线力最直接受这些量影响：
+    - `PID_TRACK_LINE_KP`
+    - `TRACK_FOLLOW_ERROR_SCALE`
+    - `TRACK_FOLLOW_DEV_RATIO`
+    - `TRACK_FOLLOW_DEV_STEP_LIMIT`
+  - 判断次一级影响量：
+    - `TRACK_FOLLOW_DEADBAND`
+    - `TRACK_FOLLOW_POS_LPF_ALPHA`
+    - `TRACK_FOLLOW_D_LPF_ALPHA`
+  - 判断搜索链参数不是 `S` 弯本体抓线力的第一优先项
+
+## Session: 2026-04-24 统一串口调参接口
+
+### Phase 45: 识别 owner 与耦合点
+- **Status:** complete
+- Actions taken:
+  - 确认当前 `#TCFG` 只覆盖了部分参数，且 `main.c` 仍直接写 `g_pid`
+  - 确认 `line_track.c` 已有一套局部 `ParamSet/Get/List`
+  - 识别出主耦合点是：
+    - `UART -> g_pid`
+    - `UART -> g_lineTrackCfg`
+
+### Phase 46: DualLoop 参数 owner 抽取
+- **Status:** complete
+- Actions taken:
+  - 在 [`Hardware/pid_controller.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/pid_controller.h) / [`Hardware/pid_controller.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/pid_controller.c) 新增：
+    - `g_dualLoopCfg`
+    - `DualLoop_ResetRuntimeConfig()`
+    - `DualLoop_ParamSet/Get/List()`
+  - 将这些值收归 `DualLoop` owner：
+    - `straight.speed_*`
+    - `straight.heading_*`
+    - `track.speed_*`
+    - `heading.trim`
+    - `heading.integral_*`
+    - `system.speed_*`
+    - `system.pid_deriv_lpf`
+  - 让 `DualLoop_Load*Defaults()` 与速度斜坡/前馈改用运行时配置
+
+### Phase 47: LineTrack 参数表扩展
+- **Status:** complete
+- Actions taken:
+  - 扩展 [`Hardware/line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h) 的 `LineTrack_RuntimeConfig_t`
+  - 在 [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 将以下量迁入运行时配置：
+    - 位置步长与 trim
+    - `center/small/medium/large` 阈值
+    - `deadband/errorScale/pos_lpf/d_lpf/dev_ratio/dev_step_limit/base_min_pwm`
+    - `lost/search/recover/cross` 相关门槛
+    - `follow/recover turnin ratio/min`
+    - `resume_speed_*`
+  - 将 `LineTrack_ParamSet/Get/List()` 重构为参数表驱动
+  - 新增 `track_normalize_runtime_config()` 做阈值与时序归一
+
+### Phase 48: UART 分发收口
+- **Status:** complete
+- Actions taken:
+  - 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 新增：
+    - `runtime_param_get()`
+    - `runtime_param_set()`
+    - `runtime_param_list()`
+    - `runtime_load_defaults()`
+  - `#TCFG GET/SET/LIST/LOAD_DEFAULTS` 改为只走 owner 接口
+  - 旧命令 `#SPD/#SKP/#AKP/#LKP/#SFF/#HTR...` 保留，但只作为 key alias
+
+### Phase 49: 编译烧录与串口烟测
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 按顺序完成：
+    - `pyocd list --probes`
+    - `pyocd erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `pyocd load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `pyocd reset --no-config -t stm32f103rc -u 031305620164`
+  - 串口烟测尝试打开 `COM18` 时返回 `PermissionError(13)`，本轮无法读取 `#TCFG` 回包

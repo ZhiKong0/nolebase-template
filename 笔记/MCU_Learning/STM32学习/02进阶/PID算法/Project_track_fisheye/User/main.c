@@ -566,10 +566,56 @@ static uint8_t cmd_copy_token(const char *src, char *out, uint8_t outSize, const
     return (len > 0u) ? 1u : 0u;
 }
 
+static uint8_t runtime_param_get(const char *key, float *value)
+{
+    if (DualLoop_ParamGet(&g_pid, g_mode, key, value))
+        return 1u;
+    if (LineTrack_ParamGet(key, value))
+        return 1u;
+    return 0u;
+}
+
+static uint8_t runtime_param_set(const char *key, float value, float *appliedValue)
+{
+    if (DualLoop_ParamSet(&g_pid, g_mode, key, value, appliedValue))
+    {
+        g_displayDirty = 1u;
+        return 1u;
+    }
+    if (LineTrack_ParamSet(key, value, appliedValue))
+    {
+        g_displayDirty = 1u;
+        return 1u;
+    }
+    return 0u;
+}
+
+static void runtime_param_list(char *out, uint16_t outSize)
+{
+    char dualBuf[640];
+    char trackBuf[1792];
+
+    if (out == 0 || outSize == 0u)
+        return;
+
+    DualLoop_ParamList(dualBuf, (uint16_t)sizeof(dualBuf));
+    LineTrack_ParamList(trackBuf, (uint16_t)sizeof(trackBuf));
+    snprintf(out, outSize, "%s,%s", dualBuf, trackBuf);
+}
+
+static void runtime_load_defaults(void)
+{
+    DualLoop_ResetRuntimeConfig();
+    LineTrack_ResetRuntimeConfig();
+    load_mode_defaults(g_mode);
+    g_pid.speedRampTarget = g_dualLoopCfg.speedEntry;
+    g_displayDirty = 1u;
+}
+
 static void handle_tcfg_command(const char *cmd)
 {
     char key[40];
-    char listBuf[512];
+    char listBuf[2400];
     const char *payload;
     const char *next;
     float fval;
@@ -583,10 +629,10 @@ static void handle_tcfg_command(const char *cmd)
 
     if (strcmp(cmd, "#TCFG LIST!") == 0)
     {
-        LineTrack_ParamList(listBuf, (uint16_t)sizeof(listBuf));
+        runtime_param_list(listBuf, (uint16_t)sizeof(listBuf));
         {
-            char out[640];
-            snprintf(out, sizeof(out), "OK:TCFG LIST track.speed_target,%s\r\n", listBuf);
+            char out[2480];
+            snprintf(out, sizeof(out), "OK:TCFG LIST %s\r\n", listBuf);
             BspUart_SendString(out);
         }
         return;
@@ -594,9 +640,7 @@ static void handle_tcfg_command(const char *cmd)
 
     if (strcmp(cmd, "#TCFG LOAD_DEFAULTS!") == 0)
     {
-        g_pid.targetSpeed = PID_TRACK_SPEED_TARGET;
-        LineTrack_SetPID(PID_TRACK_LINE_KP, PID_TRACK_LINE_KD);
-        LineTrack_ResetRuntimeConfig();
+        runtime_load_defaults();
         BspUart_SendString("OK:TCFG LOAD_DEFAULTS\r\n");
         return;
     }
@@ -611,14 +655,7 @@ static void handle_tcfg_command(const char *cmd)
             return;
         }
 
-        if (strcmp(key, "track.speed_target") == 0)
-        {
-            snprintf(out, sizeof(out), "OK:TCFG GET %s=%.3f\r\n", key, (double)g_pid.targetSpeed);
-            BspUart_SendString(out);
-            return;
-        }
-
-        if (LineTrack_ParamGet(key, &fval))
+        if (runtime_param_get(key, &fval))
         {
             snprintf(out, sizeof(out), "OK:TCFG GET %s=%.3f\r\n", key, (double)fval);
             BspUart_SendString(out);
@@ -644,15 +681,7 @@ static void handle_tcfg_command(const char *cmd)
             return;
         }
 
-        if (strcmp(key, "track.speed_target") == 0)
-        {
-            g_pid.targetSpeed = fval;
-            snprintf(out, sizeof(out), "OK:TCFG SET %s=%.3f\r\n", key, (double)g_pid.targetSpeed);
-            BspUart_SendString(out);
-            return;
-        }
-
-        if (LineTrack_ParamSet(key, fval, &applied))
+        if (runtime_param_set(key, fval, &applied))
         {
             snprintf(out, sizeof(out), "OK:TCFG SET %s=%.3f\r\n", key, (double)applied);
             BspUart_SendString(out);
@@ -694,7 +723,7 @@ static uint8_t handle_sensor_scale_command(const char *cmd)
 
     if (strcmp(p, "?!") == 0)
     {
-        if (LineTrack_ParamGet(key, &fval))
+        if (runtime_param_get(key, &fval))
         {
             int16_t milli = (int16_t)(fval * 1000.0f + 0.5f);
             snprintf(out, sizeof(out), "OK:TS%u=%d\r\n", (unsigned)sensorIndex, (int)milli);
@@ -711,7 +740,7 @@ static uint8_t handle_sensor_scale_command(const char *cmd)
     {
         if (fval > 10.0f || fval < -10.0f)
             fval *= 0.001f;
-        if (LineTrack_ParamSet(key, fval, &applied))
+        if (runtime_param_set(key, fval, &applied))
         {
             int16_t milli = (int16_t)(applied * 1000.0f + 0.5f);
             snprintf(out, sizeof(out), "OK:TS%u=%d\r\n", (unsigned)sensorIndex, (int)milli);
@@ -743,7 +772,7 @@ static uint8_t handle_track_short_param_command(const char *cmd, const char *tag
 
     if (strcmp(cmd + tagLen, "?!") == 0)
     {
-        if (LineTrack_ParamGet(key, &fval))
+        if (runtime_param_get(key, &fval))
         {
             snprintf(out, sizeof(out), "OK:%s=%.3f\r\n", tag + 1, (double)fval);
             BspUart_SendString(out);
@@ -758,7 +787,7 @@ static uint8_t handle_track_short_param_command(const char *cmd, const char *tag
 
     if (cmd[tagLen] == '=' && cmd_parse_float(cmd + tagLen + 1u, &fval))
     {
-        if (LineTrack_ParamSet(key, fval, &applied))
+        if (runtime_param_set(key, fval, &applied))
         {
             snprintf(out, sizeof(out), "OK:%s=%.3f\r\n", tag + 1, (double)applied);
             BspUart_SendString(out);
@@ -776,7 +805,6 @@ static uint8_t handle_track_short_param_command(const char *cmd, const char *tag
 
 static void handle_command(const char *cmd)
 {
-    float fval;
     uint32_t u32val;
 
     if (strcmp(cmd, "#RUN!") == 0)
@@ -876,130 +904,17 @@ static void handle_command(const char *cmd)
         handle_tcfg_command(cmd);
         return;
     }
-    if (strncmp(cmd, "#SPD=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.targetSpeed = fval;
-            {
-                char out[40];
-                snprintf(out, sizeof(out), "OK:SPD=%.3f\r\n", (double)g_pid.targetSpeed);
-                BspUart_SendString(out);
-            }
-        }
-        return;
-    }
-    if (strcmp(cmd, "#SPD?!") == 0)
-    {
-        char out[40];
-        snprintf(out, sizeof(out), "OK:SPD=%.3f\r\n", (double)g_pid.targetSpeed);
-        BspUart_SendString(out);
-        return;
-    }
-    if (strncmp(cmd, "#SKP=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.speedPID.kp = fval;
-            BspUart_SendString("OK:SKP\r\n");
-        }
-        return;
-    }
-    if (strncmp(cmd, "#SKI=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.speedPID.ki = fval;
-            BspUart_SendString("OK:SKI\r\n");
-        }
-        return;
-    }
-    if (strncmp(cmd, "#SKD=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.speedPID.kd = fval;
-            BspUart_SendString("OK:SKD\r\n");
-        }
-        return;
-    }
-    if (strncmp(cmd, "#AKP=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.headingPID.kp = fval;
-            BspUart_SendString("OK:AKP\r\n");
-        }
-        return;
-    }
-    if (strncmp(cmd, "#AKI=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.headingPID.ki = fval;
-            BspUart_SendString("OK:AKI\r\n");
-        }
-        return;
-    }
-    if (strncmp(cmd, "#AKD=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.headingPID.kd = fval;
-            BspUart_SendString("OK:AKD\r\n");
-        }
-        return;
-    }
-    if (strncmp(cmd, "#LKP=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            LineTrack_SetPID(fval, g_lineTrack.kd);
-            BspUart_SendString("OK:LKP\r\n");
-        }
-        return;
-    }
-    if (strcmp(cmd, "#LKP?!") == 0)
-    {
-        char out[40];
-        snprintf(out, sizeof(out), "OK:LKP=%.3f\r\n", (double)g_lineTrack.kp);
-        BspUart_SendString(out);
-        return;
-    }
-    if (strncmp(cmd, "#LKD=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            LineTrack_SetPID(g_lineTrack.kp, fval);
-            BspUart_SendString("OK:LKD\r\n");
-        }
-        return;
-    }
-    if (strcmp(cmd, "#LKD?!") == 0)
-    {
-        char out[40];
-        snprintf(out, sizeof(out), "OK:LKD=%.3f\r\n", (double)g_lineTrack.kd);
-        BspUart_SendString(out);
-        return;
-    }
-    if (strncmp(cmd, "#SFF=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.feedforwardGain = fval;
-            BspUart_SendString("OK:SFF\r\n");
-        }
-        return;
-    }
-    if (strncmp(cmd, "#HTR=", 5) == 0)
-    {
-        if (cmd_parse_float(cmd + 5, &fval))
-        {
-            g_pid.headingTrim = fval;
-            BspUart_SendString("OK:HTR\r\n");
-        }
-        return;
-    }
+    if (handle_track_short_param_command(cmd, "#SPD", (g_mode == MODE_STRAIGHT) ? "straight.speed_target" : "track.speed_target")) return;
+    if (handle_track_short_param_command(cmd, "#SKP", (g_mode == MODE_STRAIGHT) ? "straight.speed_kp" : "track.speed_kp")) return;
+    if (handle_track_short_param_command(cmd, "#SKI", (g_mode == MODE_STRAIGHT) ? "straight.speed_ki" : "track.speed_ki")) return;
+    if (handle_track_short_param_command(cmd, "#SKD", (g_mode == MODE_STRAIGHT) ? "straight.speed_kd" : "track.speed_kd")) return;
+    if (handle_track_short_param_command(cmd, "#AKP", "straight.heading_kp")) return;
+    if (handle_track_short_param_command(cmd, "#AKI", "straight.heading_ki")) return;
+    if (handle_track_short_param_command(cmd, "#AKD", "straight.heading_kd")) return;
+    if (handle_track_short_param_command(cmd, "#LKP", "track.lkp")) return;
+    if (handle_track_short_param_command(cmd, "#LKD", "track.lkd")) return;
+    if (handle_track_short_param_command(cmd, "#SFF", "system.speed_feedforward_gain")) return;
+    if (handle_track_short_param_command(cmd, "#HTR", "heading.trim")) return;
     if (strcmp(cmd, "#STAT!") == 0)
     {
         BspUart_SendStat(g_sysState, g_mode,
@@ -1091,11 +1006,11 @@ static void run_control(uint32_t now)
 
             g_lineTrack.cornerDone = 0u;
             PID_Reset(&g_pid.speedPID);
-            resumeSpeedTarget = g_pid.currentSpeed + TRACK_RESUME_SPEED_BOOST;
-            if (resumeSpeedTarget < TRACK_RESUME_SPEED_MIN)
-                resumeSpeedTarget = TRACK_RESUME_SPEED_MIN;
-            if (resumeSpeedTarget > TRACK_RESUME_SPEED_MAX)
-                resumeSpeedTarget = TRACK_RESUME_SPEED_MAX;
+            resumeSpeedTarget = g_pid.currentSpeed + g_lineTrackCfg.resumeSpeedBoost;
+            if (resumeSpeedTarget < g_lineTrackCfg.resumeSpeedMin)
+                resumeSpeedTarget = g_lineTrackCfg.resumeSpeedMin;
+            if (resumeSpeedTarget > g_lineTrackCfg.resumeSpeedMax)
+                resumeSpeedTarget = g_lineTrackCfg.resumeSpeedMax;
             if (resumeSpeedTarget > g_pid.targetSpeed)
                 resumeSpeedTarget = g_pid.targetSpeed;
             g_pid.speedRampTarget = resumeSpeedTarget;

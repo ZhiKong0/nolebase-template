@@ -580,3 +580,87 @@
 - 旧脚本仍然可以继续只读 `sb`
 - 新的实验日志会额外携带 `sbh/s12`
 - `parse_kv_line()` 这类基于 `k=v` 的脚本不会因为新增字段而失效
+
+## 2026-04-24 exp447 S 弯抓线力分析
+
+### 关键结论
+- `exp447` 的主问题不是找线 pivot 太慢，而是 `S` 弯外侧 `EDGE` 段的主循迹输出进入平台区后，抓线力不再继续增加。
+- 最直接的增强点是主 `FOLLOW` 链：
+  - `PID_TRACK_LINE_KP`
+  - `TRACK_FOLLOW_ERROR_SCALE`
+  - `TRACK_FOLLOW_DEV_RATIO`
+  - `TRACK_FOLLOW_DEV_STEP_LIMIT`
+- 次一级是中心与滤波响应：
+  - `TRACK_FOLLOW_DEADBAND`
+  - `TRACK_FOLLOW_POS_LPF_ALPHA`
+  - `TRACK_FOLLOW_D_LPF_ALPHA`
+- 搜索相关变量只影响“已经出线之后”的恢复，不是 `S` 弯本体抓线力的第一来源。
+
+### 证据
+- 在 `exp447` 的 `EDGE` 段，已经出现 `S9~S11` 外侧命中、`lp≈150~175`、`bd=2~4`，但输出差速只维持在一档平台：
+  - `OL/OR≈385/157`
+  - `OL/OR≈408/166`
+  - `OL/OR≈440/180`
+- 这说明真正限制抓线力的是主循迹误差缩放、差速上限与步进限幅，而不是搜索速度。
+
+### 作用点
+- 主误差构造：[`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - `track_build_follow_error()`
+- 主 PD 输出：[`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - `track_dev_speed_follow_pd()`
+- 差速上限与同向补强：[`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - `track_drive_follow()`
+  - `track_apply_follow_guidance()`
+
+## 2026-04-24 统一串口调参接口重构
+
+### 关键结论
+- 当前工程原本已经有 `#TCFG`，但参数 owner 是碎的：
+  - `main.c` 直接改 `g_pid`
+  - `line_track.c` 自己维护一份 `ParamSet/Get/List`
+  - 旧别名命令 `#SPD/#SKP/#AKP/#LKP...` 直接碰业务字段
+- 真正的耦合点不是“命令太多”，而是 `UART -> 业务全局变量` 直写链。
+- 这轮的切口应该是：
+  - `UART/CLI -> 参数服务 -> owner 模块`
+  - 而不是继续在 `handle_command()` 里补更多 `if/else`
+
+### 本轮 owner 划分
+- `DualLoop` owner：[`Hardware/pid_controller.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/pid_controller.c)
+  - 新增 `g_dualLoopCfg`
+  - 统一管理：
+    - `straight.*`
+    - `track.speed_*`
+    - `heading.*`
+    - `system.speed_*`
+- `LineTrack` owner：[`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 扩展 `g_lineTrackCfg`
+  - 统一管理：
+    - 12 路传感器缩放
+    - 跟线 PD 相关
+    - 阈值相关
+    - 找线/恢复/交叉相关
+    - 同向导向补强相关
+    - 出弯恢复速度相关
+
+### 低耦合策略
+- `main.c` 现在只做：
+  - `runtime_param_get/set/list/load_defaults`
+  - 旧短命令到统一 key 的映射
+- `main.c` 不再直接写：
+  - `g_pid.speedPID.*`
+  - `g_pid.headingPID.*`
+  - `g_pid.targetSpeed`
+  - `g_lineTrackCfg.*`
+- 旧短命令仍保留，但已经降级成别名层，不再是业务写入口。
+
+### 新增的一致性约束
+- `LineTrack` 参数在 set 后会做归一，避免配置链自相矛盾：
+  - `center < small < medium < large`
+  - `lost_fast_confirm <= lost_confirm`
+  - `search_turn_slow <= search_turn_fast`
+  - `recover_turnin >= follow_turnin`
+  - `resume_speed_min <= resume_speed_max`
+
+### 当前阻塞
+- 编译、烧录已完成
+- 串口烟测被 `COM18` 占用阻塞，无法在本轮拿到 `#TCFG PING/LIST/GET/SET` 回包
