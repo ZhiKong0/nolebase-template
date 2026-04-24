@@ -258,6 +258,32 @@
     - `yaml ok ... 12`
     - `track_adaptive_tuner.py --help` 正常
   - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+
+## Session: 2026-04-24 exp404 不降速抓线增强
+
+### Phase 39: FOLLOW/RECOVER 同向抓线增强
+- **Status:** complete
+- Actions taken:
+  - 复盘 [`exp_0404_20260424_091906_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0404_20260424_091906_KEY_T.txt)，确认主因不是速度太低，而是 `FOLLOW/RECOVER` 同向抓线在大偏差时过平
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 新增 `track_build_guidance_severity()`，让同向抓线按 `abs(linePos)` 连续增强
+  - 将 `track_is_turnin_follow_case()` 的强化起点前移到“已经越过 `SMALL_MAX` 且同侧外缘明显占优”
+  - 将 `track_apply_follow_guidance()` 从固定抓线下限改为随偏差插值增强：
+    - `FOLLOW`: `ratio 0.44 -> 0.58`, `min 80 -> 124`
+    - `RECOVER`: `ratio 0.52 -> 0.62`, `min 96 -> 136`
+  - 保持 `PID_TRACK_SPEED_TARGET=50.0`、`TRACK_FOLLOW_BASE_MIN_PWM=250` 不变，不用降速换稳定
+
+### Phase 40: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 校验 `project.hex` 时间戳晚于最新源码
+  - 使用 `pyOCD` 按顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
   - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
     - `0 Error(s), 0 Warning(s)`
   - 使用 `pyOCD` 按顺序完成：

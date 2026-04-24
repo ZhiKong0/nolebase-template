@@ -455,3 +455,29 @@
 - `TRACK_SEARCH_TURN_PWM_FAST: 340 -> 380`
 - `TRACK_SEARCH_TURN_PWM_SLOW: 220 -> 250`
 - `ARC` 搜索参数、主循迹参数、丢线判定参数保持不变
+
+## 2026-04-24 exp404 抓线不强但不降速
+
+### 关键证据
+- [`exp_0404_20260424_091906_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0404_20260424_091906_KEY_T.txt) 里，多段 `EDGE/TRMR` 已经出现 `lp≈150~293` 的大偏差，但输出长期停在近似固定的分裂档位，例如 `355/145` 或 `145/355`，并没有随着偏差继续明显加力。
+- 当前 [`track_apply_follow_guidance()`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 只提供固定同向抓线下限：
+  - `FOLLOW` 固定 `0.42 / 72`
+  - `RECOVER` 固定 `0.48 / 88`
+- 这会让同向抓线在大偏差时过于“平”，表现成：已经到外侧了，但抓线力度不像偏差那样继续增强，最后更容易掉到 `sb=0` 再进搜索。
+
+### 判断
+- `exp404` 的主因不是速度档不够低，也不是本轮要靠继续压基础 PWM 换稳定。
+- 最合适的切口是只强化 `FOLLOW/RECOVER` 内部的同向抓线，让它随 `abs(linePos)` 平滑增强，并把强化前移到“同侧外缘已经明显占优”的区间。
+- 这样可以在不降速的前提下，让外侧大偏差更早、更硬地往中线抓回。
+
+### 本轮修正
+- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 新增 `track_build_guidance_severity()`，按 `abs(linePos)` 构建 `0~1` 抓线强度，并在命中同侧外缘灯时额外上调。
+  - `track_is_turnin_follow_case()` 改为：
+    - `absPos < SMALL_MAX` 不强化
+    - `SMALL_MAX ~ MEDIUM_MAX` 只有命中同侧外缘时才提前强化
+    - `>= MEDIUM_MAX` 继续按大偏差强化
+  - `track_apply_follow_guidance()` 改成随偏差增强：
+    - `FOLLOW`: `ratio 0.44 -> 0.58`, `min 80 -> 124`
+    - `RECOVER`: `ratio 0.52 -> 0.62`, `min 96 -> 136`
+- `PID_TRACK_SPEED_TARGET`、`TRACK_FOLLOW_BASE_MIN_PWM` 与基础速度链保持不变。

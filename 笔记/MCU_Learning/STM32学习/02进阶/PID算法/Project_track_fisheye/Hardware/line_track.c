@@ -27,6 +27,7 @@ static uint8_t track_mask_bit_count(uint16_t bits, uint16_t mask);
 static uint8_t track_is_center_locked(uint16_t bits, int16_t linePos);
 static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos);
 static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir);
+static float track_build_guidance_severity(uint16_t bits, int16_t absPos, uint8_t dir);
 static int16_t track_apply_follow_guidance(int16_t devSpeed,
                                            int16_t driveBase,
                                            uint16_t bits,
@@ -150,7 +151,7 @@ static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8
         return 0u;
 
     absPos = track_abs_i16(linePos);
-    if (absPos < TRACK_LINE_POS_MEDIUM_MAX)
+    if (absPos < TRACK_LINE_POS_SMALL_MAX)
         return 0u;
 
     visibleDir = track_pick_visible_dir(bits, linePos);
@@ -163,9 +164,45 @@ static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8
         return 0u;
     }
 
+    if (absPos < TRACK_LINE_POS_MEDIUM_MAX)
+    {
+        if ((visibleDir == LT_DIR_LEFT && (bits & LT_MASK_LEFT_OUTER) == 0u)
+            || (visibleDir == LT_DIR_RIGHT && (bits & LT_MASK_RIGHT_OUTER) == 0u))
+        {
+            return 0u;
+        }
+    }
+
     if (dir != 0)
         *dir = visibleDir;
     return 1u;
+}
+
+static float track_build_guidance_severity(uint16_t bits, int16_t absPos, uint8_t dir)
+{
+    float severity;
+
+    if (absPos <= TRACK_LINE_POS_SMALL_MAX)
+    {
+        severity = 0.0f;
+    }
+    else if (absPos >= TRACK_LINE_POS_LARGE_MAX)
+    {
+        severity = 1.0f;
+    }
+    else
+    {
+        severity = (float)(absPos - TRACK_LINE_POS_SMALL_MAX)
+                 / (float)(TRACK_LINE_POS_LARGE_MAX - TRACK_LINE_POS_SMALL_MAX);
+    }
+
+    if ((dir == LT_DIR_LEFT && (bits & LT_MASK_LEFT_OUTER) != 0u)
+        || (dir == LT_DIR_RIGHT && (bits & LT_MASK_RIGHT_OUTER) != 0u))
+    {
+        severity += 0.20f;
+    }
+
+    return track_clamp_paramf(severity, 0.0f, 1.0f);
 }
 
 static int16_t track_apply_directional_floor(int16_t devSpeed,
@@ -200,33 +237,53 @@ static int16_t track_apply_follow_guidance(int16_t devSpeed,
                                            int16_t linePos,
                                            uint8_t *gainStage)
 {
-    const float k_followTurninRatio = 0.42f;
-    const int16_t k_followTurninMin = 72;
-    const float k_recoverTurninRatio = 0.48f;
-    const int16_t k_recoverTurninMin = 88;
+    const float k_followTurninRatioMin = 0.44f;
+    const float k_followTurninRatioMax = 0.58f;
+    const int16_t k_followTurninMin = 80;
+    const int16_t k_followTurninMax = 124;
+    const float k_recoverTurninRatioMin = 0.52f;
+    const float k_recoverTurninRatioMax = 0.62f;
+    const int16_t k_recoverTurninMin = 96;
+    const int16_t k_recoverTurninMax = 136;
     uint8_t dir = LT_DIR_NONE;
+    int16_t absPos = track_abs_i16(linePos);
+    float severity;
+    float ratio;
+    int16_t minimum;
 
     if (g_lineTrack.recoverTicks > 0u
         && (g_lineTrack.recoverDir == LT_DIR_LEFT || g_lineTrack.recoverDir == LT_DIR_RIGHT))
     {
+        severity = track_build_guidance_severity(bits, absPos, g_lineTrack.recoverDir);
+        if (severity < 0.25f)
+            severity = 0.25f;
+        ratio = track_lerpf(k_recoverTurninRatioMin, k_recoverTurninRatioMax, severity);
+        minimum = track_round_to_i16(track_lerpf((float)k_recoverTurninMin,
+                                                 (float)k_recoverTurninMax,
+                                                 severity));
         if (gainStage != 0)
-            *gainStage = 2u;
+            *gainStage = (severity >= 0.50f) ? 2u : 1u;
         return track_apply_directional_floor(devSpeed,
                                              driveBase,
                                              g_lineTrack.recoverDir,
-                                             k_recoverTurninRatio,
-                                             k_recoverTurninMin);
+                                             ratio,
+                                             minimum);
     }
 
     if (track_is_turnin_follow_case(bits, linePos, &dir))
     {
+        severity = track_build_guidance_severity(bits, absPos, dir);
+        ratio = track_lerpf(k_followTurninRatioMin, k_followTurninRatioMax, severity);
+        minimum = track_round_to_i16(track_lerpf((float)k_followTurninMin,
+                                                 (float)k_followTurninMax,
+                                                 severity));
         if (gainStage != 0)
-            *gainStage = 2u;
+            *gainStage = (severity >= 0.65f) ? 2u : 1u;
         return track_apply_directional_floor(devSpeed,
                                              driveBase,
                                              dir,
-                                             k_followTurninRatio,
-                                             k_followTurninMin);
+                                             ratio,
+                                             minimum);
     }
 
     return devSpeed;

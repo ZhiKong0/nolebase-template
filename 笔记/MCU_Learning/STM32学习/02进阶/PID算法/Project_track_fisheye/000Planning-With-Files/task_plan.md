@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 38
+Phase 40
 
 ## Phases
 
@@ -149,6 +149,13 @@ Phase 38
 - [ ] 待串口口释放后补做 `COM18` 烟测
 - **Status:** in progress
 
+### Phase 39: exp404 不降速抓线增强
+- [x] 读取 `exp404` 日志并确认主因不是速度档，而是大偏差同向抓线过平
+- [x] 将 `FOLLOW/RECOVER` 的同向抓线从固定下限改为按 `linePos` 增强
+- [x] 保持 `PID_TRACK_SPEED_TARGET` 与基础速度下限不变
+- [x] 重新编译并烧录到当前板子
+- **Status:** complete
+
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。
 - 自动调参骨架本轮固定 `speed_target=40`，不在本轮搜索目标速度。
@@ -171,6 +178,7 @@ Phase 38
   - `FOLLOW`：小偏差普通 `PD`，大偏差且同侧明显占优时直接同向强化转入
   - `SEARCH`：只有全灭才进入，且只做单向 `pivot`
   - `RECOVER`：重见同侧线后继续顺着该方向收回，回中心后才完全交还普通 `PD`
+- `exp404` 之后，主抓线增强不再继续靠降速或压低基础 PWM，而是优先提升 `FOLLOW/RECOVER` 内部同向抓线强度，并让增强量随偏差绝对值平滑增加。
 
 ## Hot Files
 - `Hardware/config.h`
