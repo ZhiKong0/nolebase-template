@@ -97,6 +97,8 @@ typedef struct
     float    devRatio;
     float    deadband;
     float    errorScale;
+    float    outerGain;
+    float    lossHoldGain;
     float    posFilterAlpha;
     float    dFilterAlpha;
     int16_t  baseMinPwm;
@@ -113,10 +115,6 @@ typedef struct
     uint16_t searchTurnPwmFast;
     uint16_t searchTurnPwmSlow;
     uint16_t searchTimeoutTicks;
-    float    followTurninRatio;
-    int16_t  followTurninMin;
-    float    recoverTurninRatio;
-    int16_t  recoverTurninMin;
     float    resumeSpeedMin;
     float    resumeSpeedBoost;
     float    resumeSpeedMax;

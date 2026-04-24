@@ -26,16 +26,9 @@ static const int16_t s_sensorLinePos[LINE_SENSOR_COUNT] = {
 static uint8_t track_is_crossing(uint16_t bits);
 static uint8_t track_mask_bit_count(uint16_t bits, uint16_t mask);
 static uint8_t track_is_center_locked(uint16_t bits, int16_t linePos);
-static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos);
 static uint8_t track_get_lost_confirm_ticks(void);
-static int16_t track_follow_turnin_threshold(uint16_t bits);
-static uint8_t track_pick_loss_hold_dir(int16_t linePos);
-static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir);
-static int16_t track_apply_follow_guidance(int16_t devSpeed,
-                                           int16_t driveBase,
-                                           uint16_t bits,
-                                           int16_t linePos,
-                                           uint8_t *gainStage);
+static float track_stage_error_gain(int16_t absPos);
+static float track_follow_error_gain(uint16_t bits, int16_t linePos);
 static void track_normalize_runtime_config(void);
 
 typedef enum
@@ -75,6 +68,8 @@ static void track_load_default_runtime_config(void)
     g_lineTrackCfg.devRatio = TRACK_FOLLOW_DEV_RATIO;
     g_lineTrackCfg.deadband = TRACK_FOLLOW_DEADBAND;
     g_lineTrackCfg.errorScale = TRACK_FOLLOW_ERROR_SCALE;
+    g_lineTrackCfg.outerGain = TRACK_FOLLOW_OUTER_GAIN;
+    g_lineTrackCfg.lossHoldGain = TRACK_FOLLOW_LOSS_HOLD_GAIN;
     g_lineTrackCfg.posFilterAlpha = TRACK_FOLLOW_POS_LPF_ALPHA;
     g_lineTrackCfg.dFilterAlpha = TRACK_FOLLOW_D_LPF_ALPHA;
     g_lineTrackCfg.baseMinPwm = TRACK_FOLLOW_BASE_MIN_PWM;
@@ -91,10 +86,6 @@ static void track_load_default_runtime_config(void)
     g_lineTrackCfg.searchTurnPwmFast = TRACK_SEARCH_TURN_PWM_FAST;
     g_lineTrackCfg.searchTurnPwmSlow = TRACK_SEARCH_TURN_PWM_SLOW;
     g_lineTrackCfg.searchTimeoutTicks = TRACK_SEARCH_TIMEOUT_TICKS;
-    g_lineTrackCfg.followTurninRatio = 0.42f;
-    g_lineTrackCfg.followTurninMin = 72;
-    g_lineTrackCfg.recoverTurninRatio = 0.48f;
-    g_lineTrackCfg.recoverTurninMin = 88;
     g_lineTrackCfg.resumeSpeedMin = TRACK_RESUME_SPEED_MIN;
     g_lineTrackCfg.resumeSpeedBoost = TRACK_RESUME_SPEED_BOOST;
     g_lineTrackCfg.resumeSpeedMax = TRACK_RESUME_SPEED_MAX;
@@ -165,163 +156,46 @@ static uint16_t track_round_to_u16(float value)
     return (uint16_t)iv;
 }
 
-static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos)
+static float track_stage_error_gain(int16_t absPos)
 {
-    uint8_t leftScore = (uint8_t)(track_mask_bit_count(bits, LT_MASK_LEFT_OUTER) * 2u
-                                + track_mask_bit_count(bits, LT_MASK_LEFT_INNER));
-    uint8_t rightScore = (uint8_t)(track_mask_bit_count(bits, LT_MASK_RIGHT_OUTER) * 2u
-                                 + track_mask_bit_count(bits, LT_MASK_RIGHT_INNER));
+    if (absPos <= g_lineTrackCfg.centerPosMax)
+        return 1.0f;
 
-    if (leftScore > rightScore)
-        return LT_DIR_LEFT;
-    if (rightScore > leftScore)
-        return LT_DIR_RIGHT;
-    if (linePos < -g_lineTrackCfg.centerPosMax)
-        return LT_DIR_LEFT;
-    if (linePos > g_lineTrackCfg.centerPosMax)
-        return LT_DIR_RIGHT;
-    return LT_DIR_NONE;
+    if (absPos <= g_lineTrackCfg.smallPosMax)
+    {
+        float ratio = (float)(absPos - g_lineTrackCfg.centerPosMax)
+                    / (float)(g_lineTrackCfg.smallPosMax - g_lineTrackCfg.centerPosMax);
+        return track_lerpf(1.0f, 1.20f, ratio);
+    }
+
+    if (absPos <= g_lineTrackCfg.mediumPosMax)
+    {
+        float ratio = (float)(absPos - g_lineTrackCfg.smallPosMax)
+                    / (float)(g_lineTrackCfg.mediumPosMax - g_lineTrackCfg.smallPosMax);
+        return track_lerpf(1.20f, 1.55f, ratio);
+    }
+
+    if (absPos >= g_lineTrackCfg.largePosMax)
+        return 1.95f;
+
+    {
+        float ratio = (float)(absPos - g_lineTrackCfg.mediumPosMax)
+                    / (float)(g_lineTrackCfg.largePosMax - g_lineTrackCfg.mediumPosMax);
+        return track_lerpf(1.55f, 1.95f, ratio);
+    }
 }
 
-static int16_t track_follow_turnin_threshold(uint16_t bits)
+static float track_follow_error_gain(uint16_t bits, int16_t linePos)
 {
-    uint16_t outerBits;
-    int16_t thresholdPos;
+    float gain = track_stage_error_gain(track_abs_i16(linePos));
 
-    outerBits = (uint16_t)(bits & (LT_MASK_LEFT_OUTER | LT_MASK_RIGHT_OUTER));
-    if (outerBits != 0u || (bits & LT_MASK_CENTER) == 0u)
+    if ((bits & (LT_MASK_LEFT_OUTER | LT_MASK_RIGHT_OUTER)) != 0u
+        || (bits & LT_MASK_CENTER) == 0u)
     {
-        thresholdPos = (int16_t)(g_lineTrackCfg.centerPosMax
-                               + ((g_lineTrackCfg.smallPosMax - g_lineTrackCfg.centerPosMax) / 3));
-        if (thresholdPos > g_lineTrackCfg.smallPosMax)
-            thresholdPos = g_lineTrackCfg.smallPosMax;
-        return thresholdPos;
+        gain += g_lineTrackCfg.outerGain;
     }
 
-    return g_lineTrackCfg.mediumPosMax;
-}
-
-static uint8_t track_pick_loss_hold_dir(int16_t linePos)
-{
-    if (g_lineTrack.lastValidLinePos < -g_lineTrackCfg.centerPosMax)
-        return LT_DIR_LEFT;
-    if (g_lineTrack.lastValidLinePos > g_lineTrackCfg.centerPosMax)
-        return LT_DIR_RIGHT;
-    if (linePos < -g_lineTrackCfg.centerPosMax)
-        return LT_DIR_LEFT;
-    if (linePos > g_lineTrackCfg.centerPosMax)
-        return LT_DIR_RIGHT;
-    if (g_lineTrack.lastDevSpeedCmd < 0)
-        return LT_DIR_LEFT;
-    if (g_lineTrack.lastDevSpeedCmd > 0)
-        return LT_DIR_RIGHT;
-    if (g_lineTrack.lastTurnDir == LT_DIR_LEFT || g_lineTrack.lastTurnDir == LT_DIR_RIGHT)
-        return g_lineTrack.lastTurnDir;
-    return LT_DIR_NONE;
-}
-
-static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir)
-{
-    uint8_t visibleDir;
-    int16_t absPos;
-    int16_t thresholdPos;
-
-    if (bits == 0u || track_is_crossing(bits))
-        return 0u;
-
-    absPos = track_abs_i16(linePos);
-    thresholdPos = track_follow_turnin_threshold(bits);
-    if (absPos < thresholdPos)
-        return 0u;
-
-    visibleDir = track_pick_visible_dir(bits, linePos);
-    if (visibleDir == LT_DIR_NONE)
-        return 0u;
-
-    if ((visibleDir == LT_DIR_LEFT && linePos >= -g_lineTrackCfg.centerPosMax)
-        || (visibleDir == LT_DIR_RIGHT && linePos <= g_lineTrackCfg.centerPosMax))
-    {
-        return 0u;
-    }
-
-    if (dir != 0)
-        *dir = visibleDir;
-    return 1u;
-}
-
-static int16_t track_apply_directional_floor(int16_t devSpeed,
-                                             int16_t driveBase,
-                                             uint8_t dir,
-                                             float ratio,
-                                             int16_t minimum)
-{
-    int16_t floor;
-
-    floor = track_round_to_i16((float)driveBase * ratio);
-    if (floor < minimum)
-        floor = minimum;
-
-    if (dir == LT_DIR_LEFT)
-    {
-        if (devSpeed > -floor)
-            devSpeed = (int16_t)(-floor);
-    }
-    else if (dir == LT_DIR_RIGHT)
-    {
-        if (devSpeed < floor)
-            devSpeed = floor;
-    }
-
-    return devSpeed;
-}
-
-static int16_t track_apply_follow_guidance(int16_t devSpeed,
-                                           int16_t driveBase,
-                                           uint16_t bits,
-                                           int16_t linePos,
-                                           uint8_t *gainStage)
-{
-    uint8_t dir = LT_DIR_NONE;
-
-    if (g_lineTrack.recoverTicks > 0u
-        && (g_lineTrack.recoverDir == LT_DIR_LEFT || g_lineTrack.recoverDir == LT_DIR_RIGHT))
-    {
-        if (gainStage != 0)
-            *gainStage = 2u;
-        return track_apply_directional_floor(devSpeed,
-                                             driveBase,
-                                             g_lineTrack.recoverDir,
-                                             g_lineTrackCfg.recoverTurninRatio,
-                                             g_lineTrackCfg.recoverTurninMin);
-    }
-
-    if (bits == 0u)
-    {
-        dir = track_pick_loss_hold_dir(linePos);
-        if (dir != LT_DIR_NONE)
-        {
-            if (gainStage != 0)
-                *gainStage = 2u;
-            return track_apply_directional_floor(devSpeed,
-                                                 driveBase,
-                                                 dir,
-                                                 g_lineTrackCfg.recoverTurninRatio,
-                                                 g_lineTrackCfg.recoverTurninMin);
-        }
-    }
-
-    if (track_is_turnin_follow_case(bits, linePos, &dir))
-    {
-        if (gainStage != 0)
-            *gainStage = 2u;
-        return track_apply_directional_floor(devSpeed,
-                                             driveBase,
-                                             dir,
-                                             g_lineTrackCfg.followTurninRatio,
-                                             g_lineTrackCfg.followTurninMin);
-    }
-
-    return devSpeed;
+    return track_clamp_paramf(gain, 1.0f, 3.0f);
 }
 
 static uint8_t track_parse_sensor_scale_index(const char *key, uint8_t *sensorIndex)
@@ -624,29 +498,28 @@ static float track_build_follow_error(uint16_t bits, int16_t linePos, uint8_t *s
         return 0.0f;
 
     error = track_apply_deadband((float)linePos);
+    if (error == 0.0f)
+        return 0.0f;
 
     if (bits == 0u)
     {
         float holdGain;
         uint8_t confirmTicks;
 
-        if (error == 0.0f)
-            return 0.0f;
-
         confirmTicks = track_get_lost_confirm_ticks();
-        holdGain = 1.0f;
+        holdGain = 1.0f + g_lineTrackCfg.lossHoldGain;
         if (confirmTicks > 0u)
         {
             float ratio = (float)g_lineTrack.overrunCount / (float)confirmTicks;
             if (ratio > 1.0f)
                 ratio = 1.0f;
-            holdGain += 0.45f * ratio;
+            holdGain += 0.25f * ratio;
         }
 
         return (error * holdGain) / g_lineTrackCfg.errorScale;
     }
 
-    return error / g_lineTrackCfg.errorScale;
+    return (error * track_follow_error_gain(bits, linePos)) / g_lineTrackCfg.errorScale;
 }
 
 static void track_select_follow_profile(int16_t linePos,
@@ -1053,13 +926,13 @@ static int16_t track_limit_follow_base(int16_t basePwm, int16_t linePos)
         return basePwm;
 
     absPos = track_abs_i16(linePos);
-    if (absPos <= g_lineTrackCfg.centerPosMax)
+    if (absPos <= g_lineTrackCfg.mediumPosMax)
         return basePwm;
     if (absPos >= g_lineTrackCfg.largePosMax)
         return g_lineTrackCfg.baseMinPwm;
 
-    ratio = (float)(absPos - g_lineTrackCfg.centerPosMax)
-          / (float)(g_lineTrackCfg.largePosMax - g_lineTrackCfg.centerPosMax);
+    ratio = (float)(absPos - g_lineTrackCfg.mediumPosMax)
+          / (float)(g_lineTrackCfg.largePosMax - g_lineTrackCfg.mediumPosMax);
     return track_round_to_i16(track_lerpf((float)basePwm,
                                           (float)g_lineTrackCfg.baseMinPwm,
                                           ratio));
@@ -1147,12 +1020,6 @@ static void track_drive_follow(int16_t basePwm, float yawRate)
         g_lineTrack.devSpeed = devMax;
     if (g_lineTrack.devSpeed < -devMax)
         g_lineTrack.devSpeed = -devMax;
-
-    g_lineTrack.devSpeed = track_apply_follow_guidance(g_lineTrack.devSpeed,
-                                                       driveBase,
-                                                       g_lineTrack.sensorData,
-                                                       g_lineTrack.linePos,
-                                                       &g_lineTrack.gainStage);
 
     g_lineTrack.lastDevSpeedCmd = g_lineTrack.devSpeed;
 
@@ -1415,6 +1282,8 @@ static const LineTrack_ParamSpec_t s_lineTrackCfgParams[] = {
     { "track.static_bias",           (uint16_t)offsetof(LineTrack_RuntimeConfig_t, staticSteerBias),      LT_PARAM_CFG_I16, -120.0f, 120.0f },
     { "track.deadband",              (uint16_t)offsetof(LineTrack_RuntimeConfig_t, deadband),             LT_PARAM_CFG_F32,   0.0f, 200.0f },
     { "track.error_scale",           (uint16_t)offsetof(LineTrack_RuntimeConfig_t, errorScale),           LT_PARAM_CFG_F32,   1.0f, 400.0f },
+    { "track.outer_gain",            (uint16_t)offsetof(LineTrack_RuntimeConfig_t, outerGain),            LT_PARAM_CFG_F32,   0.0f,   1.5f },
+    { "track.loss_hold_gain",        (uint16_t)offsetof(LineTrack_RuntimeConfig_t, lossHoldGain),         LT_PARAM_CFG_F32,   0.0f,   1.5f },
     { "track.pos_lpf",               (uint16_t)offsetof(LineTrack_RuntimeConfig_t, posFilterAlpha),       LT_PARAM_CFG_F32,   0.05f,  0.95f },
     { "track.d_lpf",                 (uint16_t)offsetof(LineTrack_RuntimeConfig_t, dFilterAlpha),         LT_PARAM_CFG_F32,   0.05f,  0.95f },
     { "track.base_min_pwm",          (uint16_t)offsetof(LineTrack_RuntimeConfig_t, baseMinPwm),           LT_PARAM_CFG_I16,   0.0f, 600.0f },
@@ -1430,10 +1299,6 @@ static const LineTrack_ParamSpec_t s_lineTrackCfgParams[] = {
     { "track.search_turn_fast",      (uint16_t)offsetof(LineTrack_RuntimeConfig_t, searchTurnPwmFast),    LT_PARAM_CFG_U16,   0.0f, 600.0f },
     { "track.search_turn_slow",      (uint16_t)offsetof(LineTrack_RuntimeConfig_t, searchTurnPwmSlow),    LT_PARAM_CFG_U16,   0.0f, 600.0f },
     { "track.search_timeout",        (uint16_t)offsetof(LineTrack_RuntimeConfig_t, searchTimeoutTicks),   LT_PARAM_CFG_U16,   1.0f, 300.0f },
-    { "track.follow_turnin_ratio",   (uint16_t)offsetof(LineTrack_RuntimeConfig_t, followTurninRatio),    LT_PARAM_CFG_F32,   0.0f,   1.0f },
-    { "track.follow_turnin_min",     (uint16_t)offsetof(LineTrack_RuntimeConfig_t, followTurninMin),      LT_PARAM_CFG_I16,   0.0f, 400.0f },
-    { "track.recover_turnin_ratio",  (uint16_t)offsetof(LineTrack_RuntimeConfig_t, recoverTurninRatio),   LT_PARAM_CFG_F32,   0.0f,   1.0f },
-    { "track.recover_turnin_min",    (uint16_t)offsetof(LineTrack_RuntimeConfig_t, recoverTurninMin),     LT_PARAM_CFG_I16,   0.0f, 400.0f },
     { "track.resume_speed_min",      (uint16_t)offsetof(LineTrack_RuntimeConfig_t, resumeSpeedMin),       LT_PARAM_CFG_F32,   0.0f, 120.0f },
     { "track.resume_speed_boost",    (uint16_t)offsetof(LineTrack_RuntimeConfig_t, resumeSpeedBoost),     LT_PARAM_CFG_F32,   0.0f, 120.0f },
     { "track.resume_speed_max",      (uint16_t)offsetof(LineTrack_RuntimeConfig_t, resumeSpeedMax),       LT_PARAM_CFG_F32,   0.0f, 120.0f }
@@ -1523,10 +1388,6 @@ static void track_normalize_runtime_config(void)
         g_lineTrackCfg.lostFastConfirmTicks = g_lineTrackCfg.lostConfirmTicks;
     if (g_lineTrackCfg.searchTurnPwmSlow > g_lineTrackCfg.searchTurnPwmFast)
         g_lineTrackCfg.searchTurnPwmSlow = g_lineTrackCfg.searchTurnPwmFast;
-    if (g_lineTrackCfg.recoverTurninMin < g_lineTrackCfg.followTurninMin)
-        g_lineTrackCfg.recoverTurninMin = g_lineTrackCfg.followTurninMin;
-    if (g_lineTrackCfg.recoverTurninRatio < g_lineTrackCfg.followTurninRatio)
-        g_lineTrackCfg.recoverTurninRatio = g_lineTrackCfg.followTurninRatio;
     if (g_lineTrackCfg.resumeSpeedMin > g_lineTrackCfg.resumeSpeedMax)
         g_lineTrackCfg.resumeSpeedMin = g_lineTrackCfg.resumeSpeedMax;
     if (g_lineTrackCfg.resumeSpeedBoost > g_lineTrackCfg.resumeSpeedMax)

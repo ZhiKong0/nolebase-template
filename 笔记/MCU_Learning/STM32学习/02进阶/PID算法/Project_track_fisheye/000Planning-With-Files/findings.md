@@ -1175,3 +1175,62 @@
 - 说明当前主要瓶颈已经不是“外层抓线量级太小”这一件事，而更像：
   - 还看得到外侧线时，同向强化介入还不够早/不够硬
   - 也就是 `track.follow_turnin_ratio / track.follow_turnin_min` 这类参数，比继续磨 `LKP/TDR/STF` 更值得下一轮优先动
+
+## 2026-04-24 参考工程驱动的12路单误差重构
+
+### 关键证据
+- 参考工程 [`F:\Download\Tracking car_competition\soft\code\Hardware\Tracking.c`](F:/Download/Tracking%20car_competition/soft/code/Hardware/Tracking.c) 的主链非常直接：
+  - 数字位型先映射成单个离散误差权重
+  - 再直接进入一套 `PID_Calc`
+  - 不存在当前工程这种 `FOLLOW -> turn-in guidance -> recover guidance -> transient loss hold` 的输出耦合链
+- 当前 [`line_track.c`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 的问题不在“没有 PD”，而在：
+  - 主 `PD` 后面又叠了 `track_apply_follow_guidance()`
+  - `recoverTicks / recoverDir` 会直接改写输出
+  - 外侧可见、中心丢失、瞬时全灭三类情况都走不同输出地板逻辑
+- 这种结构会让车在“还看得到线时”不是真正沿一条连续控制律回中，而是被多个后处理阈值共同驱动，难以稳定钳在中线。
+
+### 判断
+- 参考工程真正值得借的不是它的 `7` 路硬编码表，而是它的“单误差、单 PD、状态机只兜底不改输出”。
+- 对当前 `12` 路工程，最合理的改法不是照搬 7 路表，而是：
+  - 保留 `12` 路输入与 `linePos` 拟合
+  - 用 `linePos` 构造单个整形误差
+  - `SEARCH / RECOVER / CROSS` 只负责状态切换，不再直接给输出加地板
+
+### 本轮修正
+- [`Hardware/line_track.h`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h)
+  - 删除 `followTurninRatio / followTurninMin / recoverTurninRatio / recoverTurninMin`
+  - 新增更直接的：
+    - `outerGain`
+    - `lossHoldGain`
+- [`Hardware/config.h`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h)
+  - 新增：
+    - `TRACK_FOLLOW_OUTER_GAIN`
+    - `TRACK_FOLLOW_LOSS_HOLD_GAIN`
+- [`Hardware/line_track.c`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 删除：
+    - `track_follow_turnin_threshold()`
+    - `track_is_turnin_follow_case()`
+    - `track_apply_directional_floor()`
+    - `track_apply_follow_guidance()`
+  - 新增更直接的单误差链：
+    - `track_stage_error_gain()`
+    - `track_follow_error_gain()`
+  - `track_build_follow_error()` 现在改成：
+    - 正常可见线时：`deadband(linePos) * 分段增益 * outerGain / errorScale`
+    - 瞬时全灭时：`deadband(linePos) * lossHoldGain / errorScale`
+  - `track_drive_follow()` 不再在 `PD` 之后叠加 turn-in / recover 输出地板
+  - `track_limit_follow_base()` 也延后到较大偏差才压基础速度，不再在中小偏差段提前拖速
+- PC 侧脚本同步收口：
+  - [`binary_track_tune.py`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/binary_track_tune.py)
+  - [`iterative_track_tune.py`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/iterative_track_tune.py)
+  - [`experiment_score_watch.py`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.py)
+  - 从旧的 `follow_turnin_* / recover_turnin_*` 键切到：
+    - `track.outer_gain`
+    - `track.loss_hold_gain`
+
+### 当前验证边界
+- 编译已通过：`0 Error(s), 0 Warning(s)`
+- 但本轮 `pyOCD` 在探头打开阶段就超时，当前阻塞不是代码，而是：
+  - `Horco CMSIS-DAP 031305620164`
+  - `pyocd erase/reset` 都在 `probe open` 阶段超时
+- 所以这轮逻辑已经落到工程代码里，但还没完成新的板端烧录确认。

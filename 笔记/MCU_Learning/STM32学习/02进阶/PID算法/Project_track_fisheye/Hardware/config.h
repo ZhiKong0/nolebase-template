@@ -219,13 +219,17 @@ typedef enum
 /* 单主链控制参数：
    TRACK_FOLLOW_DEADBAND：中心死区，小偏差直接视为 0。
    TRACK_FOLLOW_ERROR_SCALE：位置误差缩放，决定 linePos 到控制量的换算尺度。
+   TRACK_FOLLOW_OUTER_GAIN：外侧灯可见或中心灯丢失时的附加误差增益。
+   TRACK_FOLLOW_LOSS_HOLD_GAIN：瞬时全灭但尚未正式进 SEARCH 时的续抓增益。
    TRACK_FOLLOW_POS_LPF_ALPHA：位置低通。
    TRACK_FOLLOW_D_LPF_ALPHA：导数低通。
    TRACK_FOLLOW_DEV_RATIO：差速输出占基础 PWM 的最大比例。
    TRACK_FOLLOW_DEV_STEP_LIMIT：每周期差速变化限幅。
-   TRACK_FOLLOW_BASE_MIN_PWM：大偏差时基础速度下压到的最小 PWM。 */
+   TRACK_FOLLOW_BASE_MIN_PWM：严重大偏差时基础速度下压到的最小 PWM。 */
 #define TRACK_FOLLOW_DEADBAND        4.0f
 #define TRACK_FOLLOW_ERROR_SCALE     58.0f
+#define TRACK_FOLLOW_OUTER_GAIN      0.35f
+#define TRACK_FOLLOW_LOSS_HOLD_GAIN  0.45f
 #define TRACK_FOLLOW_POS_LPF_ALPHA   0.74f
 #define TRACK_FOLLOW_D_LPF_ALPHA     0.46f
 #define TRACK_FOLLOW_DEV_RATIO       0.66f
@@ -265,6 +269,14 @@ typedef enum
 #define TURNBACK_OVERSHOOT_DEG      70.0f
 #define TURNBACK_CAPTURE_TICKS      2u
 #define TURNBACK_TIMEOUT_MS         4500u
+
+/* ========== 预对中 ALIGN ========== */
+#define ALIGN_TURN_PWM_FAST         220
+#define ALIGN_TURN_PWM_SLOW         140
+#define ALIGN_CENTER_POS_MAX        18.0f
+#define ALIGN_FINE_POS_MAX          48.0f
+#define ALIGN_STABLE_TICKS          3u
+#define ALIGN_TIMEOUT_MS            2500u
 
 /* ========== 速度斜坡 ========== */
 #define SPEED_TARGET_DEFAULT        10.0f

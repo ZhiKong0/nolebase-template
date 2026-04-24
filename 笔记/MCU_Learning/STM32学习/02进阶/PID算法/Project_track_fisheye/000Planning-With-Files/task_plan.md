@@ -390,3 +390,18 @@ Phase 78
 - [x] 试跑 `curr_380_230_0 / base474ish / hold168 / hold172`
 - [x] 回写当前这轮最优 `hold168`
 - [ ] 下轮复测前确认车是真实在跑线，而不是传感器长时间停在固定大面积黑区
+
+## Session: 2026-04-24 参考工程驱动的12路单误差重构
+
+### Goal
+- 对照 `F:\Download\Tracking car_competition\soft\code` 的“直接状态误差 -> 单链 PD”思路
+- 将当前 `Project_track_fisheye` 的 12 路主循迹从 `turn-in / recover` 输出耦合链收回到更直接的单误差主链
+- 保留最小 `SEARCH / RECOVER / CROSS` 状态机，但不再让它们改写主循迹输出
+
+### Checklist
+- [x] 读取参考工程 `Tracking.c / pid.c / GrayscaleSensor.c`
+- [x] 对照当前 `line_track.c` 找出输出耦合点
+- [x] 将主链改成“12路拟合 linePos -> 单误差整形 -> 单链 PD”
+- [x] 将 PC 侧调参与评分脚本的旧 `follow_turnin` 键收口到新参数
+- [x] 编译 `project.uvprojx`
+- [ ] 按 `10MHz` 通过 `pyOCD` 烧录并做最小串口验证

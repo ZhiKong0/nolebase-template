@@ -1245,3 +1245,28 @@
     - `track.follow_turnin_ratio`
     - `track.follow_turnin_min`
   - 因为连续多轮评分器都指出“外侧线可见时抓不回”，而外层 `LKP/TDR/STF` 已经只剩边际收益
+
+### Phase 83: 参考工程驱动的12路单误差重构
+- **Status:** in progress
+- Actions taken:
+  - 读取参考工程：
+    - [`F:\Download\Tracking car_competition\soft\code\Hardware\Tracking.c`](F:/Download/Tracking%20car_competition/soft/code/Hardware/Tracking.c)
+    - [`F:\Download\Tracking car_competition\soft\code\Hardware\pid.c`](F:/Download/Tracking%20car_competition/soft/code/Hardware/pid.c)
+  - 确认参考工程真正有价值的是：
+    - “直接状态误差 -> 单链 PD”
+    - 而不是它那套 `7` 路硬编码位型本身
+  - 在当前 [`Hardware/line_track.c`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 上完成主链收口：
+    - 删除 `turn-in / recover` 输出地板链
+    - 保留 `12` 路 `linePos`
+    - 改成“分段误差整形 + 单链 PD + 最小 SEARCH/RECOVER 状态机”
+  - 配置面同步收口：
+    - 删除旧 `follow_turnin_* / recover_turnin_*`
+    - 新增 `track.outer_gain / track.loss_hold_gain`
+  - PC 侧调参与评分脚本同步切到新键
+  - 使用 `UV4` 完成重新编译：
+    - `D:\keil\Keil-v5\Arm\UV4\UV4.exe -j0 -b project.uvprojx`
+    - 结果：[`project.build_log.htm`](F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) `0 Error(s), 0 Warning(s)`
+  - 烧录阻塞：
+    - `pyocd list --probes` 仍能看到 `031305620164`
+    - 但 `pyocd erase/reset --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164` 在 `probe open` 阶段超时
+    - 所以这轮已完成代码与编译验证，但板端还没完成新固件落板

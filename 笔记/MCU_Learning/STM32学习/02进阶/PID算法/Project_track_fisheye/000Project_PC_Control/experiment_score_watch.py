@@ -285,7 +285,7 @@ def suggest_next_adjustment(metrics: dict[str, float]) -> tuple[tuple[str, str, 
             primary = ("track.search_turn_fast", "+20", "搜索占比偏高，而且全灭后回线慢，优先加快单向 pivot。")
             secondary = ("track.search_turn_slow", "+10", "慢速 pivot 也略抬高，避免贴线后恢复仍拖。")
             return primary, secondary
-        primary = ("track.follow_turnin_ratio", "+0.03", "还看得到外侧线时抓不回，应该在 FOLLOW 阶段更早强化同向转入。")
+        primary = ("track.outer_gain", "+0.03", "还看得到外侧线时抓不回，说明外侧可见区的误差放大量还不够。")
         secondary = ("track.lkp", "+0.6", "主跟线链仍偏软，需要更积极地把外侧偏差拉回。")
         return primary, secondary
 
@@ -299,8 +299,8 @@ def suggest_next_adjustment(metrics: dict[str, float]) -> tuple[tuple[str, str, 
         return primary, secondary
 
     if grip_score < 72.0 or edge_success < 0.70:
-        primary = ("track.follow_turnin_ratio", "+0.03", "S 弯或外侧区抓线不足，优先加强同向导向补强。")
-        secondary = ("track.follow_turnin_min", "+8", "让大偏差时最小差速底线更高，避免已看见线却咬不进去。")
+        primary = ("track.outer_gain", "+0.03", "S 弯或外侧区抓线不足，优先增加外侧可见区的误差放大量。")
+        secondary = ("track.loss_hold_gain", "+0.03", "瞬时全灭时继续续抓不够，适当提高失线过渡增益。")
         return primary, secondary
 
     if smooth_score < 72.0:
@@ -313,7 +313,7 @@ def suggest_next_adjustment(metrics: dict[str, float]) -> tuple[tuple[str, str, 
         secondary = ("track.sensor_scale6", "±0.01 微调", "中心灯比例还可以再校准，让投影更稳定落在 A6/A7。")
         return primary, secondary
 
-    primary = ("track.follow_turnin_ratio", "+0.02", "当前已经比较稳，下一步在不降速前提下继续提高 S 弯咬线力度。")
+    primary = ("track.outer_gain", "+0.02", "当前已经比较稳，下一步在不降速前提下继续提高 S 弯咬线力度。")
     secondary = ("track.search_turn_fast", "+10", "作为保底，继续缩短出线后的自转找线时间。")
     return primary, secondary
 

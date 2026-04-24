@@ -63,6 +63,24 @@ PARAMS = {
         "coarse_step": 20.0,
         "tolerance": 10.0,
     },
+    "og": {
+        "set_cmd": "#TCFG SET track.outer_gain {value}",
+        "get_cmd": "#TCFG GET track.outer_gain",
+        "min": 0.20,
+        "max": 0.80,
+        "step": 0.02,
+        "coarse_step": 0.08,
+        "tolerance": 0.02,
+    },
+    "lhg": {
+        "set_cmd": "#TCFG SET track.loss_hold_gain {value}",
+        "get_cmd": "#TCFG GET track.loss_hold_gain",
+        "min": 0.20,
+        "max": 0.90,
+        "step": 0.02,
+        "coarse_step": 0.08,
+        "tolerance": 0.02,
+    },
 }
 
 
@@ -170,6 +188,49 @@ def get_alias(port: serial.Serial, tag: str, retries: int = 3) -> float:
     raise RuntimeError(f"读参数失败: {tag} -> {last_lines}")
 
 
+def send_value_cmd(port: serial.Serial, cmd: str, retries: int = 3) -> float:
+    last_lines: list[str] = []
+    for attempt in range(retries):
+        lines = send_cmd(port, cmd, timeout_s=1.6 + 0.4 * attempt)
+        last_lines = lines
+        for line in lines:
+            if line.startswith("OK:"):
+                try:
+                    return float(line.rsplit("=", 1)[1])
+                except Exception:
+                    break
+        time.sleep(0.12)
+    raise RuntimeError(f"命令失败: {cmd} -> {last_lines}")
+
+
+def build_focus_set_cmd(focus_key: str, value: float) -> str:
+    spec = PARAMS[focus_key]
+    if "set_tag" in spec:
+        return f"{spec['set_tag']}={value}"
+    return str(spec["set_cmd"]).format(value=value)
+
+
+def build_focus_get_cmd(focus_key: str) -> str:
+    spec = PARAMS[focus_key]
+    if "get_tag" in spec:
+        return str(spec["get_tag"])
+    return str(spec["get_cmd"])
+
+
+def set_focus_value(port: serial.Serial, focus_key: str, value: float) -> float:
+    spec = PARAMS[focus_key]
+    if "set_tag" in spec:
+        return set_alias(port, str(spec["set_tag"]), value)
+    return send_value_cmd(port, build_focus_set_cmd(focus_key, value))
+
+
+def get_focus_value(port: serial.Serial, focus_key: str) -> float:
+    spec = PARAMS[focus_key]
+    if "get_tag" in spec:
+        return get_alias(port, str(spec["get_tag"]))
+    return send_value_cmd(port, build_focus_get_cmd(focus_key))
+
+
 def run_logger_round(python_exe: str, port: str, duration_s: float) -> Path:
     before = {p.name for p in EXPERIMENT_DIR.glob("exp_*.txt")}
     cmd = [
@@ -244,20 +305,26 @@ def detect_invalid_run(exp_path: Path, summary: dict[str, object]) -> tuple[bool
     sbh_counts: dict[int, int] = {}
     lp_values: list[float] = []
     states: set[str] = set()
+    cross_count = 0
     for rec in hb_records:
         sbh_counts[rec.sbh] = sbh_counts.get(rec.sbh, 0) + 1
         lp_values.append(rec.lp)
         states.add(rec.st)
+        if rec.st == "CROSS":
+            cross_count += 1
 
     dominant_ratio = max(sbh_counts.values()) / float(len(hb_records))
     lp_std = statistics.pstdev(lp_values) if len(lp_values) >= 2 else 0.0
     search_ratio = float(summary["search_ratio"])
     loss_ratio = float(summary["loss_ratio"])
+    cross_ratio = cross_count / float(len(hb_records))
 
     if dominant_ratio > 0.65 and lp_std < 18.0:
         return True, f"位型过于固定(dominant={dominant_ratio:.2f}, lp_std={lp_std:.1f})"
     if len(states) <= 2 and search_ratio == 0.0 and loss_ratio == 0.0:
         return True, "状态变化过少，疑似未真实跑线"
+    if cross_ratio > 0.20:
+        return True, f"CROSS占比过高(cross={cross_ratio:.2f})"
 
     return False, ""
 
@@ -334,14 +401,13 @@ def apply_param_set(port_name: str, baud: int, focus_key: str, focus_value: floa
         for frozen_key, frozen_value in frozen.items():
             tag = FROZEN_ALIAS[frozen_key]
             set_alias(ser, tag, frozen_value)
-        focus_tag = PARAMS[focus_key]["set_tag"]
-        set_alias(ser, focus_tag, focus_value)
+        set_focus_value(ser, focus_key, focus_value)
 
 
 def read_current_values(port_name: str, baud: int, focus_key: str, frozen_keys: list[str]) -> tuple[float, dict[str, float]]:
     with serial.Serial(port_name, baud, timeout=0.35) as ser:
         time.sleep(0.2)
-        focus_value = get_alias(ser, PARAMS[focus_key]["get_tag"])
+        focus_value = get_focus_value(ser, focus_key)
         frozen = {key: get_alias(ser, FROZEN_GET[key]) for key in frozen_keys}
     return focus_value, frozen
 
