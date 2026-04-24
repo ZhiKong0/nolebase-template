@@ -730,3 +730,54 @@
     - `pyocd load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
     - `pyocd reset --no-config -t stm32f103rc -u 031305620164`
   - 串口烟测尝试打开 `COM18` 时返回 `PermissionError(13)`，本轮无法读取 `#TCFG` 回包
+
+## Session: 2026-04-24 实验日志并行评分脚本
+
+### Phase 50: 梳理日志输入与监听边界
+- **Status:** complete
+- Actions taken:
+  - 阅读 [`000Project_PC_Control/experiment_logger.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_logger.py)
+  - 确认新脚本不应抢占 `COM18`
+  - 确认新脚本应以 `EVT:EXP_STOP` 作为实验文件完成信号
+
+### Phase 51: 设计评分指标与建议规则
+- **Status:** complete
+- Actions taken:
+  - 定义 3 个主指标：
+    - 抓线性
+    - 速度平滑性
+    - `A6/A7` 覆盖得分
+  - 设计恢复事件统计：
+    - `EDGE -> 中心`
+    - `SEARCH -> 中心`
+  - 设计参数建议规则：
+    - `track.follow_turnin_ratio`
+    - `track.lkp`
+    - `track.error_scale`
+    - `track.search_turn_fast`
+    - `track.lkd`
+    - `track.dev_step_limit`
+
+### Phase 52: 实现并行评分脚本
+- **Status:** complete
+- Actions taken:
+  - 新增 [`000Project_PC_Control/experiment_score_watch.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.py)
+  - 新增 [`000Project_PC_Control/experiment_score_watch.ps1`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.ps1)
+  - 输出：
+    - `*_score.json`
+    - `*_score.md`
+    - `leaderboard.csv`
+    - `latest_report.md`
+    - `watch_state.json`
+
+### Phase 53: 单文件验证
+- **Status:** complete
+- Actions taken:
+  - 用 `py_compile` 验证新脚本语法
+  - 用 `exp_0447_20260424_102815_KEY_T.txt` 做 `--once` 分析
+  - 验证脚本能输出：
+    - 总分
+    - 抓线性
+    - 速度平滑性
+    - `A6/A7` 覆盖比率
+    - 下一步首选/备选参数建议

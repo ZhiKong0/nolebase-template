@@ -664,3 +664,52 @@
 ### 当前阻塞
 - 编译、烧录已完成
 - 串口烟测被 `COM18` 占用阻塞，无法在本轮拿到 `#TCFG PING/LIST/GET/SET` 回包
+
+## 2026-04-24 实验日志并行评分脚本
+
+### 关键结论
+- `experiment_logger.py` 已经把每轮实验稳定落成 `exp_*.txt`，因此新的评分脚本不需要抢串口，只要消费新文件即可。
+- 对当前 12 路循迹，最适合先固化成 3 个核心指标：
+  - 抓线性
+  - 速度平滑性
+  - `A6/A7` 覆盖比率
+- “下一步参数建议”不宜直接抢 `COM18` 自动下发，因为 logger 当前独占串口；更合理的是输出：
+  - 本轮评分报告
+  - 当前最佳记录
+  - 下一步首选/备选参数建议
+
+### 本轮实现边界
+- 新增 [`000Project_PC_Control/experiment_score_watch.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.py)
+- 新增 [`000Project_PC_Control/experiment_score_watch.ps1`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.ps1)
+- 评分器输入：
+  - `EVT:EXP_START / EVT:EXP_STOP`
+  - `HB:` 中的 `sbh / s12 / lp / st / el / er / pc / OL / OR`
+- 评分器输出：
+  - `*_score.json`
+  - `*_score.md`
+  - `leaderboard.csv`
+  - `latest_report.md`
+  - `watch_state.json`
+
+### 当前评分定义
+- 抓线性：
+  - 以 `mean_abs_lp`、`loss_ratio`、`search_ratio`、`EDGE` 回中成功率、`SEARCH` 回中成功率综合计算
+- 速度平滑性：
+  - 只在中心附近或 `STRA/TRK` 区域评估，避免把弯道左右轮差天然存在误罚成 0 分
+- `A6/A7` 中线覆盖：
+  - `A6 or A7` 覆盖比率
+  - `A6 & A7` 双灯精确居中比率
+
+### 建议参数规则
+- 搜索/全灭比率过高：
+  - 优先 `track.search_turn_fast`
+  - 其次 `track.search_turn_slow`
+- 中线覆盖偏低且抓线不足：
+  - 优先 `track.lkp`
+  - 其次 `track.error_scale`
+- 还看得到外侧线但抓不回：
+  - 优先 `track.follow_turnin_ratio`
+  - 其次 `track.follow_turnin_min`
+- 中心段翻向频繁或速度不平顺：
+  - 优先 `track.lkd`
+  - 其次 `track.dev_step_limit`
