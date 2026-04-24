@@ -1068,3 +1068,42 @@
   - 分数打平
   - `hold168` 更保守，过冲风险更低
   - 更适合作为下一轮真实复测的起点
+
+## 2026-04-24 8秒一轮不停的根因与修正
+
+### 关键结论
+- 这次“要求 `8s` 一轮但车一直跑停不下来”的直接根因不在固件 `#STOP!` 命令，而在上位机测试链：
+  1. [`experiment_logger.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_logger.py) 的 `--uart-test-seconds` 模式只在到点时发送一次 `#STOP!`
+  2. 如果这一次停机命令没有立刻形成 `EVT:EXP_STOP`，脚本会一直等 `current_file == None`
+  3. 而 `max-seconds` 的退出条件又要求 `current_file == None`，所以整个进程会继续挂着，车也会继续跑
+- 同时，[`binary_track_tune.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/binary_track_tune.py) 还有第二个配套问题：
+  - logger 刚落盘完实验文件就立刻评分，偶发会撞上“文件还没写完”的窗口，导致前一轮调参失败
+
+### 直接证据
+- 现场先发 `#STOP!` 后，板子立即回了两次 `OK:STOP`，而且没有找到任何残留的 `binary_track_tune / experiment_logger / experiment_score_watch` Python 进程
+- 说明“车一直跑”不是后台孤儿进程抢串口，而是当轮 logger 自己没有进入正常 stop/close 分支
+- 阅读 [`experiment_logger.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_logger.py) 确认：
+  - 到 `uart_stop_at` 只调用一次 `send_serial_command(ser, "#STOP!")`
+  - 之后如果 `current_file` 没有因为 `EVT:EXP_STOP` 或 `HB run=0` 关闭，`max-seconds` 分支不会退出
+
+### 本轮修正
+- [`experiment_logger.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_logger.py)
+  - 新增 `force_stop_until_idle()`
+  - `uart-test` 到点后如果还没收到正常停机，会持续重发 `#STOP!`
+  - 增加 `UART_STOP_FORCE_CLOSE_S` 硬超时兜底，避免一轮无限跑下去
+- [`binary_track_tune.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/binary_track_tune.py)
+  - 新增 `wait_experiment_ready()`
+  - 评分前等待 `EVT:EXP_STOP` 或文件大小稳定，避免“文件未写完就评分”
+
+### 验证
+- `python -m py_compile experiment_logger.py binary_track_tune.py` 通过
+- 实机跑：
+  - `python experiment_logger.py --port COM18 --uart-test-seconds 8 --uart-mode TRACK --max-seconds 20`
+  - 正常出现：
+    - `start exp=486 ...`
+    - `uart test sent #STOP!`
+    - `stop  exp=486 ...`
+    - `max-seconds reached`
+- 再跑一轮：
+  - `python binary_track_tune.py --port COM18 --focus lkp --duration 2 --repeats 1 --refine-rounds 0 --coarse-values 16.2 --frozen-lkd 6.8 --frozen-stb -8`
+  - 已正常完成，并生成新的 `binary_summary.json`

@@ -19,6 +19,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "000Data" / "serial_runs" / "experiments"
 EXP_FILE_RE = re.compile(r"^exp_(\d+)_")
 HOST_KEEPALIVE_INTERVAL_S = 1.5
+UART_STOP_RETRY_INTERVAL_S = 0.45
+UART_STOP_FORCE_CLOSE_S = 4.0
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(line_buffering=True)
@@ -140,6 +142,29 @@ def send_host_release(port: serial.Serial) -> None:
     send_serial_command(port, "#EXPHOST=OFF!")
 
 
+def force_stop_until_idle(port: serial.Serial, timeout_s: float = UART_STOP_FORCE_CLOSE_S) -> tuple[bool, list[str]]:
+    lines: list[str] = []
+    deadline = time.time() + timeout_s
+
+    while time.time() < deadline:
+        send_serial_command(port, "#STOP!")
+        window_deadline = time.time() + UART_STOP_RETRY_INTERVAL_S
+        while time.time() < window_deadline:
+            raw = port.readline()
+            if not raw:
+                continue
+            line = raw.decode("utf-8", errors="ignore").strip()
+            if not line:
+                continue
+            lines.append(line)
+            if "OK:STOP" in line:
+                return True, lines
+            hb = parse_kv_line(line, "HB:")
+            if hb is not None and hb.get("run", "1") == "0":
+                return True, lines
+    return False, lines
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Save each MCU experiment interval by shared experiment id.")
     ap.add_argument("--port", default="COM18", help="Serial port (default: COM18)")
@@ -163,6 +188,8 @@ def main() -> int:
     host_sync_id = 0
     test_started = False
     stop_sent = False
+    stop_finished = False
+    stop_force_deadline = 0.0
     prefetched_lines: list[str] = []
     ser: serial.Serial | None = None
 
@@ -210,7 +237,27 @@ def main() -> int:
             if test_started and not stop_sent and now >= uart_stop_at:
                 send_serial_command(ser, "#STOP!")
                 stop_sent = True
+                stop_force_deadline = now + UART_STOP_FORCE_CLOSE_S
                 print("[logger] uart test sent #STOP!")
+            elif test_started and stop_sent and not stop_finished and now >= stop_force_deadline:
+                ok, lines = force_stop_until_idle(ser, UART_STOP_FORCE_CLOSE_S)
+                prefetched_lines.extend(lines)
+                stop_finished = ok
+                stop_force_deadline = now + UART_STOP_FORCE_CLOSE_S
+                if ok:
+                    print("[logger] uart test forced stop acknowledged")
+                else:
+                    print("[logger] uart test stop timeout, force-closing session", file=sys.stderr)
+                    if current_file is not None:
+                        current_file.write("# logger force-closed after stop timeout\n")
+                        current_file.flush()
+                        current_file.close()
+                        current_file = None
+                        current_id = None
+                        current_path = None
+                        current_mode = "-"
+                        current_start_src = "UNKNOWN"
+                    break
 
             if prefetched_lines:
                 line = prefetched_lines.pop(0)
@@ -276,6 +323,7 @@ def main() -> int:
             if stop_evt:
                 stop_id = int(stop_evt.get("id", "0") or "0")
                 stop_src = stop_evt.get("src", "UNKNOWN")
+                stop_finished = True
                 if current_file is not None and current_id == stop_id:
                     print(f"[logger] stop  exp={stop_id} src={stop_src} mode={current_mode} -> {current_path.name}")
                     current_file.close()
@@ -294,6 +342,7 @@ def main() -> int:
                 except ValueError:
                     hb_id = -1
                 if run == "0" and current_id == hb_id:
+                    stop_finished = True
                     print(f"[logger] fallback close exp={hb_id} mode={current_mode} -> {current_path.name}")
                     current_file.close()
                     current_file = None

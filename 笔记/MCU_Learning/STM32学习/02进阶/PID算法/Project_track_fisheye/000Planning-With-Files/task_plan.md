@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 70
+Phase 77
 
 ## Phases
 
@@ -198,6 +198,25 @@ Phase 70
 - [x] 对 `base474 / mid166 / cand_f` 做重复复测
 - [x] 统计 `avg_total / std_total / stability_score`
 - [x] 确认 `base474` 是当前最好且最稳的一版
+ - **Status:** complete
+
+### Phase 75: 8秒不停问题应急处理
+- [x] 立即给板子发送 `#STOP!`
+- [x] 检查是否有遗留 `binary_track_tune / experiment_logger / experiment_score_watch` 进程
+- [x] 确认问题不是后台孤儿进程持续占串口
+- **Status:** complete
+
+### Phase 76: 一轮不停的根因修正
+- [x] 定位 `experiment_logger.py` 在 `uart-test` 模式下只发一次 `#STOP!`
+- [x] 补成“重复发停机 + 硬超时兜底”
+- [x] 在 `binary_track_tune.py` 里补实验文件就绪等待，避免未写完就评分
+- **Status:** complete
+
+### Phase 77: 8秒停机回归验证
+- [x] 通过 `py_compile` 验证修改后的脚本
+- [x] 实机跑一轮 `8s` 的 `experiment_logger.py --uart-test-seconds 8`
+- [x] 追加一轮 `binary_track_tune.py` 短烟测，确认不会因文件未就绪失败
+- **Status:** complete
 - [x] 将板上参数恢复回 `base474`
 - **Status:** complete
 

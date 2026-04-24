@@ -1139,3 +1139,42 @@
     - `STF=400`
     - `STS=240`
     - `STB=-8`
+
+## Session: 2026-04-24 8秒一轮停机链修正
+
+### Phase 75: 现场止车与串口释放
+- **Status:** complete
+- Actions taken:
+  - 先通过 `COM18` 发送 `#STOP!`
+  - 板端立即返回两次 `OK:STOP`
+  - 查询系统进程，未发现遗留的：
+    - `binary_track_tune.py`
+    - `experiment_logger.py`
+    - `experiment_score_watch.py`
+  - 判断当前问题不是后台孤儿进程持续占串口
+
+### Phase 76: logger/tuner 根因修正
+- **Status:** complete
+- Actions taken:
+  - 阅读 [`000Project_PC_Control/experiment_logger.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_logger.py)
+  - 确认 `--uart-test-seconds` 模式到点只发一次 `#STOP!`
+  - 确认 `max-seconds` 只有在 `current_file == None` 时才退出，这正是“一轮不停”的直接原因
+  - 新增：
+    - `UART_STOP_RETRY_INTERVAL_S`
+    - `UART_STOP_FORCE_CLOSE_S`
+    - `force_stop_until_idle()`
+  - 将 `binary_track_tune.py` 补上 `wait_experiment_ready()`，避免实验文件未写完就进入评分
+
+### Phase 77: 回归验证
+- **Status:** complete
+- Actions taken:
+  - 运行：
+    - `python -m py_compile experiment_logger.py binary_track_tune.py`
+  - 实机运行：
+    - `python experiment_logger.py --port COM18 --uart-test-seconds 8 --uart-mode TRACK --max-seconds 20`
+  - 验证日志：
+    - `start exp=486 ...`
+    - `uart test sent #STOP!`
+    - `stop exp=486 ...`
+    - `max-seconds reached`
+  - 再做一轮 `binary_track_tune.py` 短烟测，确认不会再卡在“文件未写完/一轮不停”
