@@ -191,8 +191,15 @@ Phase 48
 - [x] 用单串口会话方式稳定完成“下参 + 开跑 + 落盘 + 停车”
 - [x] 围绕 `LKP / LKD / TDR / STF / STS / STB` 跑多组候选并评分
 - [x] 确认当前姿态下的局部最优候选为 `LKP=16.8, LKD=6.8, TDR=0.68, STF/STS=440/280, STB=-8`
-- [ ] 继续判断是沿当前局部最优再细调，还是重新回到 `exp474` 基线姿态再测
-- **Status:** in progress
+- [x] 继续判断是沿当前局部最优再细调，还是重新回到 `exp474` 基线姿态再测
+- **Status:** complete
+
+### Phase 49: 最优稳定版筛选
+- [x] 对 `base474 / mid166 / cand_f` 做重复复测
+- [x] 统计 `avg_total / std_total / stability_score`
+- [x] 确认 `base474` 是当前最好且最稳的一版
+- [x] 将板上参数恢复回 `base474`
+- **Status:** complete
 
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。

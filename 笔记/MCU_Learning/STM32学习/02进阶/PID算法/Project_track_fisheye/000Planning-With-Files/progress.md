@@ -963,3 +963,29 @@
     - `STF=440`
     - `STS=280`
     - `STB=-8`
+
+### Phase 66: 稳定性筛选复测
+- **Status:** complete
+- Actions taken:
+  - 对 3 组候选做多轮 `8s` 稳定性复测：
+    - `base474 = 16.2 / 6.8 / 0.66 / 400 / 240 / -8`
+    - `mid166 = 16.6 / 6.8 / 0.67 / 430 / 270 / -8`
+    - `cand_f  = 16.8 / 6.8 / 0.68 / 440 / 280 / -8`
+  - 结果：
+    - `base474`
+      - [`exp_auto_20260424_200743_base474_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_200743_base474_r1.txt)
+      - [`exp_auto_20260424_201057_base474_r3.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201057_base474_r3.txt)
+      - `avg=39.49, std=0.29`
+    - `mid166`
+      - [`exp_auto_20260424_200842_mid166_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_200842_mid166_r1.txt)
+      - [`exp_auto_20260424_200906_mid166_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_200906_mid166_r2.txt)
+      - [`exp_auto_20260424_201122_mid166_r3.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201122_mid166_r3.txt)
+      - `avg=36.51, std=4.40`
+    - `cand_f`
+      - [`exp_auto_20260424_200931_cand_f_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_200931_cand_f_r1.txt)
+      - [`exp_auto_20260424_200955_cand_f_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_200955_cand_f_r2.txt)
+      - [`exp_auto_20260424_201146_cand_f_r3.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201146_cand_f_r3.txt)
+      - `avg=36.79, std=0.82`
+  - 结论：
+    - 当前“最好且最稳”的仍是 `base474`
+    - 已将板上参数重新写回 `base474`
