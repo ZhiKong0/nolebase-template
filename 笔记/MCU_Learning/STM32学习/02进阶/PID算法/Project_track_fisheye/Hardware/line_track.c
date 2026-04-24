@@ -29,6 +29,7 @@ static uint8_t track_is_center_locked(uint16_t bits, int16_t linePos);
 static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos);
 static uint8_t track_get_lost_confirm_ticks(void);
 static int16_t track_follow_turnin_threshold(uint16_t bits);
+static uint8_t track_pick_loss_hold_dir(int16_t linePos);
 static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir);
 static int16_t track_apply_follow_guidance(int16_t devSpeed,
                                            int16_t driveBase,
@@ -185,12 +186,38 @@ static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos)
 static int16_t track_follow_turnin_threshold(uint16_t bits)
 {
     uint16_t outerBits;
+    int16_t thresholdPos;
 
     outerBits = (uint16_t)(bits & (LT_MASK_LEFT_OUTER | LT_MASK_RIGHT_OUTER));
     if (outerBits != 0u || (bits & LT_MASK_CENTER) == 0u)
-        return g_lineTrackCfg.smallPosMax;
+    {
+        thresholdPos = (int16_t)(g_lineTrackCfg.centerPosMax
+                               + ((g_lineTrackCfg.smallPosMax - g_lineTrackCfg.centerPosMax) / 3));
+        if (thresholdPos > g_lineTrackCfg.smallPosMax)
+            thresholdPos = g_lineTrackCfg.smallPosMax;
+        return thresholdPos;
+    }
 
     return g_lineTrackCfg.mediumPosMax;
+}
+
+static uint8_t track_pick_loss_hold_dir(int16_t linePos)
+{
+    if (g_lineTrack.lastValidLinePos < -g_lineTrackCfg.centerPosMax)
+        return LT_DIR_LEFT;
+    if (g_lineTrack.lastValidLinePos > g_lineTrackCfg.centerPosMax)
+        return LT_DIR_RIGHT;
+    if (linePos < -g_lineTrackCfg.centerPosMax)
+        return LT_DIR_LEFT;
+    if (linePos > g_lineTrackCfg.centerPosMax)
+        return LT_DIR_RIGHT;
+    if (g_lineTrack.lastDevSpeedCmd < 0)
+        return LT_DIR_LEFT;
+    if (g_lineTrack.lastDevSpeedCmd > 0)
+        return LT_DIR_RIGHT;
+    if (g_lineTrack.lastTurnDir == LT_DIR_LEFT || g_lineTrack.lastTurnDir == LT_DIR_RIGHT)
+        return g_lineTrack.lastTurnDir;
+    return LT_DIR_NONE;
 }
 
 static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir)
@@ -266,6 +293,21 @@ static int16_t track_apply_follow_guidance(int16_t devSpeed,
                                              g_lineTrack.recoverDir,
                                              g_lineTrackCfg.recoverTurninRatio,
                                              g_lineTrackCfg.recoverTurninMin);
+    }
+
+    if (bits == 0u)
+    {
+        dir = track_pick_loss_hold_dir(linePos);
+        if (dir != LT_DIR_NONE)
+        {
+            if (gainStage != 0)
+                *gainStage = 2u;
+            return track_apply_directional_floor(devSpeed,
+                                                 driveBase,
+                                                 dir,
+                                                 g_lineTrackCfg.recoverTurninRatio,
+                                                 g_lineTrackCfg.recoverTurninMin);
+        }
     }
 
     if (track_is_turnin_follow_case(bits, linePos, &dir))

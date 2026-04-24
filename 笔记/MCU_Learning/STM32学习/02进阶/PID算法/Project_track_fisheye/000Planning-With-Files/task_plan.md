@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 51
+Phase 70
 
 ## Phases
 

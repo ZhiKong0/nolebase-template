@@ -1050,11 +1050,15 @@
 - Actions taken:
   - 在 [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 新增 `track_follow_turnin_threshold()`
   - 将同向强化阈值改成动态：
-    - 看到外侧灯或中心灯已缺失时，前移到 `smallPosMax`
+    - 看到外侧灯或中心灯已缺失时，前移到 `centerPosMax` 与 `smallPosMax` 之间的过渡阈值
     - 其余情况保留 `mediumPosMax`
   - 修改 `track_build_follow_error()`：
     - `bits==0` 但尚未正式进入 `SEARCH` 时，不再把误差清零
     - 继续沿当前 `linePos` 维持抓线方向，并按 `overrunCount / confirmTicks` 轻度增强
+  - 第二次加固瞬时失线续抓：
+    - 新增 `track_pick_loss_hold_dir()`
+    - `track_apply_follow_guidance()` 在 `bits==0` 时直接沿最近有效方向套用恢复级别的同向地板
+    - 避免瞬时失线那一拍只靠 `PD` 自己慢慢回抓
 
 ### Phase 70: 编译、烧录与烟测
 - **Status:** complete

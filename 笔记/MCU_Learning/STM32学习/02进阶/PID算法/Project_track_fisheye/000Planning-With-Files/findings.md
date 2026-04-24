@@ -979,8 +979,8 @@
 ### 本轮修正
 - [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
   - 新增 `track_follow_turnin_threshold()`：
-    - 只要已经看到外侧灯，或者中心灯已经消失，同向强化阈值就从 `mediumPosMax` 前移到 `smallPosMax`
-    - 这样外侧可见时会更早进入同向强化，不再拖到明显偏大才接管
+    - 只要已经看到外侧灯，或者中心灯已经消失，同向强化阈值就从 `mediumPosMax` 前移到更靠近中心的一档
+    - 当前实现不是直接卡到 `smallPosMax`，而是进一步前移到 `centerPosMax` 与 `smallPosMax` 之间的过渡阈值，确保 `lp≈50` 这类偏差也能更早接管
   - 修改 `track_is_turnin_follow_case()`：
     - turn-in 判定不再固定依赖 `mediumPosMax`
     - 改为使用上述动态阈值
@@ -989,6 +989,11 @@
     - 但 `bits==0` 时不再立刻把误差清零
     - 在还没正式进 `SEARCH` 的空窗期，继续使用当前 `linePos` 构造误差，并按 `overrunCount / confirmTicks` 做轻度增强
     - 这样“全灭前一拍到正式 SEARCH 前”仍能保持抓线方向和一定抓线力
+  - 新增 `track_pick_loss_hold_dir()` 并再次修改 `track_apply_follow_guidance()`：
+    - `bits==0` 且尚未正式进入 `SEARCH` 时，不再只靠 `PD`
+    - 直接根据 `lastValidLinePos / linePos / lastDevSpeedCmd / lastTurnDir` 选出最近有效方向
+    - 然后套用 `recoverTurninRatio / recoverTurninMin` 级别的同向地板
+    - 这样瞬时失线时会优先“续抓”原方向，而不是出现一拍明显松手
 
 ### 判断
 - 这版改动本质上是把逻辑目标从“等确认后再救”改成“保线优先”：
