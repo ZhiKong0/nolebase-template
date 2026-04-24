@@ -544,3 +544,19 @@
     - `MEDIUM_MAX ~ LARGE_MAX`：连续过渡到 `1.18`
   - `track_build_follow_error()` 先做 `deadband`，再做 `track_shape_follow_error()`，最后再按统一 `errorScale` 归一
 - 速度档、基础 PWM、`FOLLOW/RECOVER` 的大偏差抓线增强链全部保持不变。
+
+## 2026-04-24 回退到 ddc2eb7
+
+### 关键结论
+- 用户要求回到 `ddc2eb7` 的主循迹基线，目标是恢复当时更贴近“车的投影在线上”的行为。
+- 实际需要回退的功能文件只有 [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)。
+- `config.h`、`sensor_fusion.c`、`main.c` 等在 `ddc2eb7..HEAD` 范围内没有形成新的主行为差异，不需要跟着一起回退。
+
+### 证据
+- `git diff ddc2eb7 -- Project_track_fisheye/Hardware/line_track.c` 在回退前存在显著行为差异。
+- 回退后再比对同一路径，对 `ddc2eb7` 已无剩余差异。
+
+### 本轮处理
+- 使用定向 `git restore --source ddc2eb7` 将 [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 恢复到 `ddc2eb7`。
+- 没有使用整仓 `reset --hard`，避免影响其它工程和用户未提交改动。
+- 构建并重新烧录，当前板上固件主循迹链已回到 `ddc2eb7` 对应实现。

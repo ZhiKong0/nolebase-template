@@ -204,3 +204,17 @@ Phase 44
 - `Hardware/bsp_uart.c`
 - `000Project_PC_Control/config.yaml`
 - `000Project_PC_Control/track_adaptive_tuner.py`
+
+## Session: 2026-04-24 回退到 ddc2eb7 基线
+
+### Goal
+- 将 `Project_track_fisheye` 的主循迹行为定向回退到 `ddc2eb7`
+- 保持当前工程结构不动，只恢复需要的行为文件
+- 重新编译并烧录，让当前车体回到“投影在线上”的旧基线再继续调试
+
+### Checklist
+- [x] 确认 `ddc2eb7` 到当前工程的实际差异范围
+- [x] 只回退 `Hardware/line_track.c`，不重置整个仓库
+- [x] 重新编译 `Project_track_fisheye`
+- [x] 使用 `pyOCD` 完成擦除、下载和复位
+- [x] 更新规划记录，标记当前固件已回到 `ddc2eb7` 主链

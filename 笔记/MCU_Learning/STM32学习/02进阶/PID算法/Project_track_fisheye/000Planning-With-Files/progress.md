@@ -605,3 +605,26 @@
     - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
     - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
     - `reset --no-config -t stm32f103rc -u 031305620164`
+
+## Session: 2026-04-24 回退 ddc2eb7 主循迹基线
+
+### Phase 37: 差异确认与定向回退
+- **Status:** complete
+- Actions taken:
+  - 确认用户要求回到 `ddc2eb7 track: refactor 12-route turn-in and recovery chain`
+  - 对比 `ddc2eb7` 到当前工程的差异范围，确认功能行为需要回退的核心文件是 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 使用定向 `git restore --source ddc2eb7` 恢复该文件，不影响其他工程目录
+
+### Phase 38: 编译与烧录回退版固件
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 首次 `pyOCD erase` 失败，原因是本机同时有两个 `UV4` 进程占用调试探针
+  - 关闭占用的 `UV4` 进程后，重新执行并完成：
+    - `pyocd list --probes`
+    - `pyocd erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -vv`
+    - `pyocd load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex -vv`
+    - `pyocd reset --no-config -t stm32f103rc -u 031305620164 -vv`
+  - 当前板上固件已切回 `ddc2eb7` 对应的 `line_track.c` 主循迹实现
