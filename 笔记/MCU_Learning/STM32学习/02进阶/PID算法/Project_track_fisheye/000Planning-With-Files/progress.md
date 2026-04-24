@@ -1270,3 +1270,45 @@
     - `pyocd list --probes` 仍能看到 `031305620164`
     - 但 `pyocd erase/reset --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164` 在 `probe open` 阶段超时
     - 所以这轮已完成代码与编译验证，但板端还没完成新固件落板
+
+## Session: 2026-04-25 12路接线总表模板重构
+
+### Phase 84: 代码口径确认
+- **Status:** complete
+- Actions taken:
+  - 读取 [`config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h)
+  - 确认当前关键接线口径：
+    - `LINE_SENSOR_COUNT = 12`
+    - `A1/A2/A11/A12` 直连
+    - `A3~A10` 由 `74HC4051` 扫描
+    - `USART1` 重映射到 `PB6/PB7`
+    - `OLED` 在 `PB8/PB9`
+    - `KEY1` 在 `PB5`
+    - `BNO085` 预留在 `PB12/PB13/PB14/PA15`
+  - 读取 [`sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c) 中 12 路位序与 4051 扫描说明
+
+### Phase 85: 接线总表重写
+- **Status:** complete
+- Actions taken:
+  - 整体重写 [`接线总表.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000/接线总表.md)
+  - 去掉旧 8 路、旧 `USART2`、旧 OLED 口径
+  - 重构为正式 12 路模板：
+    - 电源与共地
+    - TB6612 / 编码器
+    - BNO 预留
+    - DAPlink 主串口
+    - OLED / 按键
+    - `74HC4051` 接线
+    - 12 路模块接线
+    - `bit0~bit11 = A1~A12`
+    - STM32 引脚总览
+
+### Phase 86: 结果核对
+- **Status:** complete
+- Actions taken:
+  - 通过关键字核对文档中的以下引脚均与代码一致：
+    - `PA12/PB11/PB15/PC13`
+    - `PA2/PA11/PA10/PA3`
+    - `PB6/PB7`
+    - `PB8/PB9`
+    - `PB12/PB13/PB14/PA15`

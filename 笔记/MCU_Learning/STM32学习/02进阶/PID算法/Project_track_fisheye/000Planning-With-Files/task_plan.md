@@ -405,3 +405,16 @@ Phase 78
 - [x] 将 PC 侧调参与评分脚本的旧 `follow_turnin` 键收口到新参数
 - [x] 编译 `project.uvprojx`
 - [ ] 按 `10MHz` 通过 `pyOCD` 烧录并做最小串口验证
+
+## Session: 2026-04-25 12路接线总表模板重构
+
+### Goal
+- 将 [`接线总表.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000/接线总表.md) 从旧 8 路/旧串口口径改成当前工程真实使用的 12 路模板
+- 明确 `4 路直连 + 74HC4051 扫描 8 路`、`PB6/PB7` 主串口、`PB8/PB9` OLED、`PB5` 按键、`PB12~PB14/PA15` IMU 预留
+
+### Checklist
+- [x] 读取 `config.h` 和 `sensor_fusion.c` 确认 12 路真实引脚
+- [x] 重写 `接线总表.md` 为 12 路模板
+- [x] 补充 `74HC4051`、12 路模块、DAPlink 主串口的正式接线说明
+- [x] 在 `000Planning-With-Files` 记录本轮文档重构
+- [ ] 提交并推送本轮文档修改

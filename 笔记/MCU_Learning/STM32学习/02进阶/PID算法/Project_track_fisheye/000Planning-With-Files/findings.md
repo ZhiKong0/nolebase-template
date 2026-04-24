@@ -1234,3 +1234,34 @@
   - `Horco CMSIS-DAP 031305620164`
   - `pyocd erase/reset` 都在 `probe open` 阶段超时
 - 所以这轮逻辑已经落到工程代码里，但还没完成新的板端烧录确认。
+
+## 2026-04-25 接线总表切换到 12 路模板
+
+### 关键证据
+- 当前 [`config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 已明确固定：
+  - `LINE_SENSOR_COUNT = 12`
+  - `PA12/PB11/PB15/PC13` 分别对应 `A1/A2/A11/A12` 直连
+  - `PA2/PA11/PA10` 为 `74HC4051` 的 `S0/S1/S2`
+  - `PA3` 为 `74HC4051_Z`
+  - `PB6/PB7` 为 `USART1` 主串口
+  - `PB8/PB9` 为 OLED 软件 I2C
+  - `PB5` 为按键
+  - `PB12/PB13/PB14/PA15` 为 `BNO085` 预留
+- [`sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c) 也明确写了：
+  - `4 路直连 + 74HC4051 扫描 -> 12 位状态帧`
+  - `bit0~bit11 = A1~A12`
+- 原 [`接线总表.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000/接线总表.md) 仍混有旧 8 路、旧 `USART2`、旧 OLED 等表述，已经和当前工程实现不一致。
+
+### 判断
+- 这类文档不适合继续局部打补丁，否则会在同一文件里并存两套接线口径。
+- 最合理的做法是直接把整份文档重写成“当前工程唯一有效”的 12 路模板。
+
+### 本轮修正
+- 重写 [`接线总表.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000/接线总表.md)
+- 统一接线主口径为：
+  - `4 路直连 + 74HC4051 扫描 8 路`
+  - `bit0~bit11 = A1~A12`
+  - `PB6/PB7` 为 DAPlink 主串口
+  - `PB8/PB9` 为 OLED
+  - `PB5` 为按键
+  - `PB12/PB13/PB14/PA15` 为 BNO 预留
