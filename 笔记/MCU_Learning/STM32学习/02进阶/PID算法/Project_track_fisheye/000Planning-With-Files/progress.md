@@ -317,6 +317,44 @@
     - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
     - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
     - `reset --no-config -t stm32f103rc -u 031305620164`
+
+## Session: 2026-04-24 exp432 单链误差整形
+
+### Phase 44: 根因定位
+- **Status:** complete
+- Actions taken:
+  - 读取 [`exp_0432_20260424_094239_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0432_20260424_094239_KEY_T.txt)
+  - 确认症状不是单一“`P` 太大或太小”，而是同一条线性误差映射同时带来：
+    - 直线/近中心区略敏感，容易左右轻摆
+    - `S` 弯外侧区又不够硬，抓线偏拖
+  - 判断最合适切口不是直接改 `KP`，而是保留单链结构，重做 `linePos -> error` 的连续整形
+
+### Phase 45: 单链误差映射整形
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 新增 `track_shape_follow_error()`
+  - 将 `track_build_follow_error()` 改成：
+    - 先 `deadband`
+    - 再按连续三段比例整形
+    - 最后统一除以 `errorScale`
+  - 整形尺度为：
+    - `<= SMALL_MAX`: `0.78`
+    - `SMALL_MAX ~ MEDIUM_MAX`: 连续过渡到 `1.00`
+    - `MEDIUM_MAX ~ LARGE_MAX`: 连续过渡到 `1.18`
+  - 保持速度档、基础 PWM、`FOLLOW/RECOVER` 抓线增强链不变，不回退之前已验证有效的高速抓线逻辑
+
+### Phase 46: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 校验 `project.hex` 时间戳晚于最新源码
+  - 使用 `pyOCD` 按顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
   - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
     - `0 Error(s), 0 Warning(s)`
   - 使用 `pyOCD` 按顺序完成：

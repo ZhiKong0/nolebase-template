@@ -513,3 +513,34 @@
   - `track_apply_follow_guidance()` 只在 `track_should_hold_recover_guidance()==1` 时才继续施加恢复抓线下限
   - `track_signal_update()` 中的恢复窗口清理也改为使用同一判定，避免控制链与状态链分裂
 - `FOLLOW` 的大偏差抓线增强保持不变，速度档与基础 PWM 不变。
+
+## 2026-04-24 exp432 直线略晃且 S 弯抓线偏弱
+
+### 关键证据
+- [`exp_0432_20260424_094239_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0432_20260424_094239_KEY_T.txt) 显示两类症状同时存在：
+  - 直线/近中心区时，`lp≈28~72` 这类小偏差仍在持续左右修正，说明中心附近单链误差偏敏感
+  - `S` 弯/外侧区时，`lp≈145~150` 进入 `SCRV` 后仍会拖到更外侧，说明大偏差阶段主误差又不够硬
+- 当前 `track_build_follow_error()` 仍是纯线性：
+  - `error = deadband(linePos) / errorScale`
+  - 小偏差和大偏差只是按同一比例尺线性进入同一套 `PD`
+- 在这种口径下，单链 `PD` 很难同时满足：
+  - 直线中线附近不要太敏感
+  - `S` 弯外侧偏差要更早、更积极地抓回
+
+### 判断
+- `exp432` 不是单纯 `KP` 该再大或再小，而是单链误差映射本身太线性。
+- 如果直接降 `KP`，直线会更稳，但 `S` 弯抓线会更弱。
+- 如果直接加 `KP`，`S` 弯会更积极，但直线抖动会更明显。
+- 更合适的修法是在不破坏“单链 PID”结构的前提下，把 `linePos -> error` 改成连续非线性整形：
+  - 中心小偏差压小
+  - 外侧大偏差放大
+
+### 本轮修正
+- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 新增 `track_shape_follow_error()`
+  - 将单链误差从纯线性改成连续三段整形：
+    - `<= SMALL_MAX`：`scale = 0.78`
+    - `SMALL_MAX ~ MEDIUM_MAX`：连续过渡到 `1.00`
+    - `MEDIUM_MAX ~ LARGE_MAX`：连续过渡到 `1.18`
+  - `track_build_follow_error()` 先做 `deadband`，再做 `track_shape_follow_error()`，最后再按统一 `errorScale` 归一
+- 速度档、基础 PWM、`FOLLOW/RECOVER` 的大偏差抓线增强链全部保持不变。

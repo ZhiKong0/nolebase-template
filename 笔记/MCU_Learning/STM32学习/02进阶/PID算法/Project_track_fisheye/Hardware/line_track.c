@@ -604,6 +604,40 @@ static float track_apply_deadband(float linePos)
     return (linePos >= 0.0f) ? absPos : -absPos;
 }
 
+static float track_shape_follow_error(float error)
+{
+    const float k_smallScale = 0.78f;
+    const float k_mediumScale = 1.00f;
+    const float k_largeScale = 1.18f;
+    float absError = track_absf(error);
+    float scale;
+
+    if (absError <= (float)TRACK_LINE_POS_SMALL_MAX)
+    {
+        scale = k_smallScale;
+    }
+    else if (absError <= (float)TRACK_LINE_POS_MEDIUM_MAX)
+    {
+        scale = track_lerpf(k_smallScale,
+                            k_mediumScale,
+                            (absError - (float)TRACK_LINE_POS_SMALL_MAX)
+                          / (float)(TRACK_LINE_POS_MEDIUM_MAX - TRACK_LINE_POS_SMALL_MAX));
+    }
+    else if (absError >= (float)TRACK_LINE_POS_LARGE_MAX)
+    {
+        scale = k_largeScale;
+    }
+    else
+    {
+        scale = track_lerpf(k_mediumScale,
+                            k_largeScale,
+                            (absError - (float)TRACK_LINE_POS_MEDIUM_MAX)
+                          / (float)(TRACK_LINE_POS_LARGE_MAX - TRACK_LINE_POS_MEDIUM_MAX));
+    }
+
+    return error * scale;
+}
+
 static float track_build_follow_error(uint16_t bits, int16_t linePos, uint8_t *stage)
 {
     float error;
@@ -616,6 +650,7 @@ static float track_build_follow_error(uint16_t bits, int16_t linePos, uint8_t *s
         return 0.0f;
 
     error = track_apply_deadband((float)linePos);
+    error = track_shape_follow_error(error);
     return error / g_lineTrackCfg.errorScale;
 }
 
