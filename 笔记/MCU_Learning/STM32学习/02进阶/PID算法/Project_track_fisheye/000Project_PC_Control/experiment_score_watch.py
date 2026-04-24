@@ -51,6 +51,7 @@ class ScoreSummary:
     file_name: str
     experiment_id: int
     mode: str
+    analysis_start_ms: int
     duration_s: float
     sample_count: int
     grip_score: float
@@ -85,8 +86,10 @@ class ScoreSummary:
 
 
 def parse_kv_line(line: str, prefix: str) -> dict[str, str] | None:
-    if not line.startswith(prefix):
+    marker = line.find(prefix)
+    if marker < 0:
         return None
+    line = line[marker:]
     data: dict[str, str] = {}
     for part in line[len(prefix):].split(","):
         if "=" not in part:
@@ -105,13 +108,16 @@ def parse_hb_line(line: str) -> HBRecord | None:
     if kv is None:
         return None
     sbh_raw = kv.get("sbh")
-    if sbh_raw:
-        try:
-            sensor_bits = int(sbh_raw, 16)
-        except ValueError:
+    try:
+        if sbh_raw:
+            try:
+                sensor_bits = int(sbh_raw, 16)
+            except ValueError:
+                sensor_bits = int(kv.get("sb", "0") or "0")
+        else:
             sensor_bits = int(kv.get("sb", "0") or "0")
-    else:
-        sensor_bits = int(kv.get("sb", "0") or "0")
+    except ValueError:
+        return None
 
     s12 = kv.get("s12", "").strip()
     if len(s12) != 12:
@@ -312,8 +318,8 @@ def suggest_next_adjustment(metrics: dict[str, float]) -> tuple[tuple[str, str, 
     return primary, secondary
 
 
-def analyze_records(path: Path, records: list[HBRecord], mode: str) -> ScoreSummary:
-    run_records = [rec for rec in records if rec.run == 1]
+def analyze_records(path: Path, records: list[HBRecord], mode: str, analysis_start_ms: int) -> ScoreSummary:
+    run_records = [rec for rec in records if rec.run == 1 and rec.t_ms >= analysis_start_ms]
     if not run_records:
         primary, secondary = suggest_next_adjustment({
             "search_ratio": 1.0,
@@ -331,6 +337,7 @@ def analyze_records(path: Path, records: list[HBRecord], mode: str) -> ScoreSumm
             file_name=path.name,
             experiment_id=0,
             mode=mode,
+            analysis_start_ms=analysis_start_ms,
             duration_s=0.0,
             sample_count=0,
             grip_score=0.0,
@@ -447,6 +454,7 @@ def analyze_records(path: Path, records: list[HBRecord], mode: str) -> ScoreSumm
         file_name=path.name,
         experiment_id=run_records[0].exp_id,
         mode=mode,
+        analysis_start_ms=analysis_start_ms,
         duration_s=duration_s,
         sample_count=len(run_records),
         grip_score=grip_score,
@@ -485,6 +493,7 @@ def parse_experiment_file(path: Path) -> tuple[str, list[HBRecord], bool]:
     records: list[HBRecord] = []
     mode = "-"
     stopped = False
+    idle_closed = False
     with path.open("r", encoding="utf-8", errors="ignore") as handle:
         for raw_line in handle:
             line = raw_line.strip()
@@ -500,7 +509,9 @@ def parse_experiment_file(path: Path) -> tuple[str, list[HBRecord], bool]:
             rec = parse_hb_line(line)
             if rec is not None:
                 records.append(rec)
-    return mode, records, stopped
+                if rec.run == 0:
+                    idle_closed = True
+    return mode, records, (stopped or idle_closed)
 
 
 def write_summary(out_dir: Path, summary: ScoreSummary) -> None:
@@ -521,6 +532,7 @@ def write_summary(out_dir: Path, summary: ScoreSummary) -> None:
         f"- A6/A7 覆盖得分：`{summary.center_score:.2f}`",
         "",
         "## 关键指标",
+        f"- 评分起点：`{summary.analysis_start_ms}ms`",
         f"- 运行时长：`{summary.duration_s:.3f}s`",
         f"- 样本数：`{summary.sample_count}`",
         f"- 平均绝对 linePos：`{summary.mean_abs_lp:.2f}`",
@@ -638,11 +650,11 @@ def update_latest(out_dir: Path, summary: ScoreSummary, best_score: float, best_
     latest_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
 
 
-def process_file(path: Path, out_dir: Path) -> ScoreSummary | None:
+def process_file(path: Path, out_dir: Path, analysis_start_ms: int) -> ScoreSummary | None:
     mode, records, stopped = parse_experiment_file(path)
     if not stopped:
         return None
-    summary = analyze_records(path, records, mode)
+    summary = analyze_records(path, records, mode, analysis_start_ms)
     write_summary(out_dir, summary)
     append_leaderboard(out_dir, summary)
     return summary
@@ -661,12 +673,14 @@ def main() -> int:
     parser.add_argument("--min-age-s", type=float, default=0.5, help="Minimum file age before analysis.")
     parser.add_argument("--once", type=Path, default=None, help="Analyze one experiment file once and exit.")
     parser.add_argument("--print-json", action="store_true", help="Print summary as JSON.")
+    parser.add_argument("--analysis-start-ms", type=int, default=400,
+                        help="Ignore launch transient before this timestamp (default: 400ms).")
     args = parser.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.once is not None:
-        summary = process_file(args.once, args.out_dir)
+        summary = process_file(args.once, args.out_dir, args.analysis_start_ms)
         if summary is None:
             print(f"[score] file not ready: {args.once.name}")
             return 1
@@ -696,7 +710,7 @@ def main() -> int:
             age_s = time.time() - path.stat().st_mtime
             if age_s < args.min_age_s:
                 continue
-            summary = process_file(path, args.out_dir)
+            summary = process_file(path, args.out_dir, args.analysis_start_ms)
             if summary is None:
                 continue
             processed.add(path.name)

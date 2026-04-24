@@ -122,7 +122,16 @@ def send_cmd(port: serial.Serial, cmd: str, timeout_s: float = 1.2) -> list[str]
         raw = port.readline()
         if not raw:
             continue
-        line = raw.decode("utf-8", errors="ignore").strip()
+        line = raw.decode("utf-8", errors="ignore")
+        markers = ("OK:", "ERR:", "STAT:", "HB:")
+        best_idx = -1
+        for marker in markers:
+            idx = line.find(marker)
+            if idx >= 0 and (best_idx < 0 or idx < best_idx):
+                best_idx = idx
+        if best_idx >= 0:
+            line = line[best_idx:]
+        line = line.strip()
         if not line or line.startswith("HB:"):
             continue
         lines.append(line)
@@ -131,26 +140,34 @@ def send_cmd(port: serial.Serial, cmd: str, timeout_s: float = 1.2) -> list[str]
     return lines
 
 
-def set_alias(port: serial.Serial, tag: str, value: float) -> float:
-    lines = send_cmd(port, f"{tag}={value}", timeout_s=1.6)
-    for line in lines:
-        if line.startswith("OK:"):
-            try:
-                return float(line.rsplit("=", 1)[1])
-            except Exception:
-                break
-    raise RuntimeError(f"写参数失败: {tag}={value} -> {lines}")
+def set_alias(port: serial.Serial, tag: str, value: float, retries: int = 3) -> float:
+    last_lines: list[str] = []
+    for attempt in range(retries):
+        lines = send_cmd(port, f"{tag}={value}", timeout_s=1.6 + 0.4 * attempt)
+        last_lines = lines
+        for line in lines:
+            if line.startswith("OK:"):
+                try:
+                    return float(line.rsplit("=", 1)[1])
+                except Exception:
+                    break
+        time.sleep(0.12)
+    raise RuntimeError(f"写参数失败: {tag}={value} -> {last_lines}")
 
 
-def get_alias(port: serial.Serial, tag: str) -> float:
-    lines = send_cmd(port, tag, timeout_s=1.6)
-    for line in lines:
-        if line.startswith("OK:"):
-            try:
-                return float(line.rsplit("=", 1)[1])
-            except Exception:
-                break
-    raise RuntimeError(f"读参数失败: {tag} -> {lines}")
+def get_alias(port: serial.Serial, tag: str, retries: int = 3) -> float:
+    last_lines: list[str] = []
+    for attempt in range(retries):
+        lines = send_cmd(port, tag, timeout_s=1.6 + 0.4 * attempt)
+        last_lines = lines
+        for line in lines:
+            if line.startswith("OK:"):
+                try:
+                    return float(line.rsplit("=", 1)[1])
+                except Exception:
+                    break
+        time.sleep(0.12)
+    raise RuntimeError(f"读参数失败: {tag} -> {last_lines}")
 
 
 def run_logger_round(python_exe: str, port: str, duration_s: float) -> Path:

@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 77
+Phase 78
 
 ## Phases
 
@@ -216,6 +216,13 @@ Phase 77
 - [x] 通过 `py_compile` 验证修改后的脚本
 - [x] 实机跑一轮 `8s` 的 `experiment_logger.py --uart-test-seconds 8`
 - [x] 追加一轮 `binary_track_tune.py` 短烟测，确认不会因文件未就绪失败
+- **Status:** complete
+
+### Phase 78: 继续二分调参与局部最优收敛
+- [x] 在恢复后的板子上重新确认当前基线参数
+- [x] 对 `LKP` 做收紧二分，确认最佳区间在 `16.4` 附近
+- [x] 对 `STF` 和 `TDR` 做一轮外层二分，确认它们只有边际收益
+- [x] 识别出当前主要瓶颈已从外层 `LKP/TDR/STF` 转移到 `follow_turnin` 这类同向强化参数
 - **Status:** complete
 - [x] 将板上参数恢复回 `base474`
 - **Status:** complete

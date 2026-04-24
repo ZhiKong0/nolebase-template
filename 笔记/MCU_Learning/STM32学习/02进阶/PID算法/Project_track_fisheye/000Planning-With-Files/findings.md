@@ -1107,3 +1107,71 @@
 - 再跑一轮：
   - `python binary_track_tune.py --port COM18 --focus lkp --duration 2 --repeats 1 --refine-rounds 0 --coarse-values 16.2 --frozen-lkd 6.8 --frozen-stb -8`
   - 已正常完成，并生成新的 `binary_summary.json`
+
+## 2026-04-24 恢复后继续二分调参
+
+### 板上恢复后的实际基线
+- 恢复后重新读回串口，当前板子不是之前那组 `-8 / 400 / 240`，而是：
+  - `LKP=15.8`
+  - `LKD=6.8`
+  - `TDR=0.66`
+  - `STF=380`
+  - `STS=230`
+  - `STB=0`
+- 这说明上一轮半截细化已经把板子写到了更软的一侧，和用户“现在更容易脱线”的体感一致。
+
+### LKP 二分收紧结果
+- 有效轮结果：
+  - [`exp_4495_20260424_212258_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4495_20260424_212258_UART_T.txt)
+    - `LKP=15.8`
+    - `total ≈ 50.63`
+    - 但后半段明显 `EDGE -> FNDR`，属于脱线轮，不应拿来当“更优”
+  - [`exp_4497_20260424_212910_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4497_20260424_212910_UART_T.txt)
+    - `LKP=16.2`
+    - `total = 38.05`
+  - [`exp_4498_20260424_213014_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4498_20260424_213014_UART_T.txt)
+    - `LKP=16.4`
+    - `total = 39.09`
+  - [`exp_4499_20260424_213113_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4499_20260424_213113_UART_T.txt)
+    - `LKP=16.6`
+    - `total = 28.87`
+- 判断：
+  - `15.8` 偏软且脱线风险高
+  - `16.6` 已明显过头
+  - 当前工况下 `LKP` 最合理落点在 `16.4` 附近
+
+### STF 二分结果
+- 需要注意：第一次 `STF` 粗筛是在 `LKP=16.6` 上跑的，不能直接和 `16.4` 组比较
+- 纠正后实际验证：
+  - [`exp_4504_20260424_213437_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4504_20260424_213437_UART_T.txt)
+    - `LKP=16.4, STF=420`
+    - `total = 37.29`
+- 对比：
+  - `16.4 + STF=380 -> 39.09`
+  - `16.4 + STF=420 -> 37.29`
+- 判断：
+  - 这版里 `search_turn_fast` 并不是越大越好
+  - 把 `STF` 从 `380` 抬到 `420` 没有带来稳定提升，反而略差
+
+### TDR 二分结果
+- 粗筛：
+  - `0.66 -> 34.41`
+  - `0.68 -> 38.02`
+  - `0.70 -> 38.06`
+- 中点验证：
+  - [`exp_4507_20260424_213727_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4507_20260424_213727_UART_T.txt)
+    - `TDR=0.69`
+    - `total = 37.78`
+- 判断：
+  - `TDR` 从 `0.66` 往上抬确实有边际改善
+  - 但 `0.68/0.69/0.70` 彼此差距很小，没有出现像 `LKP` 那样明确的分水岭
+
+### 这轮最重要的判断
+- 外层可调的 `LKP / TDR / STF` 里，当前最有效的明确结论只有：
+  - `LKP` 不该低于 `16.2`
+  - 最合理大致在 `16.4`
+  - `STF` 不该盲目抬高到 `420`
+  - `TDR` 可以稍高，但收益很有限
+- 说明当前主要瓶颈已经不是“外层抓线量级太小”这一件事，而更像：
+  - 还看得到外侧线时，同向强化介入还不够早/不够硬
+  - 也就是 `track.follow_turnin_ratio / track.follow_turnin_min` 这类参数，比继续磨 `LKP/TDR/STF` 更值得下一轮优先动

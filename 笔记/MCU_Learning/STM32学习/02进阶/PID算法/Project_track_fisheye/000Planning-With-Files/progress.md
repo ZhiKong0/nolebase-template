@@ -1178,3 +1178,70 @@
     - `stop exp=486 ...`
     - `max-seconds reached`
   - 再做一轮 `binary_track_tune.py` 短烟测，确认不会再卡在“文件未写完/一轮不停”
+
+## Session: 2026-04-24 恢复后继续二分调参
+
+### Phase 78: 恢复后的基线确认
+- **Status:** complete
+- Actions taken:
+  - 串口回读确认恢复后的板上实际参数为：
+    - `LKP=15.8`
+    - `LKD=6.8`
+    - `TDR=0.66`
+    - `STF=380`
+    - `STS=230`
+    - `STB=0`
+  - 评分器也已验证能吃下之前含坏串口字节的日志，不再直接抛异常
+
+### Phase 79: LKP 收紧二分
+- **Status:** complete
+- Actions taken:
+  - 在同一外层参数下依次验证：
+    - `LKP=16.2` -> [`exp_4497_20260424_212910_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4497_20260424_212910_UART_T.txt)
+      - `total = 38.05`
+    - `LKP=16.4` -> [`exp_4498_20260424_213014_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4498_20260424_213014_UART_T.txt)
+      - `total = 39.09`
+    - `LKP=16.6` -> [`exp_4499_20260424_213113_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4499_20260424_213113_UART_T.txt)
+      - `total = 28.87`
+  - 结论：
+    - `LKP` 当前最佳区间收在 `16.4` 左右
+    - 再往上到 `16.6` 会明显变差
+
+### Phase 80: STF 粗筛与纠偏验证
+- **Status:** complete
+- Actions taken:
+  - 先用 `binary_track_tune.py` 跑了 `STF=380/400/420`
+  - 发现第一次 `STF` 粗筛是在 `LKP=16.6` 的背景上完成，不能直接用于最终结论
+  - 因此重新在 `LKP=16.4` 下单独验证：
+    - `STF=420` -> [`exp_4504_20260424_213437_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4504_20260424_213437_UART_T.txt)
+      - `total = 37.29`
+  - 结论：
+    - 对 `LKP=16.4` 来说，`STF=420` 不如 `380`
+
+### Phase 81: TDR 粗筛与中点验证
+- **Status:** complete
+- Actions taken:
+  - 在 `LKP=16.4` 前提下跑：
+    - `TDR=0.66/0.68/0.70`
+  - 粗筛输出：
+    - `0.66 -> 34.41`
+    - `0.68 -> 38.02`
+    - `0.70 -> 38.06`
+  - 再补中点：
+    - `TDR=0.69` -> [`exp_4507_20260424_213727_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_4507_20260424_213727_UART_T.txt)
+      - `total = 37.78`
+  - 结论：
+    - `TDR` 往上抬有一点收益
+    - 但 `0.68/0.69/0.70` 差距不大，说明它不是当前主瓶颈
+
+### Phase 82: 当前阶段判断
+- **Status:** complete
+- Actions taken:
+  - 当前这一轮二分已给出足够明确的边界：
+    - `LKP` 收在 `16.4`
+    - `STF` 保持 `380`
+    - `TDR` 可以保守维持 `0.66` 或小幅抬高，但不是决定性变量
+  - 下一轮更值得优先转向：
+    - `track.follow_turnin_ratio`
+    - `track.follow_turnin_min`
+  - 因为连续多轮评分器都指出“外侧线可见时抓不回”，而外层 `LKP/TDR/STF` 已经只剩边际收益

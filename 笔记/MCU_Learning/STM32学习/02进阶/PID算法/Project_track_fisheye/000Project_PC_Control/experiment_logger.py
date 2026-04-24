@@ -29,8 +29,10 @@ if hasattr(sys.stderr, "reconfigure"):
 
 
 def parse_kv_line(line: str, prefix: str) -> dict[str, str] | None:
-    if not line.startswith(prefix):
+    marker = line.find(prefix)
+    if marker < 0:
         return None
+    line = line[marker:]
     data: dict[str, str] = {}
     for part in line[len(prefix):].split(","):
         if "=" not in part:
@@ -58,6 +60,18 @@ def send_serial_command(port: serial.Serial, command: str) -> None:
     port.flush()
 
 
+def normalize_serial_line(line: str) -> str:
+    markers = ("EVT:EXP_START,", "EVT:EXP_STOP,", "HB:", "OK:", "ERR:", "STAT:")
+    best_idx = -1
+    for marker in markers:
+        idx = line.find(marker)
+        if idx >= 0 and (best_idx < 0 or idx < best_idx):
+            best_idx = idx
+    if best_idx >= 0:
+        return line[best_idx:].strip()
+    return line.strip()
+
+
 def send_command_and_collect(port: serial.Serial, command: str, ok_prefix: str,
                              timeout_s: float = 1.5) -> tuple[bool, list[str]]:
     lines: list[str] = []
@@ -68,7 +82,7 @@ def send_command_and_collect(port: serial.Serial, command: str, ok_prefix: str,
         raw = port.readline()
         if not raw:
             continue
-        line = raw.decode("utf-8", errors="ignore").strip()
+        line = normalize_serial_line(raw.decode("utf-8", errors="ignore"))
         if not line:
             continue
         lines.append(line)
@@ -153,7 +167,7 @@ def force_stop_until_idle(port: serial.Serial, timeout_s: float = UART_STOP_FORC
             raw = port.readline()
             if not raw:
                 continue
-            line = raw.decode("utf-8", errors="ignore").strip()
+            line = normalize_serial_line(raw.decode("utf-8", errors="ignore"))
             if not line:
                 continue
             lines.append(line)
@@ -269,7 +283,7 @@ def main() -> int:
                         break
                     continue
 
-                line = raw.decode("utf-8", errors="ignore").strip()
+                line = normalize_serial_line(raw.decode("utf-8", errors="ignore"))
                 if not line:
                     if args.max_seconds > 0.0 and now - launch_time >= args.max_seconds:
                         print("[logger] max-seconds reached")
