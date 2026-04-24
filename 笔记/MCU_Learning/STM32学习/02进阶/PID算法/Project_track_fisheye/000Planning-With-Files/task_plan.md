@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 48
+Phase 50
 
 ## Phases
 
@@ -321,3 +321,17 @@ Phase 48
 - [x] 完成 `ALIGN` 初版并实际板测
 - [x] 确认当前 `ALIGN` 仍未达到可稳定统一起跑姿态的程度
 - [ ] 决定后续是继续强化 `ALIGN` 还是改为人工复位后再测
+
+## Session: 2026-04-24 稳定窗口复测确认
+
+### Goal
+- 在 `base474` 周围再做一轮窄窗口重复 `8s` 复测
+- 确认是否存在“平均分略低但波动更小”的更稳参数
+- 明确当前板上最终应恢复到哪一组参数
+
+### Checklist
+- [x] 以 `base474 / soft_follow / search_tamed / balanced` 设计第二轮稳定窗口候选
+- [x] 对每组候选完成至少 2 次完整 `8s` 复测并评分
+- [x] 统计 `avg_total / std_total / search_ratio / loss_ratio`
+- [x] 确认第二轮稳定窗口没有超过 `base474`
+- [x] 将板上参数重新写回并回读核验 `base474`

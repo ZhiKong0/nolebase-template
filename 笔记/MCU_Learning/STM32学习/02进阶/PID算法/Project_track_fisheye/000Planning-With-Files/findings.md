@@ -909,3 +909,51 @@
   - `STS=240`
   - `STB=-8`
 - 如果后续继续微调，应以 `base474` 为真基线，不再从 `cand_f` 往更硬方向继续推。
+
+## 2026-04-24 稳定窗口复测确认
+
+### 关键结论
+- 在 `base474` 附近再做一轮窄窗口复测后，仍然没有找到比 `base474` 更稳且更好的参数。
+- 第二轮里所有“更软一点”或“只轻调搜索速度”的候选，平均分都低于 `base474`，而且没有换来更强的稳定收益。
+- 当前最终建议仍然是保留 `base474`，不继续往 `soft_follow / search_tamed / balanced` 方向偏移。
+
+### 统计结果
+- `base474_s = 16.2 / 6.8 / 0.66 / 400 / 240 / -8`
+  - [`exp_auto_20260424_201716_base474_s_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201716_base474_s_r1.txt)
+  - [`exp_auto_20260424_201741_base474_s_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201741_base474_s_r2.txt)
+  - `avg_total = 37.73`
+  - `std_total = 1.69`
+  - `avg_search_ratio ≈ 0.407`
+  - `avg_loss_ratio ≈ 0.401`
+- `soft_follow = 15.9 / 6.6 / 0.65 / 400 / 240 / -8`
+  - [`exp_auto_20260424_201805_soft_follow_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201805_soft_follow_r1.txt)
+  - [`exp_auto_20260424_201830_soft_follow_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201830_soft_follow_r2.txt)
+  - `avg_total = 32.00`
+  - `std_total = 0.11`
+- `search_tamed = 16.2 / 6.8 / 0.66 / 390 / 230 / -8`
+  - [`exp_auto_20260424_201854_search_tamed_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201854_search_tamed_r1.txt)
+  - [`exp_auto_20260424_201919_search_tamed_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201919_search_tamed_r2.txt)
+  - `avg_total = 32.92`
+  - `std_total = 0.59`
+- `balanced = 16.0 / 6.8 / 0.65 / 410 / 250 / -8`
+  - [`exp_auto_20260424_201943_balanced_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201943_balanced_r1.txt)
+  - [`exp_auto_20260424_202007_balanced_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_202007_balanced_r2.txt)
+  - `avg_total = 31.04`
+  - `std_total = 3.95`
+
+### 判断
+- `soft_follow` 的波动最小，但平均分下降太多，本质上是把抓线力削掉换平顺，不符合当前目标。
+- `search_tamed` 没有减少 enough 的搜索惩罚，反而整体表现更弱，说明单独收搜索自转不是当前最优方向。
+- `balanced` 同时削弱主链并微提搜索，结果均值最低且方差大，不值得保留。
+- 因此当前这条线已经很清楚：
+  - `base474` 仍是最好且最稳的版本
+  - 后续如果继续测，应围绕 `base474` 做更小步长的单变量验证，而不是再次做多变量并行漂移
+
+### 当前最终推荐
+- 已重新将板上参数写回并回读核验：
+  - `LKP=16.2`
+  - `LKD=6.8`
+  - `TDR=0.66`
+  - `STF=400`
+  - `STS=240`
+  - `STB=-8`

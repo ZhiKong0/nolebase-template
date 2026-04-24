@@ -989,3 +989,44 @@
   - 结论：
     - 当前“最好且最稳”的仍是 `base474`
     - 已将板上参数重新写回 `base474`
+
+### Phase 67: 稳定窗口二次确认
+- **Status:** complete
+- Actions taken:
+  - 在 `base474` 周围补做第二轮窄窗口复测，候选为：
+    - `base474_s = 16.2 / 6.8 / 0.66 / 400 / 240 / -8`
+    - `soft_follow = 15.9 / 6.6 / 0.65 / 400 / 240 / -8`
+    - `search_tamed = 16.2 / 6.8 / 0.66 / 390 / 230 / -8`
+    - `balanced = 16.0 / 6.8 / 0.65 / 410 / 250 / -8`
+  - 完整 `8s` 结果：
+    - `base474_s`
+      - [`exp_auto_20260424_201716_base474_s_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201716_base474_s_r1.txt)
+      - [`exp_auto_20260424_201741_base474_s_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201741_base474_s_r2.txt)
+      - `avg_total = 37.73`
+      - `std_total = 1.69`
+    - `soft_follow`
+      - [`exp_auto_20260424_201805_soft_follow_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201805_soft_follow_r1.txt)
+      - [`exp_auto_20260424_201830_soft_follow_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201830_soft_follow_r2.txt)
+      - `avg_total = 32.00`
+      - `std_total = 0.11`
+    - `search_tamed`
+      - [`exp_auto_20260424_201854_search_tamed_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201854_search_tamed_r1.txt)
+      - [`exp_auto_20260424_201919_search_tamed_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201919_search_tamed_r2.txt)
+      - `avg_total = 32.92`
+      - `std_total = 0.59`
+    - `balanced`
+      - [`exp_auto_20260424_201943_balanced_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201943_balanced_r1.txt)
+      - [`exp_auto_20260424_202007_balanced_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_202007_balanced_r2.txt)
+      - `avg_total = 31.04`
+      - `std_total = 3.95`
+  - 结论：
+    - 第二轮稳定窗口没有出现超越 `base474` 的组合
+    - “更软一点”只能换来低波动，换不来更高总分
+    - 单独收 `search_turn` 也没有显著提升稳定性
+  - 板上已再次恢复并串口回读确认：
+    - `LKP=16.2`
+    - `LKD=6.8`
+    - `TDR=0.66`
+    - `STF=400`
+    - `STS=240`
+    - `STB=-8`
