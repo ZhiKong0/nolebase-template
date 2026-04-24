@@ -1030,3 +1030,43 @@
     - `STF=400`
     - `STS=240`
     - `STB=-8`
+
+## Session: 2026-04-24 保线优先抓线修正
+
+### Phase 68: 根因复核
+- **Status:** complete
+- Actions taken:
+  - 对照最近几轮稳定性复测日志，重点检查丢线前的 `lp / sbh / st`
+  - 确认反复出现的模式是：
+    - 先在单侧外侧可见区长期停留于 `lp≈-50` 或对称右侧
+    - 然后一拍 `bits==0`
+    - 再很快掉进 `FNDL/FNDR`
+  - 对照 [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 确认两条主因：
+    - `track_is_turnin_follow_case()` 以前固定要到 `mediumPosMax` 才介入同向强化
+    - `track_build_follow_error()` 在 `bits==0` 时直接返回 `0`
+
+### Phase 69: 保线优先逻辑落地
+- **Status:** complete
+- Actions taken:
+  - 在 [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 新增 `track_follow_turnin_threshold()`
+  - 将同向强化阈值改成动态：
+    - 看到外侧灯或中心灯已缺失时，前移到 `smallPosMax`
+    - 其余情况保留 `mediumPosMax`
+  - 修改 `track_build_follow_error()`：
+    - `bits==0` 但尚未正式进入 `SEARCH` 时，不再把误差清零
+    - 继续沿当前 `linePos` 维持抓线方向，并按 `overrunCount / confirmTicks` 轻度增强
+
+### Phase 70: 编译、烧录与烟测
+- **Status:** complete
+- Actions taken:
+  - 使用 `D:\\keil\\Keil-v5\\Arm\\UV4\\UV4.exe` 重新编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 确认：
+    - `0 Error(s), 0 Warning(s)`
+  - 按 `10MHz` 顺序完成：
+    - `pyocd list --probes`
+    - `pyocd erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `pyocd load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `pyocd reset --no-config -t stm32f103rc -u 031305620164`
+  - 串口最小烟测：
+    - `#STAT!` 成功返回
+    - 固件在线，`lkp=16.2000, lkd=6.8000`

@@ -957,3 +957,41 @@
   - `STF=400`
   - `STS=240`
   - `STB=-8`
+
+## 2026-04-24 保线优先抓线修正
+
+### 关键结论
+- 这轮“抓线力不够、经常丢线”的第一根因不是单纯 `P` 小，而是当前主逻辑里有两条会主动削弱抓线的链：
+  1. `FOLLOW` 的同向强化要等到 `abs(linePos) >= mediumPosMax` 才介入，实际日志里车往往在 `lp≈50` 时就已经继续向外漂。
+  2. 只要 `bits==0`，`track_build_follow_error()` 就直接返回 `0`，导致“刚全灭、还没正式进 SEARCH”的那几拍里主 `PD` 抓线力瞬间塌掉。
+
+### 直接证据
+- 在 [`exp_auto_20260424_201741_base474_s_r2.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201741_base474_s_r2.txt)：
+  - `t=20~140ms` 持续是 `sbh=0x030, lp≈-50, st=SCRV`
+  - 说明车在外侧可见区已经持续偏向一侧，但这时 `lp` 还远没到 `mediumPosMax=150`
+  - 到 `t=160ms` 进入 `bits==0`，随后很快掉进 `FNDL`
+- 在 [`exp_auto_20260424_201805_soft_follow_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201805_soft_follow_r1.txt) 和 [`exp_auto_20260424_201854_search_tamed_r1.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_201854_search_tamed_r1.txt) 也重复出现同样模式：
+  - 先是 `lp≈-50`
+  - 随后一拍全灭
+  - 然后快速掉进 `FNDL`
+- 这说明主要问题发生在“还看得到外侧线时不够早抓”和“全灭过渡拍直接松手”，不是单独搜索转得不够快。
+
+### 本轮修正
+- [`Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 新增 `track_follow_turnin_threshold()`：
+    - 只要已经看到外侧灯，或者中心灯已经消失，同向强化阈值就从 `mediumPosMax` 前移到 `smallPosMax`
+    - 这样外侧可见时会更早进入同向强化，不再拖到明显偏大才接管
+  - 修改 `track_is_turnin_follow_case()`：
+    - turn-in 判定不再固定依赖 `mediumPosMax`
+    - 改为使用上述动态阈值
+  - 修改 `track_build_follow_error()`：
+    - `track_is_crossing(bits)` 仍直接返回 `0`
+    - 但 `bits==0` 时不再立刻把误差清零
+    - 在还没正式进 `SEARCH` 的空窗期，继续使用当前 `linePos` 构造误差，并按 `overrunCount / confirmTicks` 做轻度增强
+    - 这样“全灭前一拍到正式 SEARCH 前”仍能保持抓线方向和一定抓线力
+
+### 判断
+- 这版改动本质上是把逻辑目标从“等确认后再救”改成“保线优先”：
+  - 能看见外侧线时，尽量先把车拉回线内
+  - 真的全灭时，也先稳住上一次抓线方向，再进入 `SEARCH`
+- 这比继续只加 `LKP/TDR` 更贴近你现在的症状，而且不需要降速。

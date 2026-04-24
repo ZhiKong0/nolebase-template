@@ -27,6 +27,8 @@ static uint8_t track_is_crossing(uint16_t bits);
 static uint8_t track_mask_bit_count(uint16_t bits, uint16_t mask);
 static uint8_t track_is_center_locked(uint16_t bits, int16_t linePos);
 static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos);
+static uint8_t track_get_lost_confirm_ticks(void);
+static int16_t track_follow_turnin_threshold(uint16_t bits);
 static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir);
 static int16_t track_apply_follow_guidance(int16_t devSpeed,
                                            int16_t driveBase,
@@ -180,16 +182,29 @@ static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos)
     return LT_DIR_NONE;
 }
 
+static int16_t track_follow_turnin_threshold(uint16_t bits)
+{
+    uint16_t outerBits;
+
+    outerBits = (uint16_t)(bits & (LT_MASK_LEFT_OUTER | LT_MASK_RIGHT_OUTER));
+    if (outerBits != 0u || (bits & LT_MASK_CENTER) == 0u)
+        return g_lineTrackCfg.smallPosMax;
+
+    return g_lineTrackCfg.mediumPosMax;
+}
+
 static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir)
 {
     uint8_t visibleDir;
     int16_t absPos;
+    int16_t thresholdPos;
 
     if (bits == 0u || track_is_crossing(bits))
         return 0u;
 
     absPos = track_abs_i16(linePos);
-    if (absPos < g_lineTrackCfg.mediumPosMax)
+    thresholdPos = track_follow_turnin_threshold(bits);
+    if (absPos < thresholdPos)
         return 0u;
 
     visibleDir = track_pick_visible_dir(bits, linePos);
@@ -563,10 +578,32 @@ static float track_build_follow_error(uint16_t bits, int16_t linePos, uint8_t *s
     if (stage != 0)
         *stage = track_follow_stage_from_abs_pos(absPos);
 
-    if (bits == 0u || track_is_crossing(bits))
+    if (track_is_crossing(bits))
         return 0.0f;
 
     error = track_apply_deadband((float)linePos);
+
+    if (bits == 0u)
+    {
+        float holdGain;
+        uint8_t confirmTicks;
+
+        if (error == 0.0f)
+            return 0.0f;
+
+        confirmTicks = track_get_lost_confirm_ticks();
+        holdGain = 1.0f;
+        if (confirmTicks > 0u)
+        {
+            float ratio = (float)g_lineTrack.overrunCount / (float)confirmTicks;
+            if (ratio > 1.0f)
+                ratio = 1.0f;
+            holdGain += 0.45f * ratio;
+        }
+
+        return (error * holdGain) / g_lineTrackCfg.errorScale;
+    }
+
     return error / g_lineTrackCfg.errorScale;
 }
 

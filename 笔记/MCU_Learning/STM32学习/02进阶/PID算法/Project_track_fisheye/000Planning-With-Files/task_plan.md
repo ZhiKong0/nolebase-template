@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 50
+Phase 51
 
 ## Phases
 
@@ -335,3 +335,17 @@ Phase 50
 - [x] 统计 `avg_total / std_total / search_ratio / loss_ratio`
 - [x] 确认第二轮稳定窗口没有超过 `base474`
 - [x] 将板上参数重新写回并回读核验 `base474`
+
+## Session: 2026-04-24 保线优先抓线修正
+
+### Goal
+- 针对“抓线力不够、经常丢线”先修主逻辑，不再先盲调参数
+- 让外侧可见时更早进入同向强化
+- 让全灭到正式进 `SEARCH` 之间的空窗期仍保持抓线力，而不是直接塌掉
+
+### Checklist
+- [x] 复核最近复测日志中丢线前的 `linePos / bits / state`
+- [x] 确认根因是“turn-in 介入过晚 + bits==0 时误差被清零”
+- [x] 修改 `line_track.c` 为保线优先逻辑
+- [x] 重新编译并按 `10MHz` 规则烧录
+- [x] 做最小串口烟测确认固件在线
