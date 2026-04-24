@@ -28,6 +28,7 @@ static uint8_t track_is_center_locked(uint16_t bits, int16_t linePos);
 static uint8_t track_pick_visible_dir(uint16_t bits, int16_t linePos);
 static uint8_t track_is_turnin_follow_case(uint16_t bits, int16_t linePos, uint8_t *dir);
 static float track_build_guidance_severity(uint16_t bits, int16_t absPos, uint8_t dir);
+static uint8_t track_should_hold_recover_guidance(uint16_t bits, int16_t linePos);
 static int16_t track_apply_follow_guidance(int16_t devSpeed,
                                            int16_t driveBase,
                                            uint16_t bits,
@@ -205,6 +206,33 @@ static float track_build_guidance_severity(uint16_t bits, int16_t absPos, uint8_
     return track_clamp_paramf(severity, 0.0f, 1.0f);
 }
 
+static uint8_t track_should_hold_recover_guidance(uint16_t bits, int16_t linePos)
+{
+    uint8_t visibleDir;
+
+    if (g_lineTrack.recoverTicks == 0u)
+        return 0u;
+    if (g_lineTrack.recoverDir != LT_DIR_LEFT && g_lineTrack.recoverDir != LT_DIR_RIGHT)
+        return 0u;
+    if (bits == 0u || track_is_crossing(bits))
+        return 1u;
+    if (track_is_center_locked(bits, linePos))
+        return 0u;
+
+    visibleDir = track_pick_visible_dir(bits, linePos);
+    if (visibleDir == LT_DIR_NONE)
+        return 1u;
+    if (visibleDir == g_lineTrack.recoverDir)
+        return 1u;
+
+    if ((bits & LT_MASK_CENTER_BAND) != 0u)
+        return 0u;
+    if (track_abs_i16(linePos) <= TRACK_LINE_POS_MEDIUM_MAX)
+        return 0u;
+
+    return 1u;
+}
+
 static int16_t track_apply_directional_floor(int16_t devSpeed,
                                              int16_t driveBase,
                                              uint8_t dir,
@@ -251,8 +279,7 @@ static int16_t track_apply_follow_guidance(int16_t devSpeed,
     float ratio;
     int16_t minimum;
 
-    if (g_lineTrack.recoverTicks > 0u
-        && (g_lineTrack.recoverDir == LT_DIR_LEFT || g_lineTrack.recoverDir == LT_DIR_RIGHT))
+    if (track_should_hold_recover_guidance(bits, linePos))
     {
         severity = track_build_guidance_severity(bits, absPos, g_lineTrack.recoverDir);
         if (severity < 0.25f)
@@ -956,7 +983,7 @@ static void track_signal_update(void)
     }
     else if (!track_is_search_state(g_lineTrack.trackState) && g_lineTrack.recoverTicks > 0u)
     {
-        if (track_is_center_locked(bits, linePos))
+        if (!track_should_hold_recover_guidance(bits, linePos))
         {
             g_lineTrack.recoverDir = LT_DIR_NONE;
             g_lineTrack.recoverTicks = 0u;

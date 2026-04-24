@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 40
+Phase 42
 
 ## Phases
 
@@ -156,6 +156,13 @@ Phase 40
 - [x] 重新编译并烧录到当前板子
 - **Status:** complete
 
+### Phase 41: exp422 直线稳定性回收
+- [x] 读取 `exp422` 日志并确认直线失稳不是速度档，而是 `RECOVER` 沿旧方向握得过久
+- [x] 将恢复窗口改成“线已跨回中心带或偏到反侧时立即放手”
+- [x] 保持 `exp404` 引入的大偏差抓线增强不回退
+- [x] 重新编译并烧录到当前板子
+- **Status:** complete
+
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。
 - 自动调参骨架本轮固定 `speed_target=40`，不在本轮搜索目标速度。
@@ -179,6 +186,7 @@ Phase 40
   - `SEARCH`：只有全灭才进入，且只做单向 `pivot`
   - `RECOVER`：重见同侧线后继续顺着该方向收回，回中心后才完全交还普通 `PD`
 - `exp404` 之后，主抓线增强不再继续靠降速或压低基础 PWM，而是优先提升 `FOLLOW/RECOVER` 内部同向抓线强度，并让增强量随偏差绝对值平滑增加。
+- `exp422` 之后，`RECOVER` 不再只靠固定倒计时放手；一旦重新见线已跨回中心带或偏到反侧，必须立即解除旧方向的恢复约束，避免把直线段自己打穿。
 
 ## Hot Files
 - `Hardware/config.h`

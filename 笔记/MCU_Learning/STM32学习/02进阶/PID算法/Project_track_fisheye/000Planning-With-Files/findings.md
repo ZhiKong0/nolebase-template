@@ -481,3 +481,35 @@
     - `FOLLOW`: `ratio 0.44 -> 0.58`, `min 80 -> 124`
     - `RECOVER`: `ratio 0.52 -> 0.62`, `min 96 -> 136`
 - `PID_TRACK_SPEED_TARGET`、`TRACK_FOLLOW_BASE_MIN_PWM` 与基础速度链保持不变。
+
+## 2026-04-24 exp422 直线稳定性被恢复窗口打坏
+
+### 关键证据
+- [`exp_0422_20260424_093105_KEY_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0422_20260424_093105_KEY_T.txt) 在多处出现相同模式：
+  - 先 `FNDR/FNDL`
+  - 然后 `TRMR/TRML` 阶段已经重新见到中心带附近位型
+  - 但输出仍沿旧 `recoverDir` 强打，形成 `311/91`、`417/123`、`480/167` 这类明显单向拉扯
+  - 随后直线段短暂 `sb=0`，又重新掉回 `FNDL/FNDR`
+- 最直接的证据在：
+  - `t=200~260ms`：`st=TRMR`, `sb=48`, `lp≈-50`，说明线位已经偏到左侧，但输出仍持续强右打
+  - `t=1080~1160ms`：`st=TRMR`, `sb=192/48`, `lp≈20~50`，已经接近中心，输出仍保持 `480/185` 到 `480/167`
+- 这说明根因不是直线速度档过高，而是 `RECOVER` 只靠 `recoverTicks` 计时放手，缺少“方向已经反了就立刻放手”的条件。
+
+### 判断
+- `exp404` 引入的大偏差抓线增强本身不是这次直线失稳的第一根因，不能整条回退。
+- 真正要修的是 `RECOVER` 的放手条件：
+  - 当重见线已经跨回中心带
+  - 或已明显偏到 `recoverDir` 的反侧
+  - 就不应继续沿旧方向施加恢复抓线
+- 这轮要做的是只回收 `RECOVER` 的方向黏性，保留 `FOLLOW` 的大偏差增强。
+
+### 本轮修正
+- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 新增 `track_should_hold_recover_guidance()`，统一判断恢复窗口是否还应该继续握住旧方向。
+  - 规则改成：
+    - `bits==0` 或交叉态时允许继续保留恢复方向
+    - 一旦重新见线已回到中心锁定，立即清掉 `recoverDir/recoverTicks`
+    - 一旦 `visibleDir` 已与 `recoverDir` 相反，且已经进入 `CENTER_BAND` 或 `abs(linePos) <= MEDIUM_MAX`，立即放手交还普通 `PD`
+  - `track_apply_follow_guidance()` 只在 `track_should_hold_recover_guidance()==1` 时才继续施加恢复抓线下限
+  - `track_signal_update()` 中的恢复窗口清理也改为使用同一判定，避免控制链与状态链分裂
+- `FOLLOW` 的大偏差抓线增强保持不变，速度档与基础 PWM 不变。
