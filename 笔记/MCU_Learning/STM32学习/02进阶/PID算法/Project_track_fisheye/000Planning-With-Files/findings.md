@@ -1000,3 +1000,71 @@
   - 能看见外侧线时，尽量先把车拉回线内
   - 真的全灭时，也先稳住上一次抓线方向，再进入 `SEARCH`
 - 这比继续只加 `LKP/TDR` 更贴近你现在的症状，而且不需要降速。
+
+## 2026-04-24 恢复后复测与小步候选比较
+
+### 当前板上初始状态
+- 串口回读确认恢复上线时板上参数是：
+  - `LKP=16.2`
+  - `LKD=6.8`
+  - `TDR=0.66`
+  - `STF=380`
+  - `STS=230`
+  - `STB=0`
+- 说明当前板上并不是之前那组更像 `base474` 的 `400 / 240 / -8`。
+
+### 有效基线复测
+- [`exp_0482_20260424_205237_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0482_20260424_205237_UART_T.txt)
+  - `total = 37.98`
+  - `grip = 50.39`
+  - `smooth = 59.37`
+  - `A6/A7 cover = 33.89%`
+  - `search_ratio = 37.43%`
+  - `loss_ratio = 39.79%`
+
+### 对“保线优先”修正的直接判断
+- 从 [`exp_0482_20260424_205237_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0482_20260424_205237_UART_T.txt) 可确认两点：
+  - 外侧线可见时，比改前更早开始回抓了，但力度仍不足，仍会继续拖到 `EDGE -> bits==0 -> FND`
+  - 瞬时全灭时不再完全松手，出现了 `TRK` 过渡拍，且有时下一拍能直接续回同侧线
+- 代表逻辑修正是生效的，但主抓线参数仍偏软。
+
+### 小步候选比较
+- `curr_380_230_0`
+  - [`exp_0001_20260424_205728_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0001_20260424_205728_UART_T.txt)
+  - `16.2 / 6.8 / 0.66 / 380 / 230 / 0`
+  - `total = 40.91`
+- `base474ish`
+  - [`exp_0483_20260424_205742_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0483_20260424_205742_UART_T.txt)
+  - `16.2 / 6.8 / 0.66 / 400 / 240 / -8`
+  - `total = 74.00`
+- `hold168`
+  - [`exp_0483_20260424_205756_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0483_20260424_205756_UART_T.txt)
+  - `16.8 / 6.8 / 0.68 / 400 / 240 / -8`
+  - `total = 74.65`
+- `hold172`
+  - [`exp_0484_20260424_205812_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0484_20260424_205812_UART_T.txt)
+  - `17.2 / 7.0 / 0.70 / 420 / 250 / -8`
+  - `total = 74.65`
+
+### 这一轮数据的限制
+- 三个高分候选的原始日志几乎完全一致，且都出现：
+  - `sbh=0xFC0`
+  - `lp≈168`
+  - 长时间维持不变
+- 这不符合正常 S 弯/直线交替的跑线形态，更像是：
+  - 车没有真正沿赛道跑出可比较轨迹
+  - 或传感器长期压在一片固定大面积黑区上
+- 所以本轮“小步候选谁更高”只能作为临时参考，不能当作已经严格验证过的全局最优。
+
+### 当前临时最优
+- 在本轮受限数据下，优先保留更保守的 `hold168`：
+  - `LKP=16.8`
+  - `LKD=6.8`
+  - `TDR=0.68`
+  - `STF=400`
+  - `STS=240`
+  - `STB=-8`
+- 选择它而不是 `hold172` 的原因：
+  - 分数打平
+  - `hold168` 更保守，过冲风险更低
+  - 更适合作为下一轮真实复测的起点

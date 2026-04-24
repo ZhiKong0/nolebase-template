@@ -1074,3 +1074,68 @@
   - 串口最小烟测：
     - `#STAT!` 成功返回
     - 固件在线，`lkp=16.2000, lkd=6.8000`
+
+## Session: 2026-04-24 恢复后复测与小步候选比较
+
+### Phase 71: 板子恢复后重新取基线
+- **Status:** complete
+- Actions taken:
+  - 串口确认板子恢复在线并回读当前参数：
+    - `LKP=16.2`
+    - `LKD=6.8`
+    - `TDR=0.66`
+    - `STF=380`
+    - `STS=230`
+    - `STB=0`
+  - 跑完整 `8s`：
+    - [`exp_0482_20260424_205237_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0482_20260424_205237_UART_T.txt)
+  - 评分结果：
+    - `total = 37.98`
+    - `grip = 50.39`
+    - `search_ratio = 37.43%`
+    - `loss_ratio = 39.79%`
+
+### Phase 72: 复核“更早回抓 / 瞬时续抓”是否生效
+- **Status:** complete
+- Actions taken:
+  - 直接阅读 [`exp_0482_20260424_205237_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0482_20260424_205237_UART_T.txt) 前段关键片段
+  - 判断结果：
+    - 外侧线还可见时，确实比修正前更早进入同向补强
+    - 但补强力度仍不足，仍会拖到 `EDGE -> bits==0 -> FND`
+    - 瞬时全灭那一拍已经不再完全松手，会先出现一拍 `TRK` 并尝试沿旧方向续抓
+    - 但整体保线能力仍不足以把车稳定留在线上
+
+### Phase 73: 小步候选对比
+- **Status:** complete
+- Actions taken:
+  - 依次下发并复测 4 组候选：
+    - `curr_380_230_0`
+    - `base474ish`
+    - `hold168`
+    - `hold172`
+  - 对应实验：
+    - [`exp_0001_20260424_205728_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0001_20260424_205728_UART_T.txt)
+    - [`exp_0483_20260424_205742_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0483_20260424_205742_UART_T.txt)
+    - [`exp_0483_20260424_205756_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0483_20260424_205756_UART_T.txt)
+    - [`exp_0484_20260424_205812_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0484_20260424_205812_UART_T.txt)
+  - 结果：
+    - `curr_380_230_0 -> total 40.91`
+    - `base474ish -> total 74.00`
+    - `hold168 -> total 74.65`
+    - `hold172 -> total 74.65`
+  - 但高分组日志都出现几乎固定不变的：
+    - `sbh=0xFC0`
+    - `lp≈168`
+  - 判断为：本轮候选比较存在起跑/压线工况失真，不能把这组高分直接当作严格可信的全局最优
+
+### Phase 74: 回写临时最优
+- **Status:** complete
+- Actions taken:
+  - 在当前受限数据下，回写更保守的 `hold168`
+  - 串口回读确认：
+    - `LKP=16.8`
+    - `LKD=6.8`
+    - `TDR=0.68`
+    - `STF=400`
+    - `STS=240`
+    - `STB=-8`
