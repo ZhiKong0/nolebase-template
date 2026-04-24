@@ -164,7 +164,7 @@ typedef enum
 /* 速度环：影响基础推进力。
    如果速度目标太高，或者速度环太冲，小车会在循迹环还没来得及稳定前不断左右修正。
    对“轻微蛇形、越跑越晃”最有效的第一刀通常是先降速度目标。 */
-#define PID_TRACK_SPEED_TARGET      44.0f
+#define PID_TRACK_SPEED_TARGET      50.0f
 #define PID_TRACK_SPEED_KP          1.50f
 #define PID_TRACK_SPEED_KI          0.10f
 #define PID_TRACK_SPEED_KD          0.0f
@@ -231,8 +231,8 @@ typedef enum
 #define TRACK_SEARCH_TIMEOUT_TICKS  18
 #define TRACK_SEARCH_ARC_PWM_FAST   240
 #define TRACK_SEARCH_ARC_PWM_SLOW   160
-#define TRACK_SEARCH_TURN_PWM_FAST  340
-#define TRACK_SEARCH_TURN_PWM_SLOW  220
+#define TRACK_SEARCH_TURN_PWM_FAST  380
+#define TRACK_SEARCH_TURN_PWM_SLOW  250
 #define TRACK_SEARCH_SIDE_EXIT_TICKS 1
 #define TRACK_RECOVER_TICKS         10
 #define TRACK_RESUME_SPEED_MIN      28.0f

@@ -118,6 +118,16 @@ Phase 27
 - [x] 使用 `pyOCD` 完成 `erase -> load -> reset`
 - **Status:** complete
 
+### Phase 34: 找线自转速度复核
+- [x] 确认当前找线 `pivot` 参数与调用点
+- [x] 保持主循迹与丢线判定不变，只调整自转找线速度
+- **Status:** complete
+
+### Phase 35: 编译与烧录
+- [x] 重新编译 `project.uvprojx`
+- [x] 使用 `pyOCD` 完成 `erase -> load -> reset`
+- **Status:** complete
+
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。
 - 自动调参骨架本轮固定 `speed_target=40`，不在本轮搜索目标速度。
@@ -132,6 +142,7 @@ Phase 27
   - `search_turn_fast / search_turn_slow / search_timeout`
 - 为减少联动面，遥测里暂时保留 `dbgScoreEnabled` 字段，但其语义已简化为“搜索/丢线/交叉是否计分”。
 - `exp305` 之后，单链主循迹优先沿“更快响应”方向调：先放快 `linePos` / `dev` 跟随，再适度增加 `KP`，不先动搜索方向链。
+- 本轮“找线太慢”的处理边界限定为只提高 `pivot` 搜索 PWM，不顺手动主循迹和丢线确认链。
 
 ## Hot Files
 - `Hardware/config.h`

@@ -333,3 +333,24 @@
 - `TRACK_FOLLOW_DEV_STEP_LIMIT: 48 -> 60`
 - `TRACK_SEARCH_TURN_PWM_FAST/SLOW: 320/210 -> 340/220`
 - 其余搜索确认、搜索方向、搜索退出条件保持不变
+
+## 2026-04-24 找线自转偏慢
+
+### 关键证据
+- 当前搜索驱动在 [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 的 `track_drive_search()` 中分成两段：
+  - `ARC`：同向前进偏转
+  - `PIVOT`：一侧反转原地找线
+- 用户本轮明确抱怨的是“自转找线的时候太慢”，对应的是 `PIVOT` 分支，而不是普通 `ARC` 扫线或主循迹本身。
+- 当前配置里：
+  - `TRACK_SEARCH_TURN_PWM_FAST = 340`
+  - `TRACK_SEARCH_TURN_PWM_SLOW = 220`
+  这会直接决定 `FNDL/FNDR` 状态下原地摆头的角速度。
+
+### 判断
+- 这次最小正确改法不是再碰主循迹 `PD`，也不是去改丢线确认或搜索退出。
+- 最干净的处理边界是：只提高 `PIVOT` 自转找线 PWM，让丢线后摆头更快。
+
+### 本轮修正
+- `TRACK_SEARCH_TURN_PWM_FAST: 340 -> 380`
+- `TRACK_SEARCH_TURN_PWM_SLOW: 220 -> 250`
+- `ARC` 搜索参数、主循迹参数、丢线判定参数保持不变

@@ -389,3 +389,32 @@
     - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
     - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
     - `reset --no-config -t stm32f103rc -u 031305620164`
+
+## Session: 2026-04-24 找线自转提速
+
+### Phase 34: 搜索自转参数复核
+- **Status:** complete
+- Actions taken:
+  - 核对 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 中找线参数
+  - 核对 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 的 `track_drive_search()`，确认用户抱怨对应 `PIVOT` 分支
+  - 确认本轮边界是“只加快自转找线”，不碰主循迹和丢线判定
+
+### Phase 35: 自转找线提速
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 调整：
+    - `TRACK_SEARCH_TURN_PWM_FAST = 380`
+    - `TRACK_SEARCH_TURN_PWM_SLOW = 250`
+  - 保持 `TRACK_SEARCH_ARC_PWM_*`、主循迹参数、丢线确认参数不变
+
+### Phase 36: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 使用 `pyOCD` 顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
