@@ -633,6 +633,42 @@
 - **Status:** complete
 - Actions taken:
   - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+
+## Session: 2026-04-24 起跑一致性复测链修正
+
+### Phase 45: 评分窗口修正
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/000Project_PC_Control/experiment_score_watch.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.py) 新增 `--analysis-start-ms`
+  - 默认将评分起点设为 `400ms`，跳过起跑瞬态
+  - 重新对 [`exp_0474_20260424_185148_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0474_20260424_185148_UART_T.txt) 做基线重评，得到：
+    - `total_score = 89.53`
+    - `a67_cover_ratio = 99.18%`
+    - `a67_exact_ratio = 81.47%`
+
+### Phase 46: 串口恢复与最小链验证
+- **Status:** complete
+- Actions taken:
+  - 发现 `COM18` 无输出时，执行 `pyocd reset --no-config -t stm32f103rc -u 031305620164` 可恢复板端空闲心跳和命令响应
+  - 复位后使用 `#LINE?!` 成功读回：
+    - `sbh=0x0C0, s12=000000110000, lp=0.5`
+  - 证明“复位 -> 读线”这条起跑前检查链可用
+
+### Phase 47: 8秒实验重跑尝试
+- **Status:** in progress
+- Actions taken:
+  - 复位后成功下发：
+    - `#MODE=TRACK!`
+    - `#RUN!`
+  - 但本轮抓到的 [`exp_capture_20260424_194051_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_capture_20260424_194051_UART_T.txt) 是中途附着到已运行实验上的，不含完整 `EVT:EXP_START` 前段
+  - 该文件仅可用于现象观察，不能用于和 `exp474` 严格比较
+
+## Current State
+- 当前最可信最优参数仍是 `exp474` 那组
+- 下一轮复测前，必须先完成：
+  - `pyocd reset`
+  - `#LINE?!` 起跑确认
+  - 从 `EVT:EXP_START` 前完整落盘
   - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
     - `0 Error(s), 0 Warning(s)`
   - 使用 `pyOCD` 顺序完成：
@@ -781,3 +817,149 @@
     - 速度平滑性
     - `A6/A7` 覆盖比率
     - 下一步首选/备选参数建议
+
+## Session: 2026-04-24 8秒复测与微调复核
+
+### Phase 54: 恢复板上最优参数并回读
+- **Status:** complete
+- Actions taken:
+  - 用紧凑 `#TCFG=...,...!` 重新下发上一轮最优参数组
+  - 对 `track.lkp / lkd / follow_turnin_ratio / follow_turnin_min / error_scale / dev_ratio / dev_step_limit / search_turn_fast / search_turn_slow / static_bias` 做回读
+  - 确认板上当前值与目标值一致
+
+### Phase 55: 运行 `exp476` 单轮 8 秒复测
+- **Status:** complete
+- Actions taken:
+  - 通过 `experiment_logger.py --uart-test-seconds 8 --uart-mode TRACK --max-seconds 14` 启动实验
+  - 生成 [`exp_0476_20260424_185531_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0476_20260424_185531_UART_T.txt)
+  - 用 `experiment_score_watch.py --once --print-json` 评分：
+    - `total_score = 45.54`
+    - `a67_cover_ratio = 48.68%`
+    - `search_ratio = 33.75%`
+    - `loss_ratio = 31.25%`
+
+### Phase 56: 连跑 `exp477~exp479` 做小范围微调对比
+- **Status:** complete
+- Actions taken:
+  - 跑 3 组候选：
+    - `baseline_repeat`
+    - `ratio045`
+    - `lkp168`
+  - 生成：
+    - [`exp_0477_20260424_185646_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0477_20260424_185646_UART_T.txt)
+    - [`exp_0478_20260424_185707_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0478_20260424_185707_UART_T.txt)
+    - [`exp_0479_20260424_185727_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0479_20260424_185727_UART_T.txt)
+  - 评分结果：
+    - `exp477 = 37.87`
+    - `exp478 = 47.62`
+    - `exp479 = 36.94`
+
+### Phase 57: 确认当前自动复测失真来源
+- **Status:** complete
+- Actions taken:
+  - 对比 `exp474 / exp476 / exp477` 的起跑前几拍 `HB`
+  - 确认三轮起跑位型和 `linePos` 明显不同：
+    - `exp474 @20ms: sbh=0x0C0, lp=47`
+    - `exp476 @20ms: sbh=0x170, lp=-28`
+    - `exp477 @20ms: sbh=0x030, lp=-47`
+  - 结论：连续 `UART` 自动实验没有把车带回同一起跑姿态，导致后续评分不再可横向比较
+
+## Session: 2026-04-24 ALIGN 预对中链
+
+### Phase 58: 增加 `#ALIGN!` 串口链
+- **Status:** complete
+- Actions taken:
+  - 在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 增加：
+    - `AlignState_t`
+    - `align_start() / run_align() / align_finish()`
+    - `#ALIGN!` 命令入口
+  - 在 [`Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 增加 `ALIGN_*` 参数
+  - 行为边界：
+    - `STOP` 态可运行
+    - 不耦合 `LineTrack` 主链
+    - 通过 `EVT:ALIGN,START/DONE/FAIL` 汇报结果
+
+### Phase 59: 编译与低速 `pyOCD` 烧录链修复
+- **Status:** complete
+- Actions taken:
+  - 重新编译，构建日志仍为 `0 Error(s), 0 Warning(s)`
+  - 发现 `CMSIS-DAP` 在 `10MHz` 下载阶段不稳定
+  - 按 [`000/mcu-build-flash.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000/mcu-build-flash.md) 改为：
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 100000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 100000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
+  - 低速烧录链已连续成功
+
+### Phase 60: 实际板测 `ALIGN`
+- **Status:** complete
+- Actions taken:
+  - 原地自转版 `ALIGN`：
+    - 能启动
+    - 但会翻向并 `FAIL`
+  - 低速前进对中版 `ALIGN`：
+    - 不再明显翻向
+    - 但会丢线后 `FAIL`
+  - 再补“无信号默认单向搜线”后：
+    - 连续两次结果分别为：
+      - `FAIL, sb=0x0030, lp=-0.5`
+      - `FAIL, sb=0x0700, lp=1.8`
+
+### Phase 61: 当前结论
+- **Status:** complete
+- Actions taken:
+  - 确认 `ALIGN` 目前还没收敛到可重复的统一起跑姿态
+  - 因此尚不能作为后续 `8s` 自动调参的稳定前置步骤
+
+## Session: 2026-04-24 人工摆正后继续 8 秒调参
+
+### Phase 62: 修正评分窗口并恢复 8 秒完整采集
+- **Status:** complete
+- Actions taken:
+  - 将 [`experiment_score_watch.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.py) 改成默认从 `400ms` 后开始评分
+  - 重新核算 [`exp_0474_20260424_185148_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0474_20260424_185148_UART_T.txt)
+  - 确认 `exp474` 在新窗口下仍是当前最可信基线，得分约 `89.53`
+
+### Phase 63: 串口恢复与完整 8 秒复测链打通
+- **Status:** complete
+- Actions taken:
+  - 用 `pyocd reset --no-config -t stm32f103rc -f 10000000 -u 031305620164` 恢复板端串口
+  - 确认 `#STAT!`、`#MODE=TRACK!`、`#LKP=...!`、`#LKD=...!`、`#TDR=...!`、`#STF=...!`、`#STS=...!`、`#STB=...!` 可稳定回包
+  - 改用“单串口会话内下参 + 开跑 + 落盘 + 停车”的方式采集，不再依赖并行 logger
+
+### Phase 64: 5 组候选参数对比
+- **Status:** complete
+- Actions taken:
+  - 跑出 5 组完整 `8s` 日志并评分：
+    - [`exp_auto_20260424_195535_cand_a.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195535_cand_a.txt)
+      - `LKP=17.0, LKD=7.2, TDR=0.70, STF/STS=420/260, STB=-8`
+      - `score=35.93`
+    - [`exp_auto_20260424_195559_cand_b.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195559_cand_b.txt)
+      - `LKP=17.6, LKD=7.6, TDR=0.72, STF/STS=430/270, STB=-8`
+      - `score=36.17`
+    - [`exp_auto_20260424_195753_cand_c_stb_pos8.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195753_cand_c_stb_pos8.txt)
+      - `STB=+8`
+      - `score=35.44`
+    - [`exp_auto_20260424_195818_cand_d_stb_pos16.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195818_cand_d_stb_pos16.txt)
+      - `STB=+16`
+      - `score=28.13`
+    - [`exp_auto_20260424_195920_cand_e_search440.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195920_cand_e_search440.txt)
+      - `STF/STS=440/280`
+      - `score=31.01`
+    - [`exp_auto_20260424_195944_cand_f_search440_p168.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195944_cand_f_search440_p168.txt)
+      - `LKP=16.8, LKD=6.8, TDR=0.68, STF/STS=440/280, STB=-8`
+      - `score=37.76`
+    - [`exp_auto_20260424_200101_cand_g_fine.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_200101_cand_g_fine.txt)
+      - `LKP=17.0, LKD=7.0, TDR=0.69, STF/STS=450/290, STB=-8`
+      - `score=35.95`
+  - [`exp_auto_20260424_200128_cand_h_recover8.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_200128_cand_h_recover8.txt) 采集未完整收到 `EVT:EXP_STOP`，标记为 `capture_failed`
+
+### Phase 65: 当前板上参数回写
+- **Status:** complete
+- Actions taken:
+  - 将当前“近期候选中最好的一组”重新写回板子：
+    - `LKP=16.8`
+    - `LKD=6.8`
+    - `TDR=0.68`
+    - `STF=440`
+    - `STS=280`
+    - `STB=-8`

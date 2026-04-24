@@ -258,6 +258,38 @@
   - 掩码体系整体升级为 `12` 位
   - 中心对改为 `A6/A7`
 - [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+
+## 2026-04-24 起跑一致性与8秒评分窗口
+
+### 关键证据
+- `exp474` 仍是当前最可信的高分基线；在将评分窗口起点统一改为 `400ms` 后，重新评分结果为：
+  - `total_score = 89.53`
+  - `a67_cover_ratio = 99.18%`
+  - `a67_exact_ratio = 81.47%`
+- 用户手动摆正后，板端 `#LINE?!` 一度可读到：
+  - `sbh=0x0C0`
+  - `s12=000000110000`
+  - `lp=0.5`
+  说明“复位后立即读线”这条链可用。
+- 但随后串口进入无输出态，必须执行 `pyocd reset` 才能重新恢复空闲心跳和命令响应。
+- 这次直接抓取的 `exp_capture_20260424_194051_UART_T.txt` 是中途附着到已运行实验上的，不是从 `EVT:EXP_START` 前完整采到，因此不能拿来和 `exp474` 做参数优劣比较。
+
+### 判断
+- 当前最大阻塞点不是 `P/D` 再怎么拧，而是：
+  - 无线串口链偶发失联，需 `reset` 后恢复
+  - 起跑姿态仍需以 `#LINE?!` 做一次闸门确认
+  - 不完整实验文件不能进评分闭环
+- 因此后续复测必须遵守：
+  1. `pyocd reset`
+  2. `#LINE?!` 确认起跑线型
+  3. 再发送 `#RUN!`
+  4. 从 `EVT:EXP_START` 开始完整落盘
+
+### 本轮修正
+- [`experiment_score_watch.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/experiment_score_watch.py)
+  - 新增 `--analysis-start-ms`
+  - 默认从 `400ms` 后开始评分，避免把起跑瞬态直接算进总分
+  - 报告新增 `analysis_start_ms`
   - 所有 `bits` 主链改成 `uint16_t`
   - 位置拟合、找线、交叉、遥测和参数列表联动升级为 `12` 路
 - [`bsp_uart.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.h)、[`bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c)
@@ -713,3 +745,125 @@
 - 中心段翻向频繁或速度不平顺：
   - 优先 `track.lkd`
   - 其次 `track.dev_step_limit`
+
+## 2026-04-24 8秒复测与起跑姿态一致性
+
+### 关键结论
+- `COM18` 已恢复空闲，板子在线，当前固件支持紧凑 `#TCFG?=` / `#TCFG=...,...!` 参数接口。
+- 上一轮确认最优参数重新下发并回读一致：
+  - `track.lkp=16.2`
+  - `track.lkd=6.8`
+  - `track.follow_turnin_ratio=0.42`
+  - `track.follow_turnin_min=72`
+  - `track.error_scale=58`
+  - `track.dev_ratio=0.66`
+  - `track.dev_step_limit=60`
+  - `track.search_turn_fast=400`
+  - `track.search_turn_slow=240`
+  - `track.static_bias=-8`
+- 在这组参数下，`exp476` 的复测得分只有 `45.54`，明显低于上一轮 `exp474` 的 `88.02`。
+- 继续跑 `exp477~exp479` 微调后，结果仍整体偏差：
+  - `exp477` 约 `37.87`
+  - `exp478` 约 `47.62`
+  - `exp479` 约 `36.94`
+- 这组结果不能被解释为“参数瞬间退化”，因为实验起跑姿态已经不一致，评分失去横向可比性。
+
+### 直接证据
+- `exp474` 起跑时在 `20ms` 就是 `sbh=0x0C0 / s12=000000110000 / lp=47`，属于贴近中心、可比较的标准起跑姿态。
+- `exp476` 起跑时在 `20ms` 变成 `sbh=0x170 / lp=-28`，已经是另一种赛道投影。
+- `exp477` 起跑时在 `20ms` 则是 `sbh=0x030 / lp=-47`，更明显偏离标准起跑姿态。
+- 说明 `--uart-test-seconds 8` 连续运行后，车停在赛道不同位置；下一轮直接从停下的位置再 `#RUN!`，不再是同一起点实验。
+
+### 判断
+- 当前自动复测的主问题不是“电量恢复后参数失效”，而是“没有统一回到同一条起跑线/同一朝向”。
+- 因此 `exp476~exp479` 更适合视为“不同起跑姿态下的单轮表现”，不适合作为严格的参数优劣对比。
+- 如果继续这样自动串跑，AI 会把“起点漂移”误判成“参数需要继续调”，后续调参会偏离真实最优。
+
+### 当前最可信参数
+- 目前仍以 `exp474` 对应参数组为最可信基线：
+  - `track.lkp=16.2`
+  - `track.lkd=6.8`
+  - `track.follow_turnin_ratio=0.42`
+  - `track.follow_turnin_min=72`
+  - `track.error_scale=58`
+  - `track.dev_ratio=0.66`
+  - `track.dev_step_limit=60`
+  - `track.search_turn_fast=400`
+  - `track.search_turn_slow=240`
+  - `track.static_bias=-8`
+
+## 2026-04-24 ALIGN 预对中链验证
+
+### 关键结论
+- 已在 [`User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 增加 `#ALIGN!` 串口链，目标是在每轮 `8s` 自动实验前先把车的投影收回到 `A6/A7` 附近。
+- 当前 `ALIGN` 已经具备：
+  - `STOP` 态可触发
+  - 读 12 路传感器
+  - 看得到线时低速前进对中
+  - 看不到线时单向 pivot 搜线
+  - 输出 `EVT:ALIGN,START/DONE/FAIL`
+- 但现阶段它**还不能稳定把车带到同一个起跑姿态**，因此不能拿来替代人工统一摆放。
+
+### 实测现象
+- 第一次原地自转版 `ALIGN`：
+  - 出现来回翻向
+  - 最终 `EVT:ALIGN,FAIL,sb=0x0000`
+- 改成低速前进对中版后：
+  - 不再严重左右抽动
+  - 但仍会丢线，出现 `EVT:ALIGN,FAIL,sb=0x0000`
+- 补上“无信号默认单向搜线”后：
+  - `ALIGN 1 -> FAIL, sb=0x0030, lp=-0.5`
+  - `ALIGN 2 -> FAIL, sb=0x0700, lp=1.8`
+- 两次 `FAIL` 终点位型不一致，说明 `ALIGN` 还未形成稳定收敛点。
+
+### 判断
+- 当前阻塞已从“参数未知”转成“起跑一致性缺失”。
+- 如果继续在这种条件下自动跑 `8s` 评分，AI 仍会把“起点不同”误判成“参数应该继续调”。
+- 因此，现阶段继续找“全局最优参数”已经不可靠；要么：
+  - 继续强化 `ALIGN`
+  - 要么人工把车每次放回同一起跑位后再继续自动测
+
+## 2026-04-24 人工摆正后继续 8 秒调参
+
+### 关键结论
+- 在用户明确要求“先不把起跑位置当唯一主因”的前提下，本轮继续用人工摆正后的姿态做了多组 `8s` 参数试验。
+- 新一轮纯加硬 `P / KD / dev_ratio` 并没有明显把问题打掉，最好的一组也只有 `37.76`，远低于 [`exp_0474_20260424_185148_UART_T.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_0474_20260424_185148_UART_T.txt) 的 `89.53`。
+- 当前在“这轮人工摆正姿态”下，相对最优的是：
+  - [`exp_auto_20260424_195944_cand_f_search440_p168.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195944_cand_f_search440_p168.txt)
+  - `LKP=16.8, LKD=6.8, TDR=0.68, STF/STS=440/280, STB=-8`
+  - `score=37.76`
+
+### 直接证据
+- 纯加硬主链的两组：
+  - `cand_a`: `35.93`
+  - `cand_b`: `36.17`
+  - 说明把 `LKP/LKD/TDR` 一起抬高，只带来很有限改善。
+- 正向静态偏置两组：
+  - `cand_c (STB=+8)`: `35.44`
+  - `cand_d (STB=+16)`: `28.13`
+  - 说明把 `static_bias` 从 `-8` 改成正值并不能解决当前问题，反而会让平滑性进一步恶化。
+- 继续提搜索自转：
+  - `cand_e (440/280)`: `31.01`
+  - `cand_f (440/280 + LKP=16.8 + TDR=0.68)`: `37.76`
+  - `cand_g (450/290 + 更细调)`: `35.95`
+  - 说明适度提高 `search_turn` 有帮助，但继续加到更激进并不会稳定提升。
+
+### 日志判断
+- [`exp_auto_20260424_195944_cand_f_search440_p168.txt`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Data/serial_runs/experiments/exp_auto_20260424_195944_cand_f_search440_p168.txt) 的评分结构是：
+  - `grip_score ≈ 52.83`
+  - `speed_smoothness_score ≈ 58.13`
+  - `center_score ≈ 21.02`
+  - `search_ratio ≈ 32.98%`
+  - `loss_ratio ≈ 36.13%`
+- 这说明当前限制点依然不是“看见线以后完全拉不回”，而是：
+  - 仍然较频繁地掉进 `SEARCH`
+  - 一旦掉进去，整体有效中心覆盖仍上不来
+- 同时，`cand_d` 把 `STB` 加到 `+16` 后，`center_score` 虽上升，但 `speed_smoothness_score` 掉到极低，说明这种补偿方向会把直线/恢复链打坏。
+
+### 判断
+- 在当前这轮姿态和赛道下，单纯继续加 `P` 或继续推正向 `static_bias` 都不是正确主方向。
+- 相对正确的局部趋势是：
+  - 保持 `STB=-8`
+  - `search_turn` 保持在 `440/280` 左右
+  - 主链只做轻微增强，落在 `LKP≈16.8, TDR≈0.68`
+- 但这条线仍远没有达到“稳定高速巡中线”，所以它只能视为“当前姿态下的局部最优”，不能替代 `exp474` 作为全局最优。
