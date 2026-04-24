@@ -83,10 +83,17 @@ typedef enum
 #define BNO_YAW_RATE_LIMIT_DPS  180.0f
 #define BNO_YAW_RATE_LPF_ALPHA  0.14f
 
-/* ========== 8 路循迹输入 (74HC4051 扫描 A3~A10, bit0~bit7 = Y0~Y7) ========== */
-#define LINE_SENSOR_COUNT 8
+/* ========== 12 路循迹输入 (4 路直连 + 74HC4051 扫描 A3~A10) ==========
+   位序统一按物理从左到右：
+   bit0=A1, bit1=A2, bit2=A3, ... , bit9=A10, bit10=A11, bit11=A12 */
+#define LINE_SENSOR_COUNT 12
 
 #define LINE_ACTIVE_LOW 0
+
+#define LINE_DIRECT_A1_PORT GPIOA
+#define LINE_DIRECT_A1_PIN  GPIO_Pin_12
+#define LINE_DIRECT_A2_PORT GPIOB
+#define LINE_DIRECT_A2_PIN  GPIO_Pin_11
 
 #define LINE_MUX_S0_PORT GPIOA
 #define LINE_MUX_S0_PIN  GPIO_Pin_2
@@ -96,6 +103,10 @@ typedef enum
 #define LINE_MUX_S2_PIN  GPIO_Pin_10
 #define LINE_MUX_Z_PORT  GPIOA
 #define LINE_MUX_Z_PIN   GPIO_Pin_3
+#define LINE_DIRECT_A11_PORT GPIOB
+#define LINE_DIRECT_A11_PIN  GPIO_Pin_15
+#define LINE_DIRECT_A12_PORT GPIOC
+#define LINE_DIRECT_A12_PIN  GPIO_Pin_13
 #define LINE_MUX_SETTLE_CYCLES 180u
 
 /* ========== DAPlink / 命令串口 (USART1 重映射到 PB6/PB7) ========== */
@@ -179,20 +190,24 @@ typedef enum
 #define PID_TRACK_LINE_KP           16.2f
 #define PID_TRACK_LINE_KD           6.8f
 
-/* 传感器位置映射：把 8 路灯映射到一条连续位置轴。
+/* 传感器位置映射：把 12 路灯映射到一条连续位置轴。
    TRACK_LINE_POS_STEP / TRACK_SENSOR_POS_TRIM_RANGE 主要影响“位置误差”的细腻程度。
    如果位置映射过陡，会让相邻灯切换时控制量变化偏大，更容易抖。 */
 #define TRACK_LINE_POS_STEP         60
 #define TRACK_SENSOR_POS_TRIM_RANGE 40.0f
 
-#define TRACK_LINE_POS_S1           (-225)
-#define TRACK_LINE_POS_S2           (-135)
-#define TRACK_LINE_POS_S3           (-90)
-#define TRACK_LINE_POS_S4           (-45)
-#define TRACK_LINE_POS_S5           45
-#define TRACK_LINE_POS_S6           90
-#define TRACK_LINE_POS_S7           135
-#define TRACK_LINE_POS_S8           225
+#define TRACK_LINE_POS_S1           (-275)
+#define TRACK_LINE_POS_S2           (-225)
+#define TRACK_LINE_POS_S3           (-175)
+#define TRACK_LINE_POS_S4           (-125)
+#define TRACK_LINE_POS_S5           (-75)
+#define TRACK_LINE_POS_S6           (-25)
+#define TRACK_LINE_POS_S7           25
+#define TRACK_LINE_POS_S8           75
+#define TRACK_LINE_POS_S9           125
+#define TRACK_LINE_POS_S10          175
+#define TRACK_LINE_POS_S11          225
+#define TRACK_LINE_POS_S12          275
 
 /* 分区阈值：决定当前位置误差落在哪个区间。
    这些阈值只用于状态判断、找线与遥测分级，不再用于分段增益调度。 */
@@ -227,12 +242,9 @@ typedef enum
 #define TRACK_LOST_CONFIRM_TICKS    3
 #define TRACK_LOST_FAST_CONFIRM_TICKS 2
 #define TRACK_SEARCH_BLIND_TICKS    0
-#define TRACK_SEARCH_ARC_TICKS      3
 #define TRACK_SEARCH_TIMEOUT_TICKS  18
-#define TRACK_SEARCH_ARC_PWM_FAST   240
-#define TRACK_SEARCH_ARC_PWM_SLOW   160
 #define TRACK_SEARCH_TURN_PWM_FAST  380
-#define TRACK_SEARCH_TURN_PWM_SLOW  250
+#define TRACK_SEARCH_TURN_PWM_SLOW  230
 #define TRACK_SEARCH_SIDE_EXIT_TICKS 1
 #define TRACK_RECOVER_TICKS         10
 #define TRACK_RESUME_SPEED_MIN      28.0f

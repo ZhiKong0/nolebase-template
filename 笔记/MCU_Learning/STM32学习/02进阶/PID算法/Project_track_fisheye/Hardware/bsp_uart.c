@@ -284,7 +284,7 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
                                 float yaw, float yawRate,
                                 int16_t pwmCore, int16_t headingDiff,
                                 int16_t pwmL, int16_t pwmR,
-                                uint8_t sensorBits, int16_t linePos,
+                                uint16_t sensorBits, int16_t linePos,
                                 int8_t bearingDev, uint8_t crossCount,
                                 uint8_t dbgTrackState, uint8_t dbgTurnDir,
                                 uint8_t dbgCrossActive,
@@ -302,8 +302,7 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
 
     if (dbgTurnDir == LT_DIR_LEFT) dirChar = 'L';
     else if (dbgTurnDir == LT_DIR_RIGHT) dirChar = 'R';
-    if (searchPhase == LT_SEARCH_PHASE_ARC) phaseChar = 'A';
-    else if (searchPhase == LT_SEARCH_PHASE_PIVOT) phaseChar = 'P';
+    if (searchPhase == LT_SEARCH_PHASE_PIVOT) phaseChar = 'P';
 
     sprintf(buf,
         "HB:t=%lu,m=T,run=%u,exp=%lu,el=%d,er=%d,yaw=%.1f,yr=%.1f,"

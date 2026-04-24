@@ -219,6 +219,96 @@
 
 ## Session: 2026-04-24 exp284/285 根因回退修正
 
+## Session: 2026-04-24 12路输入链重构
+
+### Phase 36: 固件输入链升级到12路
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 将 `LINE_SENSOR_COUNT` 扩成 `12`
+  - 增加 4 路直连输入定义：
+    - `A1 -> PA12`
+    - `A2 -> PB11`
+    - `A11 -> PB15`
+    - `A12 -> PC13`
+  - 保留 `74HC4051` 扫描 `A3~A10`
+  - 在 [`Project_track_fisheye/Hardware/sensor_fusion.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.h) 将 `bits` 升为 `uint16_t`
+  - 在 [`Project_track_fisheye/Hardware/sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c) 重构 `LineSensor_Read()`：
+    - 先读 `A1/A2`
+    - 再扫 `A3~A10`
+    - 最后读 `A11/A12`
+    - 最终合成为 `bit0~bit11 = A1~A12`
+  - 在 [`Project_track_fisheye/Hardware/line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h)、[`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 将位宽、掩码、位置表、找线与交叉逻辑统一升级到 12 位
+  - 在 [`Project_track_fisheye/Hardware/bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c) 和 [`Project_track_fisheye/User/main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c) 同步升级遥测与 `TS1..TS12` 命令
+  - 在 [`Project_track_fisheye/000/接线总表——END.md`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000/接线总表——END.md) 写明 12 路接线与位序
+
+### Phase 37: PC侧工具链同步与板上验证
+- **Status:** in progress
+- Actions taken:
+  - 在 [`Project_track_fisheye/000Project_PC_Control/track_adaptive_tuner.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/track_adaptive_tuner.py) 更新：
+    - `LT_MASK_CENTER = 0x0060`
+    - `LT_MASK_OUTER = 0x0F0F`
+    - `LT_CENTER_CORE_STATES = (0x0020, 0x0040, 0x0060)`
+    - `track.sensor_scale1..12` 命令映射与回读
+  - 在 [`Project_track_fisheye/000Project_PC_Control/config.yaml`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/config.yaml) 更新：
+    - `line_sensor.positions_m` 扩成 12 项
+    - `fit` 和 `recovery` 阶段参数面扩成 12 路
+    - `sensor_scale9..12` 参数定义补齐
+  - 完成 PC 侧自检：
+    - `py_compile ok`
+    - `yaml ok ... 12`
+    - `track_adaptive_tuner.py --help` 正常
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 使用 `pyOCD` 按顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
+  - 串口烟测尝试打开 `COM18` 失败，错误为 `PermissionError(13, '拒绝访问。')`，说明当前端口被外部进程占用，待释放后再补 `#STAT! / #TS12?!` 回读
+
+## Session: 2026-04-24 转角链重构为 FOLLOW 强化 + SEARCH 兜底 + RECOVER 收回
+
+### Phase 38: 控制逻辑重构
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 新增：
+    - `track_pick_visible_dir()`
+    - `track_is_turnin_follow_case()`
+    - `track_apply_directional_floor()`
+    - `track_apply_follow_guidance()`
+  - 将 `FOLLOW` 改成两档：
+    - 小偏差：仍走普通单链 `PD`
+    - 大偏差且同侧明显占优：在 `PD` 后施加同向强化下限
+  - 将 `RECOVER` 改成显式“同向收回”：
+    - 搜索退出后记录 `recoverDir`
+    - 在恢复窗口里优先沿 `recoverDir` 继续收回
+    - 重新回到中心后才清掉 `recoverDir/recoverTicks`
+  - 将 `SEARCH` 收成单向 `pivot`：
+    - 只在 `bits==0` 时进入
+    - 不再保留 `ARC -> PIVOT` 切换链
+  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 删除：
+    - `TRACK_SEARCH_ARC_TICKS`
+    - `TRACK_SEARCH_ARC_PWM_FAST`
+    - `TRACK_SEARCH_ARC_PWM_SLOW`
+  - 在 [`Project_track_fisheye/Hardware/line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h) 删除运行时 `searchArcPwm*`
+  - 在 [`Project_track_fisheye/Hardware/bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c) 清理对 `ARC` 阶段字符的引用
+
+### Phase 39: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 使用 `pyOCD` 按顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
+    - `reset --no-config -t stm32f103rc -u 031305620164`
+  - 追加串口烟测尝试：
+    - 打开 `COM18` 返回 `PermissionError(13, '拒绝访问。')`
+    - 本轮未做最小 `#STAT!` 回读，原因是端口被外部进程占用
+
 ### Phase 19: 日志根因定位
 - **Status:** complete
 - Actions taken:

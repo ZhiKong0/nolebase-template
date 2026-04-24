@@ -4,7 +4,7 @@
 把 `Project_track_fisheye` 当前 `TRACK` 模式从“分层梯度 + 多组比例/阈值耦合链”重构为“单一连续误差 + 单一循迹 PD + 最小找线状态机”，并在此基础上补齐“不扫目标速度、围绕固定 40 速度档做复测驱动联调”的自动调参骨架。
 
 ## Current Phase
-Phase 27
+Phase 38
 
 ## Phases
 
@@ -128,6 +128,27 @@ Phase 27
 - [x] 使用 `pyOCD` 完成 `erase -> load -> reset`
 - **Status:** complete
 
+### Phase 36: 12路输入链重构
+- [x] 将 `LINE_SENSOR_COUNT` 从 `8` 扩成 `12`
+- [x] 将 `LineSensor_Read()` 重构为 `4 路直连 + 74HC4051 扫 8 路`
+- [x] 将 `line_track`、遥测与串口调参口径联动升级到 `12` 位
+- **Status:** complete
+
+### Phase 37: 12路工具链与板上验证
+- [x] 将 `track_adaptive_tuner.py / config.yaml` 同步为 `12` 路掩码与 `sensor_scale1..12`
+- [x] 重新编译 `project.uvprojx`
+- [x] 使用 `pyOCD` 完成 `erase -> load -> reset`
+- [ ] 待串口口释放后补做 `COM18` 参数回读烟测
+- **Status:** in progress
+
+### Phase 38: 转角链重构为FOLLOW强化+SEARCH兜底+RECOVER收回
+- [x] 将 `FOLLOW` 拆成“小偏差普通PD / 大偏差同向强化转入”两档
+- [x] 将 `SEARCH` 收成“只在全灭进入、单向 pivot、不保留 ARC 扫线”
+- [x] 将 `RECOVER` 改成“重新见到同侧线后继续同向收回，回中心后再交还 PD”
+- [x] 重新编译并烧录到当前板子
+- [ ] 待串口口释放后补做 `COM18` 烟测
+- **Status:** in progress
+
 ## Decisions Made
 - 本轮不在旧 `line_track.c` 上继续打补丁，而是直接以 `Project_track_infrared` 为真源迁移单链主实现。
 - 自动调参骨架本轮固定 `speed_target=40`，不在本轮搜索目标速度。
@@ -143,6 +164,13 @@ Phase 27
 - 为减少联动面，遥测里暂时保留 `dbgScoreEnabled` 字段，但其语义已简化为“搜索/丢线/交叉是否计分”。
 - `exp305` 之后，单链主循迹优先沿“更快响应”方向调：先放快 `linePos` / `dev` 跟随，再适度增加 `KP`，不先动搜索方向链。
 - 本轮“找线太慢”的处理边界限定为只提高 `pivot` 搜索 PWM，不顺手动主循迹和丢线确认链。
+- 12 路输入链采用“`A1/A2/A11/A12` 直连 GPIO + `A3~A10` 继续走 `74HC4051`”方案，不引入第二片复用器。
+- 12 路内部位序固定为：`bit0=A1 ... bit11=A12`，中心对固定为 `A6/A7`。
+- PC 侧评分与参数接口必须和板端一起升级到 `12` 路；不能只改固件不改调参与分析脚本。
+- 当前转角逻辑正式收成三段：
+  - `FOLLOW`：小偏差普通 `PD`，大偏差且同侧明显占优时直接同向强化转入
+  - `SEARCH`：只有全灭才进入，且只做单向 `pivot`
+  - `RECOVER`：重见同侧线后继续顺着该方向收回，回中心后才完全交还普通 `PD`
 
 ## Hot Files
 - `Hardware/config.h`

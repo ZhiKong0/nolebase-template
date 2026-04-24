@@ -218,6 +218,107 @@
 - 所以修正重点不是再调硬，而是先把这条错误触发链拆掉。
 
 ### 本轮修正
+
+## 2026-04-24 8路4051 + 4路直连 升级为12路输入链
+
+### 关键证据
+- 当前硬件并不是纯 `8` 路模块，而是 `12` 路循迹前端，只是板上此前只装了 `A3~A10` 并通过 `74HC4051` 扫描。
+- 现有工程里 8 路假设同时出现在三层：
+  - 固件输入层：[`sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c)
+  - 主控制层：[`line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h)、[`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - PC 侧工具链：[`track_adaptive_tuner.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/track_adaptive_tuner.py)、[`config.yaml`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/config.yaml)
+- 如果只改其中一层，会出现：
+  - 板端 `12` 位、脚本还按 `8` 位掩码评分
+  - 板端支持 `TS12`，脚本仍只能发到 `TS8`
+  - 板端中心对已变成 `A6/A7`，脚本仍按旧 `S4/S5` 口径统计中心占比
+
+### 判断
+- 最干净的切口不是再堆一层“12 路兼容帧”，而是直接把整条输入链统一成：
+  - `A1/A2/A11/A12` 直连 GPIO
+  - `A3~A10` 继续走 `74HC4051`
+  - MCU 内部统一合成为 `uint16_t bits12`
+- 12 路位序必须按物理从左到右固定为 `bit0=A1 ... bit11=A12`，否则后续 `linePos`、掩码、调参脚本都会继续耦合混乱。
+
+### 本轮修正
+- [`config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h)
+  - `LINE_SENSOR_COUNT: 8 -> 12`
+  - 新增直连引脚：
+    - `A1 -> PA12`
+    - `A2 -> PB11`
+    - `A11 -> PB15`
+    - `A12 -> PC13`
+  - 扩展 `TRACK_LINE_POS_S1..S12`
+- [`sensor_fusion.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.h)
+  - `LineSensor_Data_t.bits` 从 `uint8_t` 升为 `uint16_t`
+- [`sensor_fusion.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/sensor_fusion.c)
+  - 新增 4 路直连初始化与读取
+  - 保留 `74HC4051` 扫描 `A3~A10`
+  - 合成为 `bit0~bit11 = A1~A12`
+- [`line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h)
+  - 掩码体系整体升级为 `12` 位
+  - 中心对改为 `A6/A7`
+- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 所有 `bits` 主链改成 `uint16_t`
+  - 位置拟合、找线、交叉、遥测和参数列表联动升级为 `12` 路
+- [`bsp_uart.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.h)、[`bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c)
+  - 遥测里的 `sensorBits` 升为 `uint16_t`
+- [`main.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/User/main.c)
+  - `TS` 命令支持 `TS1..TS12`
+  - `turnback` 的 `sb` 输出改成 `0x%04X`
+- [`track_adaptive_tuner.py`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/track_adaptive_tuner.py)
+  - 中心掩码改为 `0x0060`
+  - 外侧掩码改为 `0x0F0F`
+  - `track.sensor_scale1..12` 命令生成与回读统一支持
+- [`config.yaml`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/000Project_PC_Control/config.yaml)
+  - `line_sensor.positions_m` 扩成 `12` 项
+  - 自适应调参参数面扩成 `sensor_scale1..12`
+  - `fit / recovery` 阶段参数选择联动到 12 路
+
+### 验证
+- 重新编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)，[`project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 为 `0 Error(s), 0 Warning(s)`
+- 已按 `pyOCD list -> erase -> load -> reset` 烧录到探头 `031305620164`
+- `COM18` 串口口仍被外部进程占用，因此本轮未完成 `TS12` 回读烟测；这不是烧录失败，而是串口验证被占用阻塞
+
+## 2026-04-24 转角控制链收成 FOLLOW / SEARCH / RECOVER 三段
+
+### 关键证据
+- 当前代码虽然名义上有 `SEARCH_PHASE_ARC/PIVOT`，但实际入口 [`track_enter_search()`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 已经总是直接把 `searchPhase` 置到 `PIVOT`，`ARC` 只剩死分支。
+- 真正的反应慢点不在 `SEARCH`，而在：
+  - `FOLLOW` 大偏差时仍只靠普通 `PD`
+  - `SEARCH` 退出后虽然会置 `recoverDir/recoverTicks`，但恢复期没有“继续同向收回”的硬约束
+- 这会让车出现：
+  - 还看得见外侧线时不够果断
+  - 刚重见线就很快完全交回普通 `PD`
+  - 导致“回来了但没收紧，又被甩出去”
+
+### 判断
+- 如果只是把找线改成单向 `pivot`，改善有限；因为问题主因不只在“扫空”。
+- 更有效的切法是把强转前移到 `FOLLOW`，并把 `RECOVER` 变成显式的同向收回链。
+- 所以这轮控制逻辑应收成三段：
+  - `FOLLOW`：小偏差普通 `PD`
+  - `FOLLOW`：大偏差且同侧明显占优时，直接同向强化转入
+  - `SEARCH`：只有全灭才进入，且单向 `pivot`
+  - `RECOVER`：重新见到同侧线后，继续顺着该方向收回中心
+
+### 本轮修正
+- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
+  - 新增 `track_pick_visible_dir()`
+  - 新增 `track_is_turnin_follow_case()`
+  - 新增 `track_apply_follow_guidance()`
+  - 在 `track_drive_follow()` 中把同向强化前移到普通 `PD` 之后、限幅之前
+  - 在恢复窗口内，优先按 `recoverDir` 继续同向收回，而不是立刻完全交回普通 `PD`
+  - `recoverTicks` 现在优先在“回中心”时清零，而不是单纯按时间提前放手
+- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)、[`line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h)、[`config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h)
+  - 删除 `TRACK_SEARCH_ARC_*` 宏和运行时 `searchArcPwm*`
+  - 删掉 `ARC` 进 `PIVOT` 的阶段切换分支
+  - `SEARCH` 固化为单向 `pivot` 兜底链
+- [`bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c)
+  - 串口遥测不再尝试输出已删除的 `ARC` 阶段
+
+### 验证
+- 重新编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)，[`project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 为 `0 Error(s), 0 Warning(s)`
+- 已按 `pyOCD list -> erase -> load -> reset` 烧录到探头 `031305620164`
+- `COM18` 仍被外部进程占用，最小 `#STAT!` 烟测未能回读
 - `PID_TRACK_LINE_KP: 12.2 -> 11.4`
 - `TRACK_FOLLOW_DEV_RATIO: 0.62 -> 0.58`
 - `TRACK_FOLLOW_DEV_STEP_LIMIT: 38 -> 34`

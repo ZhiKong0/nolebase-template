@@ -6,7 +6,7 @@ track_adaptive_tuner.py
 自适应式 TRACK 在线调参：
 1. 通过串口 `#TCFG` / `#RUN!` / `#STOP!` 直接下发参数。
 2. 用阶段化坐标搜索替代全排列网格，优先减少试验次数。
-3. 评分重点放在“中心占比、左右摆动、丢线/找线比例”，目标是尽量把车钳在 S4/S5。
+3. 评分重点放在“中心占比、左右摆动、丢线/找线比例”，目标是尽量把车钳在 12 路中心 A6/A7。
 """
 
 from __future__ import annotations
@@ -30,9 +30,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = PROJECT_ROOT / "000Project_PC_Control" / "config.yaml"
 OUTPUT_ROOT = PROJECT_ROOT / "000Data" / "track_adaptive_tune"
 
-LT_MASK_CENTER = 0x18
-LT_MASK_OUTER = 0xC3
-LT_CENTER_CORE_STATES = (0x08, 0x10, 0x18)
+LT_MASK_CENTER = 0x0060
+LT_MASK_OUTER = 0x0F0F
+LT_CENTER_CORE_STATES = (0x0020, 0x0040, 0x0060)
 
 DEFAULT_SCORE_WEIGHTS = {
     "mean_forward_speed": 0.18,
@@ -579,7 +579,7 @@ def serialize_params(params: dict[str, float], specs: list[ParamSpec]) -> str:
 
 
 def build_set_command(spec: ParamSpec, value: float) -> str:
-    match = re.fullmatch(r"track\.sensor_scale([1-8])", spec.key)
+    match = re.fullmatch(r"track\.sensor_scale([1-9]|1[0-2])", spec.key)
     if match:
         milli = int(round(value * 1000.0))
         return f"#TS{match.group(1)}={milli}!"
@@ -604,7 +604,7 @@ def build_set_command(spec: ParamSpec, value: float) -> str:
 
 
 def build_get_command(spec: ParamSpec) -> str:
-    match = re.fullmatch(r"track\.sensor_scale([1-8])", spec.key)
+    match = re.fullmatch(r"track\.sensor_scale([1-9]|1[0-2])", spec.key)
     if match:
         return f"#TS{match.group(1)}?!"
     short_map = {
@@ -636,7 +636,7 @@ def parse_reply_value(spec: ParamSpec, lines: list[str]) -> float | None:
         if not match:
             continue
         value = float(match.group(0))
-        if re.fullmatch(r"track\.sensor_scale([1-8])", spec.key) and abs(value) > 10.0:
+        if re.fullmatch(r"track\.sensor_scale([1-9]|1[0-2])", spec.key) and abs(value) > 10.0:
             value *= 0.001
         return value
     return None

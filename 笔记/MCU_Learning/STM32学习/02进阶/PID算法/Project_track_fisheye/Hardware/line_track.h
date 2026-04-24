@@ -21,37 +21,44 @@
 #define LT_TRACK_CROSS         3u
 
 /* ========== 找线阶段 ========== */
-#define LT_SEARCH_PHASE_ARC    0u
 #define LT_SEARCH_PHASE_PIVOT  1u
 
 /* ========== 交叉计数状态 ========== */
 #define LT_CROSS_READY     1u
 #define LT_CROSS_SEEN      2u
 
-/* ========== 8 路位定义 ========== */
-#define LT_BIT_LEFT_OUTER_A  (1u << 0)
-#define LT_BIT_LEFT_OUTER_B  (1u << 1)
-#define LT_BIT_LEFT_INNER    (1u << 2)
-#define LT_BIT_CENTER_LEFT   (1u << 3)
-#define LT_BIT_CENTER_RIGHT  (1u << 4)
-#define LT_BIT_RIGHT_INNER   (1u << 5)
-#define LT_BIT_RIGHT_OUTER_A (1u << 6)
-#define LT_BIT_RIGHT_OUTER_B (1u << 7)
+/* ========== 12 路位定义（bit0~bit11 = A1~A12） ========== */
+#define LT_BIT_S1            ((uint16_t)1u << 0)
+#define LT_BIT_S2            ((uint16_t)1u << 1)
+#define LT_BIT_S3            ((uint16_t)1u << 2)
+#define LT_BIT_S4            ((uint16_t)1u << 3)
+#define LT_BIT_S5            ((uint16_t)1u << 4)
+#define LT_BIT_S6            ((uint16_t)1u << 5)
+#define LT_BIT_S7            ((uint16_t)1u << 6)
+#define LT_BIT_S8            ((uint16_t)1u << 7)
+#define LT_BIT_S9            ((uint16_t)1u << 8)
+#define LT_BIT_S10           ((uint16_t)1u << 9)
+#define LT_BIT_S11           ((uint16_t)1u << 10)
+#define LT_BIT_S12           ((uint16_t)1u << 11)
 
-#define LT_BIT_S1            LT_BIT_LEFT_OUTER_A
-#define LT_BIT_S2            LT_BIT_LEFT_OUTER_B
-#define LT_BIT_S3            LT_BIT_LEFT_INNER
-#define LT_BIT_S4            LT_BIT_CENTER_LEFT
-#define LT_BIT_S5            LT_BIT_CENTER_RIGHT
-#define LT_BIT_S6            LT_BIT_RIGHT_INNER
-#define LT_BIT_S7            LT_BIT_RIGHT_OUTER_A
-#define LT_BIT_S8            LT_BIT_RIGHT_OUTER_B
+#define LT_BIT_LEFT_OUTER_A  LT_BIT_S1
+#define LT_BIT_LEFT_OUTER_B  LT_BIT_S2
+#define LT_BIT_LEFT_OUTER_C  LT_BIT_S3
+#define LT_BIT_LEFT_OUTER_D  LT_BIT_S4
+#define LT_BIT_LEFT_INNER    LT_BIT_S5
+#define LT_BIT_CENTER_LEFT   LT_BIT_S6
+#define LT_BIT_CENTER_RIGHT  LT_BIT_S7
+#define LT_BIT_RIGHT_INNER   LT_BIT_S8
+#define LT_BIT_RIGHT_OUTER_A LT_BIT_S9
+#define LT_BIT_RIGHT_OUTER_B LT_BIT_S10
+#define LT_BIT_RIGHT_OUTER_C LT_BIT_S11
+#define LT_BIT_RIGHT_OUTER_D LT_BIT_S12
 
-#define LT_MASK_LEFT_OUTER   (LT_BIT_LEFT_OUTER_A | LT_BIT_LEFT_OUTER_B)
+#define LT_MASK_LEFT_OUTER   (LT_BIT_LEFT_OUTER_A | LT_BIT_LEFT_OUTER_B | LT_BIT_LEFT_OUTER_C | LT_BIT_LEFT_OUTER_D)
 #define LT_MASK_LEFT_INNER   LT_BIT_LEFT_INNER
 #define LT_MASK_CENTER       (LT_BIT_CENTER_LEFT | LT_BIT_CENTER_RIGHT)
 #define LT_MASK_RIGHT_INNER  LT_BIT_RIGHT_INNER
-#define LT_MASK_RIGHT_OUTER  (LT_BIT_RIGHT_OUTER_A | LT_BIT_RIGHT_OUTER_B)
+#define LT_MASK_RIGHT_OUTER  (LT_BIT_RIGHT_OUTER_A | LT_BIT_RIGHT_OUTER_B | LT_BIT_RIGHT_OUTER_C | LT_BIT_RIGHT_OUTER_D)
 #define LT_MASK_LEFT_ZONE    (LT_MASK_LEFT_OUTER | LT_MASK_LEFT_INNER)
 #define LT_MASK_RIGHT_ZONE   (LT_MASK_RIGHT_INNER | LT_MASK_RIGHT_OUTER)
 #define LT_MASK_INNER_GUIDE  (LT_BIT_LEFT_INNER | LT_BIT_RIGHT_INNER)
@@ -90,8 +97,6 @@ typedef struct
     int16_t  staticSteerBias;
     int16_t  devStepLimit;
     uint8_t  recoverTicks;
-    uint16_t searchArcPwmFast;
-    uint16_t searchArcPwmSlow;
     uint16_t searchTurnPwmFast;
     uint16_t searchTurnPwmSlow;
     uint16_t searchTimeoutTicks;
@@ -102,8 +107,8 @@ typedef struct
     uint8_t  state;
     uint8_t  trackState;
 
-    uint8_t  sensorData;
-    uint8_t  lastData;
+    uint16_t sensorData;
+    uint16_t lastData;
 
     int8_t   bearingDev;
     int16_t  linePos;

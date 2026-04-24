@@ -20,7 +20,7 @@ robot:
   max_dt_s: 1.0
 line_sensor:
   enabled: true
-  positions_m: [-0.035, -0.025, -0.015, -0.005, 0.005, 0.015, 0.025, 0.035]
+  positions_m: [-0.055, -0.045, -0.035, -0.025, -0.015, -0.005, 0.005, 0.015, 0.025, 0.035, 0.045, 0.055]
   min_active_count: 1
   variance_m2: 0.0004
 reference_path:
@@ -107,7 +107,7 @@ autotune:
     confirm_best_repeats: 3
     phases:
       - name: fit
-        params: [sensor_scale2, sensor_scale3, sensor_scale4, sensor_scale5, sensor_scale6, sensor_scale7, static_bias, deadband, pos_lpf, d_lpf]
+        params: [sensor_scale2, sensor_scale3, sensor_scale4, sensor_scale5, sensor_scale6, sensor_scale7, sensor_scale8, sensor_scale9, sensor_scale10, sensor_scale11, static_bias, deadband, pos_lpf, d_lpf]
         repeats: 1
         confirm_best_repeats: 1
         min_improve: 0.6
@@ -117,7 +117,7 @@ autotune:
         confirm_best_repeats: 2
         min_improve: 1.0
       - name: recovery
-        params: [recover_ticks, search_turn_fast, search_turn_slow, search_timeout, sensor_scale1, sensor_scale8]
+        params: [recover_ticks, search_turn_fast, search_turn_slow, search_timeout, sensor_scale1, sensor_scale12]
         repeats: 2
         confirm_best_repeats: 3
         min_improve: 1.0
@@ -208,6 +208,30 @@ autotune:
         digits: 3
       sensor_scale8:
         key: track.sensor_scale8
+        start: 1.00
+        bounds: [0.96, 1.04]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale9:
+        key: track.sensor_scale9
+        start: 1.00
+        bounds: [0.94, 1.06]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale10:
+        key: track.sensor_scale10
+        start: 1.00
+        bounds: [0.94, 1.06]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale11:
+        key: track.sensor_scale11
+        start: 1.00
+        bounds: [0.94, 1.06]
+        steps: [0.020, 0.010, 0.0]
+        digits: 3
+      sensor_scale12:
+        key: track.sensor_scale12
         start: 1.00
         bounds: [0.96, 1.04]
         steps: [0.020, 0.010, 0.0]

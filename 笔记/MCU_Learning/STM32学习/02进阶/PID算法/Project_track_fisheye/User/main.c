@@ -261,13 +261,13 @@ static uint8_t turnback_line_captured(const LineSensor_Data_t *line)
 static void turnback_report(const char *tag, const LineSensor_Data_t *line)
 {
     char buf[96];
-    uint8_t bits = line ? line->bits : 0u;
+    uint16_t bits = line ? line->bits : 0u;
 
     snprintf(buf, sizeof(buf),
-             "EVT:TURNBACK,%s,deg=%.1f,sb=0x%02X\r\n",
+             "EVT:TURNBACK,%s,deg=%.1f,sb=0x%04X\r\n",
              tag,
              (double)g_turnback.rotatedDeg,
-             bits);
+             (unsigned)bits);
     BspUart_SendString(buf);
 }
 
@@ -668,21 +668,31 @@ static void handle_tcfg_command(const char *cmd)
 
 static uint8_t handle_sensor_scale_command(const char *cmd)
 {
-    uint8_t sensorIndex;
+    uint16_t sensorIndex;
     float fval;
     float applied;
+    const char *p;
     char key[24];
     char out[40];
 
     if (cmd == 0 || cmd[0] != '#' || cmd[1] != 'T' || cmd[2] != 'S')
         return 0u;
-    if (cmd[3] < '1' || cmd[3] > '8')
+    p = cmd + 3;
+    if (*p < '0' || *p > '9')
         return 0u;
 
-    sensorIndex = (uint8_t)(cmd[3] - '0');
+    sensorIndex = 0u;
+    while (*p >= '0' && *p <= '9')
+    {
+        sensorIndex = (uint16_t)(sensorIndex * 10u + (uint16_t)(*p - '0'));
+        p++;
+    }
+    if (sensorIndex < 1u || sensorIndex > LINE_SENSOR_COUNT)
+        return 0u;
+
     snprintf(key, sizeof(key), "track.sensor_scale%u", (unsigned)sensorIndex);
 
-    if (strcmp(cmd + 4, "?!") == 0)
+    if (strcmp(p, "?!") == 0)
     {
         if (LineTrack_ParamGet(key, &fval))
         {
@@ -697,7 +707,7 @@ static uint8_t handle_sensor_scale_command(const char *cmd)
         return 1u;
     }
 
-    if (cmd[4] == '=' && cmd_parse_float(cmd + 5, &fval))
+    if (*p == '=' && cmd_parse_float(p + 1, &fval))
     {
         if (fval > 10.0f || fval < -10.0f)
             fval *= 0.001f;

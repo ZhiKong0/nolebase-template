@@ -856,11 +856,11 @@ uint16_t BNO085_GetLastPayloadLen(void)
 }
 
 /* ================================================================
- *  Line Tracking Sensors (74HC4051 扫描 -> 8 位状态帧)
+ *  Line Tracking Sensors (4 路直连 + 74HC4051 扫描 -> 12 位状态帧)
  * ================================================================ */
 
 static const int16_t s_lineWeights[LINE_SENSOR_COUNT] = {
-    -350, -250, -150, -50, 50, 150, 250, 350
+    -275, -225, -175, -125, -75, -25, 25, 75, 125, 175, 225, 275
 };
 
 static void line_mux_delay(void)
@@ -886,7 +886,7 @@ void LineSensor_Init(void)
 {
     GPIO_InitTypeDef g;
 
-    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC, ENABLE);
 
     g.GPIO_Mode = GPIO_Mode_Out_PP;
     g.GPIO_Speed = GPIO_Speed_50MHz;
@@ -900,6 +900,15 @@ void LineSensor_Init(void)
     g.GPIO_Mode = GPIO_Mode_IPU;
     g.GPIO_Pin = LINE_MUX_Z_PIN;
     GPIO_Init(LINE_MUX_Z_PORT, &g);
+
+    g.GPIO_Pin = LINE_DIRECT_A1_PIN;
+    GPIO_Init(LINE_DIRECT_A1_PORT, &g);
+    g.GPIO_Pin = LINE_DIRECT_A2_PIN;
+    GPIO_Init(LINE_DIRECT_A2_PORT, &g);
+    g.GPIO_Pin = LINE_DIRECT_A11_PIN;
+    GPIO_Init(LINE_DIRECT_A11_PORT, &g);
+    g.GPIO_Pin = LINE_DIRECT_A12_PIN;
+    GPIO_Init(LINE_DIRECT_A12_PORT, &g);
 }
 
 static uint8_t line_mux_is_active(void)
@@ -912,30 +921,54 @@ static uint8_t line_mux_is_active(void)
 #endif
 }
 
-static uint8_t line_bit_count(uint8_t bits)
+static uint8_t line_direct_is_active(GPIO_TypeDef *port, uint16_t pin)
+{
+    uint8_t level = (GPIO_ReadInputDataBit(port, pin) == Bit_SET) ? 1u : 0u;
+#if LINE_ACTIVE_LOW
+    return level ? 0u : 1u;
+#else
+    return level;
+#endif
+}
+
+static uint8_t line_bit_count(uint16_t bits)
 {
     uint8_t c = 0u;
     uint8_t i;
     for (i = 0u; i < LINE_SENSOR_COUNT; ++i) {
-        if (bits & (1u << i)) c++;
+        if (bits & ((uint16_t)1u << i)) c++;
     }
     return c;
 }
 
 void LineSensor_Read(LineSensor_Data_t *data)
 {
-    uint8_t bits = 0u;
+    uint16_t bits = 0u;
     uint8_t count;
     uint8_t i;
     int32_t sum = 0;
 
     if (!data) return;
 
-    /* bit0~bit7 对应 74HC4051 Y0~Y7，也就是 12 路循迹模块 A3~A10。 */
-    for (i = 0u; i < LINE_SENSOR_COUNT; ++i) {
+    /* bit0~bit11 对应 A1~A12，其中：
+       - bit0/bit1 为直连 A1/A2
+       - bit2~bit9 为 74HC4051 扫描 A3~A10
+       - bit10/bit11 为直连 A11/A12 */
+    if (line_direct_is_active(LINE_DIRECT_A1_PORT, LINE_DIRECT_A1_PIN))
+        bits |= ((uint16_t)1u << 0);
+    if (line_direct_is_active(LINE_DIRECT_A2_PORT, LINE_DIRECT_A2_PIN))
+        bits |= ((uint16_t)1u << 1);
+
+    for (i = 0u; i < 8u; ++i) {
         line_mux_select(i);
-        if (line_mux_is_active()) bits |= (uint8_t)(1u << i);
+        if (line_mux_is_active())
+            bits |= ((uint16_t)1u << (i + 2u));
     }
+
+    if (line_direct_is_active(LINE_DIRECT_A11_PORT, LINE_DIRECT_A11_PIN))
+        bits |= ((uint16_t)1u << 10);
+    if (line_direct_is_active(LINE_DIRECT_A12_PORT, LINE_DIRECT_A12_PIN))
+        bits |= ((uint16_t)1u << 11);
 
     count = line_bit_count(bits);
     data->bits = bits;
@@ -949,7 +982,7 @@ void LineSensor_Read(LineSensor_Data_t *data)
 
     data->lineDetected = 1u;
     for (i = 0u; i < LINE_SENSOR_COUNT; ++i) {
-        if (bits & (1u << i)) sum += s_lineWeights[i];
+        if (bits & ((uint16_t)1u << i)) sum += s_lineWeights[i];
     }
     data->position = (float)sum / ((float)count * 100.0f);
 }
