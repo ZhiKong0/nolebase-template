@@ -218,3 +218,25 @@ Phase 44
 - [x] 重新编译 `Project_track_fisheye`
 - [x] 使用 `pyOCD` 完成擦除、下载和复位
 - [x] 更新规划记录，标记当前固件已回到 `ddc2eb7` 主链
+
+## Session: 2026-04-24 定位 12 路版本
+
+### Goal
+- 找出 `Project_track_fisheye` 刚改到 `12` 路时对应的 git 提交
+- 区分“12 路起点提交”和“当前仍保留 12 路结构的最新工作落点”
+
+### Checklist
+- [x] 在 git 历史中搜索 `12-route / LINE_SENSOR_COUNT 12 / TRACK_LINE_POS_S9`
+- [x] 核对当前工作树是否仍保留 12 路结构
+- [x] 记录可直接回退或参考的提交号
+
+## Session: 2026-04-24 输出 12 路电平到串口
+
+### Goal
+- 在不破坏现有 `experiment_logger` 和脚本兼容性的前提下，让 `HB:` 心跳直接带出 12 路数字电平信号
+
+### Checklist
+- [x] 确认心跳组包位置与 logger 落盘链路
+- [x] 在 `HB:` 中保留 `sb=` 并追加 12 路可读字段
+- [x] 编译并烧录到当前板子
+- [x] 更新规划记录，说明新字段含义

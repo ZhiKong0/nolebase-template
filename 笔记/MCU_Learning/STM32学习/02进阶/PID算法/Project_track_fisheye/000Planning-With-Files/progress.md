@@ -364,48 +364,6 @@
     - `reset --no-config -t stm32f103rc -u 031305620164`
   - 串口烟测尝试打开 `COM18` 失败，错误为 `PermissionError(13, '拒绝访问。')`，说明当前端口被外部进程占用，待释放后再补 `#STAT! / #TS12?!` 回读
 
-## Session: 2026-04-24 转角链重构为 FOLLOW 强化 + SEARCH 兜底 + RECOVER 收回
-
-### Phase 38: 控制逻辑重构
-- **Status:** complete
-- Actions taken:
-  - 在 [`Project_track_fisheye/Hardware/line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 新增：
-    - `track_pick_visible_dir()`
-    - `track_is_turnin_follow_case()`
-    - `track_apply_directional_floor()`
-    - `track_apply_follow_guidance()`
-  - 将 `FOLLOW` 改成两档：
-    - 小偏差：仍走普通单链 `PD`
-    - 大偏差且同侧明显占优：在 `PD` 后施加同向强化下限
-  - 将 `RECOVER` 改成显式“同向收回”：
-    - 搜索退出后记录 `recoverDir`
-    - 在恢复窗口里优先沿 `recoverDir` 继续收回
-    - 重新回到中心后才清掉 `recoverDir/recoverTicks`
-  - 将 `SEARCH` 收成单向 `pivot`：
-    - 只在 `bits==0` 时进入
-    - 不再保留 `ARC -> PIVOT` 切换链
-  - 在 [`Project_track_fisheye/Hardware/config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h) 删除：
-    - `TRACK_SEARCH_ARC_TICKS`
-    - `TRACK_SEARCH_ARC_PWM_FAST`
-    - `TRACK_SEARCH_ARC_PWM_SLOW`
-  - 在 [`Project_track_fisheye/Hardware/line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h) 删除运行时 `searchArcPwm*`
-  - 在 [`Project_track_fisheye/Hardware/bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c) 清理对 `ARC` 阶段字符的引用
-
-### Phase 39: 编译与烧录
-- **Status:** complete
-- Actions taken:
-  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
-  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
-    - `0 Error(s), 0 Warning(s)`
-  - 使用 `pyOCD` 按顺序完成：
-    - `list --probes`
-    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164`
-    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex`
-    - `reset --no-config -t stm32f103rc -u 031305620164`
-  - 追加串口烟测尝试：
-    - 打开 `COM18` 返回 `PermissionError(13, '拒绝访问。')`
-    - 本轮未做最小 `#STAT!` 回读，原因是端口被外部进程占用
-
 ### Phase 19: 日志根因定位
 - **Status:** complete
 - Actions taken:
@@ -628,3 +586,58 @@
     - `pyocd load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex -vv`
     - `pyocd reset --no-config -t stm32f103rc -u 031305620164 -vv`
   - 当前板上固件已切回 `ddc2eb7` 对应的 `line_track.c` 主循迹实现
+
+## Session: 2026-04-24 定位 12 路 git 版本
+
+### Phase 39: 12 路历史定位
+- **Status:** complete
+- Actions taken:
+  - 在 [`Project_track_fisheye`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye) 上执行 git 历史检索：
+    - `git log --grep '12-route|12路'`
+    - `git log -S 'LINE_SENSOR_COUNT 12'`
+    - `git log -S 'TRACK_LINE_POS_S9'`
+  - 结论：`12` 路版本的明确起点提交是：
+    - `ddc2eb7 track: refactor 12-route turn-in and recovery chain`
+  - 同时核对当前工作树，确认目前仍保留：
+    - `LINE_SENSOR_COUNT = 12`
+    - `TRACK_LINE_POS_S9 ~ S12`
+    - `uint16_t bits`
+  - 进一步确认后续 12 路演化提交包括：
+    - `c20f11a`
+    - `32394d0`
+    - `d8d4556`
+    - `b422998`
+  - 其中 `b422998` 的含义是：
+    - 将 `line_track.c` 回退到 `ddc2eb7` 行为基线
+    - 但不移除 12 路基础结构
+
+## Session: 2026-04-24 串口输出 12 路数字电平
+
+### Phase 40: 遥测链定位
+- **Status:** complete
+- Actions taken:
+  - 确认实验记录器只负责原样落盘串口文本，不需要单独改 logger
+  - 确认 `HB:` 主组包位置在 [`Hardware/bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c) 的 `BspUart_SendTelemetryTrack()`
+  - 确认当前已有 `sb=<decimal sensorBits>`，但对 12 路电平可读性不足
+
+### Phase 41: 新增 12 路电平字段
+- **Status:** complete
+- Actions taken:
+  - 在 [`Hardware/bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c) 新增 `track_sensor_bits_to_text()`
+  - 在 `HB:` 中新增：
+    - `sbh=0x%03X`
+    - `s12=<S1~S12 的 12 位数字电平串>`
+  - 保留 `sb=` 不变，避免现有 Python 脚本失效
+
+### Phase 42: 编译与烧录
+- **Status:** complete
+- Actions taken:
+  - 重新编译 [`Project_track_fisheye/project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)
+  - 构建日志 [`Project_track_fisheye/Objects/project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 显示：
+    - `0 Error(s), 0 Warning(s)`
+  - 使用 `pyOCD` 顺序完成：
+    - `list --probes`
+    - `erase --chip --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -vv`
+    - `load --no-config -t stm32f103rc -M under-reset -f 10000000 -u 031305620164 -e sector project.hex -vv`
+    - `reset --no-config -t stm32f103rc -u 031305620164 -vv`
+  - 本轮未主动发 `#RUN!` 做动态串口实验，避免擅自启动小车跑动

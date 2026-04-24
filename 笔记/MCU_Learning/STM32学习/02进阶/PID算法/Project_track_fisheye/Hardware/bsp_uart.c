@@ -259,6 +259,23 @@ static const char *track_telem_state_str(uint8_t dbgTelemState, uint8_t dbgTrack
     return "TRK";
 }
 
+static void track_sensor_bits_to_text(uint16_t sensorBits, char *out, uint16_t outSize)
+{
+    uint8_t i;
+
+    if (out == 0 || outSize == 0u)
+        return;
+    if (outSize < 13u)
+    {
+        out[0] = '\0';
+        return;
+    }
+
+    for (i = 0u; i < 12u; ++i)
+        out[i] = ((sensorBits & ((uint16_t)1u << i)) != 0u) ? '1' : '0';
+    out[12] = '\0';
+}
+
 void BspUart_SendTelemetryStraight(uint32_t tMs, uint32_t experimentId, uint8_t run,
                                    int16_t encL, int16_t encR,
                                    float yaw, float yawRate,
@@ -296,9 +313,11 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
     const char *stateStr;
     char dirChar = '-';
     char phaseChar = '-';
-    char buf[256];
+    char sensorText[13];
+    char buf[288];
 
     stateStr = track_telem_state_str(dbgTelemState, dbgTrackState);
+    track_sensor_bits_to_text(sensorBits, sensorText, sizeof(sensorText));
 
     if (dbgTurnDir == LT_DIR_LEFT) dirChar = 'L';
     else if (dbgTurnDir == LT_DIR_RIGHT) dirChar = 'R';
@@ -306,14 +325,15 @@ void BspUart_SendTelemetryTrack(uint32_t tMs, uint32_t experimentId, uint8_t run
 
     sprintf(buf,
         "HB:t=%lu,m=T,run=%u,exp=%lu,el=%d,er=%d,yaw=%.1f,yr=%.1f,"
-        "pc=%d,hd=%d,OL=%d,OR=%d,sb=%u,lp=%d,bd=%d,cc=%u,"
+        "pc=%d,hd=%d,OL=%d,OR=%d,sb=%u,sbh=0x%03X,s12=%s,lp=%d,bd=%d,cc=%u,"
         "st=%s,sc=%u,td=%c,xa=%u,tf=%u,gs=%u,sp=%c,rt=%u\r\n",
         (unsigned long)tMs, (unsigned)run, (unsigned long)experimentId,
         (int)encL, (int)encR,
         (double)yaw, (double)yawRate,
         (int)pwmCore, (int)headingDiff,
         (int)pwmL, (int)pwmR,
-        (unsigned)sensorBits, (int)linePos, (int)bearingDev, (unsigned)crossCount,
+        (unsigned)sensorBits, (unsigned)sensorBits, sensorText,
+        (int)linePos, (int)bearingDev, (unsigned)crossCount,
         stateStr, (unsigned)dbgScoreEnabled, dirChar,
         (unsigned)dbgCrossActive,
         (unsigned)dbgTelemFlags, (unsigned)gainStage, phaseChar, (unsigned)recoverTicks);

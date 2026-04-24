@@ -278,47 +278,6 @@
 - 重新编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)，[`project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 为 `0 Error(s), 0 Warning(s)`
 - 已按 `pyOCD list -> erase -> load -> reset` 烧录到探头 `031305620164`
 - `COM18` 串口口仍被外部进程占用，因此本轮未完成 `TS12` 回读烟测；这不是烧录失败，而是串口验证被占用阻塞
-
-## 2026-04-24 转角控制链收成 FOLLOW / SEARCH / RECOVER 三段
-
-### 关键证据
-- 当前代码虽然名义上有 `SEARCH_PHASE_ARC/PIVOT`，但实际入口 [`track_enter_search()`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 已经总是直接把 `searchPhase` 置到 `PIVOT`，`ARC` 只剩死分支。
-- 真正的反应慢点不在 `SEARCH`，而在：
-  - `FOLLOW` 大偏差时仍只靠普通 `PD`
-  - `SEARCH` 退出后虽然会置 `recoverDir/recoverTicks`，但恢复期没有“继续同向收回”的硬约束
-- 这会让车出现：
-  - 还看得见外侧线时不够果断
-  - 刚重见线就很快完全交回普通 `PD`
-  - 导致“回来了但没收紧，又被甩出去”
-
-### 判断
-- 如果只是把找线改成单向 `pivot`，改善有限；因为问题主因不只在“扫空”。
-- 更有效的切法是把强转前移到 `FOLLOW`，并把 `RECOVER` 变成显式的同向收回链。
-- 所以这轮控制逻辑应收成三段：
-  - `FOLLOW`：小偏差普通 `PD`
-  - `FOLLOW`：大偏差且同侧明显占优时，直接同向强化转入
-  - `SEARCH`：只有全灭才进入，且单向 `pivot`
-  - `RECOVER`：重新见到同侧线后，继续顺着该方向收回中心
-
-### 本轮修正
-- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)
-  - 新增 `track_pick_visible_dir()`
-  - 新增 `track_is_turnin_follow_case()`
-  - 新增 `track_apply_follow_guidance()`
-  - 在 `track_drive_follow()` 中把同向强化前移到普通 `PD` 之后、限幅之前
-  - 在恢复窗口内，优先按 `recoverDir` 继续同向收回，而不是立刻完全交回普通 `PD`
-  - `recoverTicks` 现在优先在“回中心”时清零，而不是单纯按时间提前放手
-- [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c)、[`line_track.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.h)、[`config.h`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/config.h)
-  - 删除 `TRACK_SEARCH_ARC_*` 宏和运行时 `searchArcPwm*`
-  - 删掉 `ARC` 进 `PIVOT` 的阶段切换分支
-  - `SEARCH` 固化为单向 `pivot` 兜底链
-- [`bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c)
-  - 串口遥测不再尝试输出已删除的 `ARC` 阶段
-
-### 验证
-- 重新编译 [`project.uvprojx`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/project.uvprojx)，[`project.build_log.htm`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Objects/project.build_log.htm) 为 `0 Error(s), 0 Warning(s)`
-- 已按 `pyOCD list -> erase -> load -> reset` 烧录到探头 `031305620164`
-- `COM18` 仍被外部进程占用，最小 `#STAT!` 烟测未能回读
 - `PID_TRACK_LINE_KP: 12.2 -> 11.4`
 - `TRACK_FOLLOW_DEV_RATIO: 0.62 -> 0.58`
 - `TRACK_FOLLOW_DEV_STEP_LIMIT: 38 -> 34`
@@ -560,3 +519,64 @@
 - 使用定向 `git restore --source ddc2eb7` 将 [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 恢复到 `ddc2eb7`。
 - 没有使用整仓 `reset --hard`，避免影响其它工程和用户未提交改动。
 - 构建并重新烧录，当前板上固件主循迹链已回到 `ddc2eb7` 对应实现。
+
+## 2026-04-24 Project_track_fisheye 的 12 路版本定位
+
+### 关键结论
+- `Project_track_fisheye` 中“改到 12 路”的明确起点提交是：
+  - `ddc2eb7 track: refactor 12-route turn-in and recovery chain`
+- 这是 git 历史里第一次同时引入以下 12 路特征的版本：
+  - `LINE_SENSOR_COUNT = 12`
+  - `TRACK_LINE_POS_S9 ~ S12`
+  - `sensor_fusion.h` 中 `LineSensor_Data_t.bits = uint16_t`
+  - `line_track.h / line_track.c` 中的 `uint16_t bits` 与 `LT_BIT_S9 ~ LT_BIT_S12`
+
+### 证据
+- `git log -S 'LINE_SENSOR_COUNT 12'` 命中 `ddc2eb7`
+- `git log -S 'TRACK_LINE_POS_S9'` 命中 `ddc2eb7`
+- `git log --grep '12-route|12路'` 命中 `ddc2eb7`
+
+### 后续演化
+- `ddc2eb7` 之后，这条 12 路主线又经历了：
+  - `c20f11a track: strengthen exp404 line catch without slowing`
+  - `32394d0 track: release recover hold earlier for exp422`
+  - `d8d4556 track: shape single-chain error for exp432`
+- 随后：
+  - `b422998 track: revert fisheye line_track to ddc2eb7 baseline`
+  只把 [`line_track.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/line_track.c) 回退到 `ddc2eb7` 基线，但整个工程其余 12 路基础结构仍然保留。
+
+### 当前判断
+- 如果你要找“刚刚改到 12 路的原始版本”，用 `ddc2eb7`
+- 如果你要找“当前工作树所处的 12 路分支最新落点”，它已经包含到：
+  - `b422998`
+  只是其中的 `line_track.c` 已回退到 `ddc2eb7` 的行为基线
+
+## 2026-04-24 串口补充 12 路数字电平遥测
+
+### 关键结论
+- 当前 `HB:` 心跳里原本只有 `sb=`，它发送的是 `sensorBits` 的十进制整型值。
+- 对 12 路版本来说，`sb=` 仍然可用，但肉眼无法直接看出 `S1~S12` 每一路当前高低电平。
+- 实验记录器本身不需要改，只要在固件 `HB:` 中追加新字段，`experiment_logger` 就会原样写入文件。
+
+### 本轮修正
+- 在 [`Hardware/bsp_uart.c`](/F:/Documents/GitHub/nolebase-template/笔记/MCU_Learning/STM32学习/02进阶/PID算法/Project_track_fisheye/Hardware/bsp_uart.c) 新增：
+  - `track_sensor_bits_to_text()`
+- 在 `BspUart_SendTelemetryTrack()` 中保留原字段：
+  - `sb=<decimal>`
+- 同时新增两个可读字段：
+  - `sbh=0x%03X`
+  - `s12=<12位字符串>`
+
+### 字段语义
+- `sb`
+  - 原兼容字段，十进制位掩码
+- `sbh`
+  - 同一位掩码的十六进制形式，便于直接看位图
+- `s12`
+  - 从左到右按 `S1~S12` 展开的 12 位数字电平串
+  - 例如 `001100000000` 表示 `S3/S4` 命中，其余位未命中
+
+### 兼容性判断
+- 旧脚本仍然可以继续只读 `sb`
+- 新的实验日志会额外携带 `sbh/s12`
+- `parse_kv_line()` 这类基于 `k=v` 的脚本不会因为新增字段而失效
