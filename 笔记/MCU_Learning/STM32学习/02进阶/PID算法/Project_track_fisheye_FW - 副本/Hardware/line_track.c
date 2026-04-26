@@ -132,14 +132,6 @@ static uint8_t track_is_search_state(uint8_t state)
     return (state == LT_TRACK_SEARCH_LEFT || state == LT_TRACK_SEARCH_RIGHT) ? 1u : 0u;
 }
 
-static uint8_t track_opposite_dir(uint8_t dir)
-{
-    if (dir == LT_DIR_RIGHT) {
-        return LT_DIR_LEFT;
-    }
-    return LT_DIR_RIGHT;
-}
-
 static uint16_t track_reverse_sensor_bits(uint16_t bits)
 {
     uint16_t reversed = 0u;
@@ -293,7 +285,6 @@ static void track_load_default_runtime_config(void)
     g_lineTrackCfg.searchArcPwmSlow = TRACK_SEARCH_ARC_PWM_SLOW;
     g_lineTrackCfg.searchTurnPwmFast = TRACK_SEARCH_TURN_PWM_FAST;
     g_lineTrackCfg.searchTurnPwmSlow = TRACK_SEARCH_TURN_PWM_SLOW;
-    g_lineTrackCfg.searchTimeoutTicks = TRACK_SEARCH_TIMEOUT_TICKS;
 }
 
 static void track_reset_follow_filters(void)
@@ -624,25 +615,6 @@ static void track_enter_search(uint8_t dir)
     g_lineTrack.lastDevSpeedCmd = 0;
 }
 
-static void track_flip_search_dir(void)
-{
-    uint8_t nextDir = track_opposite_dir(g_lineTrack.searchDir);
-
-    g_lineTrack.searchDir = nextDir;
-    g_lineTrack.trackState = (nextDir == LT_DIR_LEFT) ? LT_TRACK_SEARCH_LEFT : LT_TRACK_SEARCH_RIGHT;
-    g_lineTrack.searchPhase = LT_SEARCH_PHASE_PIVOT;
-    g_lineTrack.searchTicks = 0u;
-    g_lineTrack.searchSeenTicks = 0u;
-    g_lineTrack.cornerLatchDir = nextDir;
-    g_lineTrack.cornerLatchTicks = 0u;
-    g_lineTrack.dbgTrackState = g_lineTrack.trackState;
-    g_lineTrack.dbgTurnDir = nextDir;
-    g_lineTrack.dbgResolvedSearchDir = nextDir;
-    g_lineTrack.dbgResolvedSource = 6u;
-    g_lineTrack.dbgTelemState = (nextDir == LT_DIR_LEFT) ? LT_TLM_STATE_SEARCH_LEFT : LT_TLM_STATE_SEARCH_RIGHT;
-    g_lineTrack.dbgTelemFlags = LT_TLM_FLAG_SEARCH | LT_TLM_FLAG_LOST | LT_TLM_FLAG_PIVOT;
-}
-
 static void track_drive_search(void)
 {
     int16_t left;
@@ -954,9 +926,6 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
         }
 
         if (track_is_search_state(g_lineTrack.trackState)) {
-            if (g_lineTrack.searchTicks >= g_lineTrackCfg.searchTimeoutTicks) {
-                track_flip_search_dir();
-            }
             track_drive_search();
         } else {
             MotorDriver_SetCoreDiff(basePwm, 0);
@@ -969,9 +938,6 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
 
     if (track_is_search_state(g_lineTrack.trackState)) {
         if (!track_try_exit_search(&sample)) {
-            if (g_lineTrack.searchTicks >= g_lineTrackCfg.searchTimeoutTicks) {
-                track_flip_search_dir();
-            }
             track_drive_search();
             return;
         }
@@ -1090,10 +1056,6 @@ uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue)
         applied = track_clampf(value, 0.0f, (float)TRACK_PWM_MAX);
         g_lineTrackCfg.searchTurnPwmSlow = (uint16_t)(applied + 0.5f);
         applied = (float)g_lineTrackCfg.searchTurnPwmSlow;
-    } else if (strcmp(key, "track.search_timeout") == 0) {
-        applied = track_clampf(value, 1.0f, 200.0f);
-        g_lineTrackCfg.searchTimeoutTicks = (uint16_t)(applied + 0.5f);
-        applied = (float)g_lineTrackCfg.searchTimeoutTicks;
     } else {
         return 0u;
     }
@@ -1132,8 +1094,6 @@ uint8_t LineTrack_ParamGet(const char *key, float *value)
         *value = (float)g_lineTrackCfg.searchTurnPwmFast;
     } else if (strcmp(key, "track.search_turn_slow") == 0) {
         *value = (float)g_lineTrackCfg.searchTurnPwmSlow;
-    } else if (strcmp(key, "track.search_timeout") == 0) {
-        *value = (float)g_lineTrackCfg.searchTimeoutTicks;
     } else {
         return 0u;
     }
@@ -1153,8 +1113,7 @@ void LineTrack_ParamList(char *out, uint16_t outSize)
     used += (uint16_t)snprintf(out + used, outSize - used,
                                "track.dev_ratio,track.deadband,track.pos_lpf,"
                                "track.d_lpf,track.static_bias,track.diff_slew,track.recover_ticks,"
-                               "track.search_turn_fast,track.search_turn_slow,"
-                               "track.search_timeout");
+                               "track.search_turn_fast,track.search_turn_slow");
 
     for (i = 0u; i < LINE_SENSOR_COUNT && used < outSize; ++i) {
         used += (uint16_t)snprintf(out + used, outSize - used,

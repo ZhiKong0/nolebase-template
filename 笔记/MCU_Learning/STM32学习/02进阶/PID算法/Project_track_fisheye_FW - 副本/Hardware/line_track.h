@@ -58,7 +58,6 @@ typedef struct
     uint16_t searchTurnPwmFast;
     uint16_t searchTurnPwmSlow;
     uint16_t searchHalfMaskTicks;
-    uint16_t searchTimeoutTicks;
 } LineTrack_RuntimeConfig_t;
 
 typedef struct

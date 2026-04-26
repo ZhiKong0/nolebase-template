@@ -332,7 +332,11 @@ static void transition_stop(ExperimentTrigger_t trigger)
     g_sysState = SYS_STOP;
     g_experimentActive = 0u;
     track3lap_reset();
-    stop_alert_start();
+    if (trigger == EXP_TRIGGER_AUTO) {
+        stop_alert_start();
+    } else {
+        stop_alert_cancel();
+    }
     g_displayDirty = 1u;
 }
 
