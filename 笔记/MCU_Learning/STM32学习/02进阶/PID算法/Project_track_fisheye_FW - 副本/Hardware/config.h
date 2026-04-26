@@ -167,7 +167,7 @@ typedef enum
 #define PID_TRACK_SPEED_KI          0.10f
 #define PID_TRACK_SPEED_KD          0.00f
 
-#define PID_TRACK_LINE_KP           9.60f
+#define PID_TRACK_LINE_KP           10.00f
 #define PID_TRACK_LINE_KD           2.90f
 
 #define TRACK_LINE_POS_CENTER_MAX   18
