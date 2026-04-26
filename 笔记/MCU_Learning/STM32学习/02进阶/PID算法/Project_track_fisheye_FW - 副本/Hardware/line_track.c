@@ -266,7 +266,6 @@ static void track_load_default_runtime_config(void)
     g_lineTrackCfg.searchArcPwmSlow = TRACK_SEARCH_ARC_PWM_SLOW;
     g_lineTrackCfg.searchTurnPwmFast = TRACK_SEARCH_TURN_PWM_FAST;
     g_lineTrackCfg.searchTurnPwmSlow = TRACK_SEARCH_TURN_PWM_SLOW;
-    g_lineTrackCfg.searchHalfMaskTicks = TRACK_SEARCH_HALF_MASK_TICKS;
     g_lineTrackCfg.searchTimeoutTicks = TRACK_SEARCH_TIMEOUT_TICKS;
 }
 
@@ -455,32 +454,6 @@ static void track_apply_turn_bias(TrackSample_t *sample)
 
     track_apply_two_led_turn_bias(sample, turnDir);
     track_apply_wide_turn_bias(sample, turnDir);
-}
-
-static void track_apply_search_half_mask(TrackSample_t *sample)
-{
-    uint16_t originalBits;
-    uint16_t mask = 0u;
-
-    if (!sample ||
-        !track_is_search_state(g_lineTrack.trackState) ||
-        g_lineTrack.searchTicks < g_lineTrackCfg.searchHalfMaskTicks) {
-        return;
-    }
-
-    if (g_lineTrack.searchDir == LT_DIR_RIGHT) {
-        mask = 0xF0u;
-    } else if (g_lineTrack.searchDir == LT_DIR_LEFT) {
-        mask = 0x0Fu;
-    } else {
-        return;
-    }
-
-    originalBits = sample->bits;
-    sample->bits &= mask;
-    if (sample->bits != originalBits) {
-        track_refresh_sample(sample);
-    }
 }
 
 static TrackSample_t track_sample_from_sensor(const LineSensor_Data_t *line)
@@ -915,7 +888,6 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
 
     LineSensor_Read(&line);
     sample = track_sample_from_sensor(&line);
-    track_apply_search_half_mask(&sample);
     track_apply_turn_bias(&sample);
     crossActive = (sample.activeCount >= TRACK_CROSS_MIN_ACTIVE) ? 1u : 0u;
 
@@ -1071,10 +1043,6 @@ uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue)
         applied = track_clampf(value, 0.0f, (float)TRACK_PWM_MAX);
         g_lineTrackCfg.searchTurnPwmSlow = (uint16_t)(applied + 0.5f);
         applied = (float)g_lineTrackCfg.searchTurnPwmSlow;
-    } else if (strcmp(key, "track.search_half_mask") == 0) {
-        applied = track_clampf(value, 0.0f, 120.0f);
-        g_lineTrackCfg.searchHalfMaskTicks = (uint16_t)(applied + 0.5f);
-        applied = (float)g_lineTrackCfg.searchHalfMaskTicks;
     } else if (strcmp(key, "track.search_timeout") == 0) {
         applied = track_clampf(value, 1.0f, 200.0f);
         g_lineTrackCfg.searchTimeoutTicks = (uint16_t)(applied + 0.5f);
@@ -1117,8 +1085,6 @@ uint8_t LineTrack_ParamGet(const char *key, float *value)
         *value = (float)g_lineTrackCfg.searchTurnPwmFast;
     } else if (strcmp(key, "track.search_turn_slow") == 0) {
         *value = (float)g_lineTrackCfg.searchTurnPwmSlow;
-    } else if (strcmp(key, "track.search_half_mask") == 0) {
-        *value = (float)g_lineTrackCfg.searchHalfMaskTicks;
     } else if (strcmp(key, "track.search_timeout") == 0) {
         *value = (float)g_lineTrackCfg.searchTimeoutTicks;
     } else {
@@ -1140,7 +1106,7 @@ void LineTrack_ParamList(char *out, uint16_t outSize)
     used += (uint16_t)snprintf(out + used, outSize - used,
                                "track.dev_ratio,track.deadband,track.pos_lpf,"
                                "track.d_lpf,track.static_bias,track.diff_slew,track.recover_ticks,"
-                               "track.search_turn_fast,track.search_turn_slow,track.search_half_mask,"
+                               "track.search_turn_fast,track.search_turn_slow,"
                                "track.search_timeout");
 
     for (i = 0u; i < LINE_SENSOR_COUNT && used < outSize; ++i) {
