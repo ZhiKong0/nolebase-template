@@ -43,6 +43,7 @@ typedef enum
 #define MOTOR_PWM_PERIOD    1000
 #define MOTOR_PWM_PRESCALER 72
 #define MOTOR_PWM_MAX       600
+#define MOTOR_BRAKE_PWM     600
 #define MOTOR_DIFF_MAX      320
 #define MOTOR_DEADZONE      80
 #define MOTOR_LEFT_DIR_SIGN (-1)
@@ -115,6 +116,14 @@ typedef enum
 #define COMM_BAUDRATE        115200
 #define COMM_TX_BUF_SIZE     2048
 #define COMM_RX_BUF_SIZE     96
+
+/* Buzzer: recommended active buzzer on free GPIO PA12 */
+#define BUZZER_PORT          GPIOA
+#define BUZZER_PIN           GPIO_Pin_12
+#define BUZZER_GPIO_RCC      RCC_APB2Periph_GPIOA
+#define BUZZER_ACTIVE_HIGH   1
+#define STOP_ALERT_BEEP_MS   120u
+#define STOP_ALERT_OLED_MS   2000u
 
 /* TIM4 1ms system tick */
 #define SYS_TIM            TIM4
@@ -215,8 +224,8 @@ typedef enum
 #define TRACK_SEARCH_TIMEOUT_TICKS  60u
 #define TRACK_SEARCH_ARC_PWM_FAST   340u
 #define TRACK_SEARCH_ARC_PWM_SLOW   230u
-#define TRACK_SEARCH_TURN_PWM_FAST  520u
-#define TRACK_SEARCH_TURN_PWM_SLOW  560u
+#define TRACK_SEARCH_TURN_PWM_FAST  480u
+#define TRACK_SEARCH_TURN_PWM_SLOW  500u
 #define TRACK_SEARCH_MIN_PIVOT_TICKS 12u
 #define TRACK_SEARCH_REACQUIRE_TICKS 2u
 #define TRACK_SEARCH_EXIT_HOLD_TICKS 2u
@@ -226,6 +235,7 @@ typedef enum
 #define TRACK_DEFAULT_CROSSINGS     0u
 #define TRACK_CROSS_MIN_ACTIVE      5u
 #define TRACK_CROSS_RELEASE_TICKS   3u
+#define TRACK_FULL_BLACK_STOP_DELAY_MS 20000u
 
 /* Spin / manual turn placeholder */
 #define SPIN_PLACEHOLDER_PWM        180

@@ -95,6 +95,33 @@ static uint8_t track_count_active_bits(uint16_t bits)
     return count;
 }
 
+static uint8_t track_is_full_black_bits(uint16_t bits)
+{
+    uint16_t fullMask = (uint16_t)((1u << LINE_SENSOR_COUNT) - 1u);
+    return (bits == fullMask) ? 1u : 0u;
+}
+
+static void track_arm_run_start_if_needed(uint32_t tickMs)
+{
+    if (g_lineTrack.runStartTickMs == 0u) {
+        g_lineTrack.runStartTickMs = tickMs;
+    }
+}
+
+static uint8_t track_should_stop_on_full_black(uint32_t tickMs, uint16_t rawBits)
+{
+    if (TRACK_FULL_BLACK_STOP_DELAY_MS == 0u) {
+        return 0u;
+    }
+
+    if (!track_is_full_black_bits(rawBits)) {
+        return 0u;
+    }
+
+    track_arm_run_start_if_needed(tickMs);
+    return ((tickMs - g_lineTrack.runStartTickMs) >= TRACK_FULL_BLACK_STOP_DELAY_MS) ? 1u : 0u;
+}
+
 static uint8_t track_is_recover_active(void)
 {
     return (g_lineTrack.recoverHoldTicks > 0u) ? 1u : 0u;
@@ -288,7 +315,8 @@ static void track_reset_runtime_state(void)
     g_lineTrack.bearingDev = 0;
     g_lineTrack.linePos = 0;
     g_lineTrack.lastValidLinePos = 0;
-    g_lineTrack.filterTimes = 0u;
+    g_lineTrack.runStartTickMs = 0u;
+    g_lineTrack.crossReleaseTicks = 0u;
     g_lineTrack.crossCount = 0u;
     g_lineTrack.crossState = LT_CROSS_READY;
     g_lineTrack.overrunCount = 0u;
@@ -510,7 +538,7 @@ static void track_update_cross_state(uint8_t crossActive)
 {
     if (crossActive) {
         g_lineTrack.dbgCrossActive = 1u;
-        g_lineTrack.filterTimes = 0u;
+        g_lineTrack.crossReleaseTicks = 0u;
         if (g_lineTrack.crossState != LT_CROSS_SEEN) {
             if (g_lineTrack.crossCount < 255u) {
                 g_lineTrack.crossCount++;
@@ -523,11 +551,11 @@ static void track_update_cross_state(uint8_t crossActive)
     g_lineTrack.dbgCrossActive = 0u;
 
     if (g_lineTrack.crossState == LT_CROSS_SEEN) {
-        if (g_lineTrack.filterTimes < 255u) {
-            g_lineTrack.filterTimes++;
+        if (g_lineTrack.crossReleaseTicks < 255u) {
+            g_lineTrack.crossReleaseTicks++;
         }
-        if (g_lineTrack.filterTimes >= TRACK_CROSS_RELEASE_TICKS) {
-            g_lineTrack.filterTimes = 0u;
+        if (g_lineTrack.crossReleaseTicks >= TRACK_CROSS_RELEASE_TICKS) {
+            g_lineTrack.crossReleaseTicks = 0u;
             g_lineTrack.crossState = LT_CROSS_READY;
         }
     } else {
@@ -876,18 +904,22 @@ void LineTrack_Stop(void)
 void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
 {
     LineSensor_Data_t line;
+    TrackSample_t rawSample;
     TrackSample_t sample;
     uint8_t crossActive;
-
-    (void)tickMs;
+    uint8_t fullBlackActive;
     (void)currentYawRate;
 
     if (g_lineTrack.state != LT_STATE_RUNNING) {
         return;
     }
 
+    track_arm_run_start_if_needed(tickMs);
+
     LineSensor_Read(&line);
-    sample = track_sample_from_sensor(&line);
+    rawSample = track_sample_from_sensor(&line);
+    fullBlackActive = track_is_full_black_bits(rawSample.bits);
+    sample = rawSample;
     track_apply_turn_bias(&sample);
     crossActive = (sample.activeCount >= TRACK_CROSS_MIN_ACTIVE) ? 1u : 0u;
 
@@ -903,6 +935,12 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
     track_update_cross_state(crossActive);
 
     if (s_targetCrossings > 0u && g_lineTrack.crossCount >= s_targetCrossings) {
+        g_lineTrack.state = LT_STATE_IDLE;
+        MotorDriver_Stop();
+        return;
+    }
+
+    if (track_should_stop_on_full_black(tickMs, rawSample.bits)) {
         g_lineTrack.state = LT_STATE_IDLE;
         MotorDriver_Stop();
         return;
@@ -953,6 +991,24 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
 uint8_t LineTrack_IsRunning(void)
 {
     return (g_lineTrack.state == LT_STATE_RUNNING) ? 1u : 0u;
+}
+
+uint8_t LineTrack_PollFullBlackStop(uint32_t tickMs)
+{
+    LineSensor_Data_t line;
+
+    if (g_lineTrack.state != LT_STATE_RUNNING) {
+        return 0u;
+    }
+
+    LineSensor_Read(&line);
+    if (!track_should_stop_on_full_black(tickMs, track_normalize_sensor_bits(line.bits))) {
+        return 0u;
+    }
+
+    g_lineTrack.state = LT_STATE_IDLE;
+    MotorDriver_Stop();
+    return 1u;
 }
 
 void LineTrack_SetPID(float kp, float kd)
