@@ -7,7 +7,7 @@ typedef enum
 {
     MODE_STRAIGHT = 0,
     MODE_TRACK    = 1,
-    MODE_SPIN     = 2
+    MODE_TRACK3   = 2
 } ControlMode_t;
 
 typedef enum
@@ -236,6 +236,7 @@ typedef enum
 #define TRACK_CROSS_MIN_ACTIVE      5u
 #define TRACK_CROSS_RELEASE_TICKS   3u
 #define TRACK_FULL_BLACK_STOP_DELAY_MS 20000u
+#define TRACK3_TARGET_LAPS          3u
 
 /* Spin / manual turn placeholder */
 #define SPIN_PLACEHOLDER_PWM        180

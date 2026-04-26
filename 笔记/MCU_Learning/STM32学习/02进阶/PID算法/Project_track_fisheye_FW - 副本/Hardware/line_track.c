@@ -907,7 +907,6 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
     TrackSample_t rawSample;
     TrackSample_t sample;
     uint8_t crossActive;
-    uint8_t fullBlackActive;
     (void)currentYawRate;
 
     if (g_lineTrack.state != LT_STATE_RUNNING) {
@@ -918,7 +917,6 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
 
     LineSensor_Read(&line);
     rawSample = track_sample_from_sensor(&line);
-    fullBlackActive = track_is_full_black_bits(rawSample.bits);
     sample = rawSample;
     track_apply_turn_bias(&sample);
     crossActive = (sample.activeCount >= TRACK_CROSS_MIN_ACTIVE) ? 1u : 0u;
@@ -935,12 +933,6 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
     track_update_cross_state(crossActive);
 
     if (s_targetCrossings > 0u && g_lineTrack.crossCount >= s_targetCrossings) {
-        g_lineTrack.state = LT_STATE_IDLE;
-        MotorDriver_Stop();
-        return;
-    }
-
-    if (track_should_stop_on_full_black(tickMs, rawSample.bits)) {
         g_lineTrack.state = LT_STATE_IDLE;
         MotorDriver_Stop();
         return;
@@ -993,7 +985,7 @@ uint8_t LineTrack_IsRunning(void)
     return (g_lineTrack.state == LT_STATE_RUNNING) ? 1u : 0u;
 }
 
-uint8_t LineTrack_PollFullBlackStop(uint32_t tickMs)
+uint8_t LineTrack_PollFullBlackMarker(uint32_t tickMs)
 {
     LineSensor_Data_t line;
 
@@ -1006,8 +998,7 @@ uint8_t LineTrack_PollFullBlackStop(uint32_t tickMs)
         return 0u;
     }
 
-    g_lineTrack.state = LT_STATE_IDLE;
-    MotorDriver_Stop();
+    g_lineTrack.runStartTickMs = tickMs;
     return 1u;
 }
 

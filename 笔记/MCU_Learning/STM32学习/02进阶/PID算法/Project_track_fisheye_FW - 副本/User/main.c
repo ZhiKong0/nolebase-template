@@ -28,12 +28,19 @@ typedef struct
     int32_t startRightCount;
 } TurnbackState_t;
 
+typedef struct
+{
+    uint8_t enabled;
+    uint8_t hitCount;
+} Track3LapState_t;
+
 static SystemState_t g_sysState = SYS_STOP;
 static ControlMode_t g_mode = MODE_TRACK;
 static DualLoopState_t g_pid;
 static Encoder_Data_t g_encoder;
 static IMU_Data_t g_imu;
 static TurnbackState_t g_turnback;
+static Track3LapState_t g_track3Lap;
 
 static volatile uint32_t g_tickMs = 0u;
 static volatile uint8_t g_controlFlag = 0u;
@@ -158,6 +165,11 @@ static uint8_t is_running(void)
     return (g_sysState != SYS_STOP) ? 1u : 0u;
 }
 
+static void track3lap_reset(void)
+{
+    memset(&g_track3Lap, 0, sizeof(g_track3Lap));
+}
+
 static uint8_t turnback_is_active(void)
 {
     return g_turnback.active;
@@ -174,7 +186,7 @@ static char mode_to_char(ControlMode_t mode)
     switch (mode)
     {
     case MODE_TRACK: return 'T';
-    case MODE_SPIN:  return 'P';
+    case MODE_TRACK3:return '3';
     default:         return 'S';
     }
 }
@@ -218,7 +230,7 @@ static void load_mode_defaults(ControlMode_t mode)
 {
     if (mode == MODE_STRAIGHT) {
         DualLoop_LoadStraightDefaults(&g_pid);
-    } else if (mode == MODE_TRACK) {
+    } else if (mode == MODE_TRACK || mode == MODE_TRACK3) {
         DualLoop_LoadTrackDefaults(&g_pid);
     } else {
         DualLoop_LoadStraightDefaults(&g_pid);
@@ -238,7 +250,7 @@ static void transition_toggle_mode(void)
     if (g_mode == MODE_STRAIGHT) {
         set_mode(MODE_TRACK);
     } else if (g_mode == MODE_TRACK) {
-        set_mode(MODE_SPIN);
+        set_mode(MODE_TRACK3);
     } else {
         set_mode(MODE_STRAIGHT);
     }
@@ -274,6 +286,7 @@ static void transition_start(ExperimentTrigger_t trigger)
     stop_alert_cancel();
     g_experimentActive = 1u;
     g_runStartTick = g_tickMs;
+    track3lap_reset();
     memset(&g_encoder, 0, sizeof(g_encoder));
     Encoder_Reset();
     DualLoop_ResetAll(&g_pid);
@@ -285,9 +298,12 @@ static void transition_start(ExperimentTrigger_t trigger)
 
     if (g_mode == MODE_STRAIGHT) {
         g_sysState = SYS_STRAIGHT;
-    } else if (g_mode == MODE_TRACK) {
+    } else if (g_mode == MODE_TRACK || g_mode == MODE_TRACK3) {
         g_sysState = SYS_TRACKING;
         LineTrack_Start(TRACK_DEFAULT_CROSSINGS);
+        if (g_mode == MODE_TRACK3) {
+            g_track3Lap.enabled = 1u;
+        }
     } else {
         g_sysState = SYS_SPINNING;
     }
@@ -315,6 +331,7 @@ static void transition_stop(ExperimentTrigger_t trigger)
     DualLoop_ResetAll(&g_pid);
     g_sysState = SYS_STOP;
     g_experimentActive = 0u;
+    track3lap_reset();
     stop_alert_start();
     g_displayDirty = 1u;
 }
@@ -340,9 +357,30 @@ static void transition_finish_hold(ExperimentTrigger_t trigger)
     LineTrack_Stop();
     g_sysState = SYS_STOP;
     g_experimentActive = 0u;
+    track3lap_reset();
     stop_alert_start();
     g_displayDirty = 1u;
     MotorDriver_ActiveBrake();
+}
+
+static uint8_t handle_full_black_hit(void)
+{
+    if (!g_track3Lap.enabled) {
+        transition_finish_hold(EXP_TRIGGER_AUTO);
+        return 1u;
+    }
+
+    if (g_track3Lap.hitCount < 255u) {
+        g_track3Lap.hitCount++;
+    }
+
+    if (g_track3Lap.hitCount >= TRACK3_TARGET_LAPS) {
+        transition_finish_hold(EXP_TRIGGER_AUTO);
+        return 1u;
+    }
+
+    stop_alert_start();
+    return 0u;
 }
 
 static void turnback_clear(void)
@@ -807,10 +845,11 @@ static void handle_command(const char *cmd)
         return;
     }
 
-    if (strcmp(cmd, "#MODE=SPIN!") == 0) {
+    if (strcmp(cmd, "#MODE=TRACK3!") == 0 || strcmp(cmd, "#MODE=LAP3!") == 0 ||
+        strcmp(cmd, "#MODE=SPIN!") == 0) {
         if (!is_running() && !turnback_is_active()) {
-            set_mode(MODE_SPIN);
-            BspUart_SendString("OK:MODE=SPIN\r\n");
+            set_mode(MODE_TRACK3);
+            BspUart_SendString("OK:MODE=TRACK3\r\n");
         }
         return;
     }
@@ -1194,8 +1233,10 @@ int main(void)
 
         stop_alert_update(now);
 
-        if (g_sysState == SYS_TRACKING && LineTrack_PollFullBlackStop(now)) {
-            transition_finish_hold(EXP_TRIGGER_AUTO);
+        if (g_sysState == SYS_TRACKING && LineTrack_PollFullBlackMarker(now)) {
+            if (handle_full_black_hit()) {
+                continue;
+            }
             continue;
         }
 

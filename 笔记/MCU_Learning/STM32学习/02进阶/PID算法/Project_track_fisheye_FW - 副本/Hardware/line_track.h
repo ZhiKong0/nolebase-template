@@ -127,7 +127,7 @@ void LineTrack_Start(uint8_t crossings);
 void LineTrack_Stop(void);
 void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate);
 uint8_t LineTrack_IsRunning(void);
-uint8_t LineTrack_PollFullBlackStop(uint32_t tickMs);
+uint8_t LineTrack_PollFullBlackMarker(uint32_t tickMs);
 void LineTrack_SetPID(float kp, float kd);
 void LineTrack_ResetRuntimeConfig(void);
 uint8_t LineTrack_ParamSet(const char *key, float value, float *appliedValue);

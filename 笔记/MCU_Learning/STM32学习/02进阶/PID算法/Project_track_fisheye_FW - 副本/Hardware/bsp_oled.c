@@ -23,7 +23,10 @@ void BspOled_ShowStatus(SystemState_t state, ControlMode_t mode,
     switch (state) {
     case SYS_STOP:     OLED_ShowString(1, 1, "STOP    "); break;
     case SYS_STRAIGHT: OLED_ShowString(1, 1, "STRAIGHT"); break;
-    case SYS_TRACKING: OLED_ShowString(1, 1, "TRACK   "); break;
+    case SYS_TRACKING:
+        if (mode == MODE_TRACK3) OLED_ShowString(1, 1, "TRACK3  ");
+        else OLED_ShowString(1, 1, "TRACK   ");
+        break;
     case SYS_SPINNING: OLED_ShowString(1, 1, "SPIN    "); break;
     default:           OLED_ShowString(1, 1, "???     "); break;
     }
@@ -31,8 +34,8 @@ void BspOled_ShowStatus(SystemState_t state, ControlMode_t mode,
     /* Line 1 col 10: Mode indicator */
     if (mode == MODE_TRACK)
         OLED_ShowString(1, 10, "T");
-    else if (mode == MODE_SPIN)
-        OLED_ShowString(1, 10, "P");
+    else if (mode == MODE_TRACK3)
+        OLED_ShowString(1, 10, "3");
     else
         OLED_ShowString(1, 10, "S");
 
