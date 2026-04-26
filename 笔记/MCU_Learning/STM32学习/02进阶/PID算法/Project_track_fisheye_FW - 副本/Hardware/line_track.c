@@ -643,25 +643,45 @@ static uint8_t track_search_reacquire_matches(const TrackSample_t *sample)
         return 0u;
     }
 
-    if (sample->activeCount == 2u) {
-        if (g_lineTrack.searchDir == LT_DIR_RIGHT) {
-            if (sample->leftEdgeActive && !sample->rightEdgeActive) {
-                return 1u;
-            }
+    if (g_lineTrack.searchTicks < TRACK_SEARCH_MIN_PIVOT_TICKS) {
+        return 0u;
+    }
 
-            return (sample->weightedPos < 0) ? 1u : 0u;
+    if (sample->activeCount > 2u) {
+        return 0u;
+    }
+
+    if (g_lineTrack.searchDir == LT_DIR_RIGHT) {
+        if (sample->leftEdgeActive && !sample->rightEdgeActive) {
+            return 1u;
         }
 
-        if (g_lineTrack.searchDir == LT_DIR_LEFT) {
-            if (sample->rightEdgeActive && !sample->leftEdgeActive) {
-                return 1u;
-            }
+        if (sample->activeCount == 1u && sample->weightedPos < 0) {
+            return 1u;
+        }
 
-            return (sample->weightedPos > 0) ? 1u : 0u;
+        if (sample->activeCount == 2u && sample->weightedPos < 0) {
+            return 1u;
+        }
+
+        return 0u;
+    }
+
+    if (g_lineTrack.searchDir == LT_DIR_LEFT) {
+        if (sample->rightEdgeActive && !sample->leftEdgeActive) {
+            return 1u;
+        }
+
+        if (sample->activeCount == 1u && sample->weightedPos > 0) {
+            return 1u;
+        }
+
+        if (sample->activeCount == 2u && sample->weightedPos > 0) {
+            return 1u;
         }
     }
 
-    return 1u;
+    return 0u;
 }
 
 static uint8_t track_try_exit_search(const TrackSample_t *sample)
@@ -684,7 +704,7 @@ static uint8_t track_try_exit_search(const TrackSample_t *sample)
     g_lineTrack.searchPhase = LT_SEARCH_PHASE_ARC;
     g_lineTrack.searchTicks = 0u;
     g_lineTrack.searchSeenTicks = 0u;
-    g_lineTrack.recoverDir = g_lineTrack.dbgTurnDir;
+    g_lineTrack.recoverDir = g_lineTrack.dbgResolvedSearchDir;
     g_lineTrack.recoverTicks = g_lineTrackCfg.recoverTicks;
     g_lineTrack.recoverHoldTicks = g_lineTrackCfg.recoverTicks;
     g_lineTrack.dbgSearchLost = 0u;
@@ -879,6 +899,7 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
     TrackSample_t rawSample;
     TrackSample_t sample;
     uint8_t crossActive;
+    uint8_t searchActive;
     (void)currentYawRate;
 
     if (g_lineTrack.state != LT_STATE_RUNNING) {
@@ -888,9 +909,12 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
     track_arm_run_start_if_needed(tickMs);
 
     LineSensor_Read(&line);
+    searchActive = track_is_search_state(g_lineTrack.trackState);
     rawSample = track_sample_from_sensor(&line);
     sample = rawSample;
-    track_apply_turn_bias(&sample);
+    if (!searchActive) {
+        track_apply_turn_bias(&sample);
+    }
     crossActive = (sample.activeCount >= TRACK_CROSS_MIN_ACTIVE) ? 1u : 0u;
 
     g_lineTrack.sensorData = sample.bits;
@@ -937,10 +961,14 @@ void LineTrack_Update(uint32_t tickMs, int16_t basePwm, float currentYawRate)
     g_lineTrack.dbgSearchLost = 0u;
 
     if (track_is_search_state(g_lineTrack.trackState)) {
-        if (!track_try_exit_search(&sample)) {
+        if (!track_try_exit_search(&rawSample)) {
             track_drive_search();
             return;
         }
+
+        sample = rawSample;
+        track_apply_turn_bias(&sample);
+        crossActive = (sample.activeCount >= TRACK_CROSS_MIN_ACTIVE) ? 1u : 0u;
     }
 
     track_apply_follow_control(&sample, basePwm, crossActive);
