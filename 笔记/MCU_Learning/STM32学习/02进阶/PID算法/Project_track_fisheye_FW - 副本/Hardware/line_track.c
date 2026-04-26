@@ -386,6 +386,16 @@ static void track_apply_two_led_turn_bias(TrackSample_t *sample, uint8_t turnDir
     track_refresh_sample(sample);
 }
 
+static uint8_t track_resolve_recent_turn_dir(void)
+{
+    if (g_lineTrack.cornerLatchDir != LT_DIR_NONE &&
+        g_lineTrack.cornerLatchTicks <= TRACK_CORNER_LATCH_TICKS) {
+        return g_lineTrack.cornerLatchDir;
+    }
+
+    return g_lineTrack.lastTurnDir;
+}
+
 static uint8_t track_resolve_turn_bias_dir(const TrackSample_t *sample)
 {
     if (!sample) {
@@ -400,13 +410,12 @@ static uint8_t track_resolve_turn_bias_dir(const TrackSample_t *sample)
         return g_lineTrack.recoverDir;
     }
 
-    if (sample->activeCount >= TRACK_CROSS_MIN_ACTIVE) {
-        if (g_lineTrack.cornerLatchDir != LT_DIR_NONE &&
-            g_lineTrack.cornerLatchTicks <= TRACK_CORNER_LATCH_TICKS) {
-            return g_lineTrack.cornerLatchDir;
-        }
+    if (sample->activeCount == 2u) {
+        return track_resolve_recent_turn_dir();
+    }
 
-        return g_lineTrack.lastTurnDir;
+    if (sample->activeCount >= TRACK_CROSS_MIN_ACTIVE) {
+        return track_resolve_recent_turn_dir();
     }
 
     return LT_DIR_NONE;
